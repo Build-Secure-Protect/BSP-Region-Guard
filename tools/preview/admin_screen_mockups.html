@@ -1,0 +1,349 @@
+<title>Region Guard Admin Screen</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=VT323&family=IBM+Plex+Sans:wght@400;600&display=swap">
+<style>
+/* Layout: three Minecraft screens (GUI scale 2, 856 x 480) stacked, each with a short brief. Single dark look: this is a game HUD. */
+:root {
+  color-scheme: dark;
+  --bg: #0b0e13;          /* page ground, deeper than the panel */
+  --panel: #10151c;       /* Holo HUD panel */
+  --inset: #0c0e12;       /* slots and insets */
+  --line: #2a2f3a;        /* dim lines */
+  --accent: #19d3b0;      /* turquoise */
+  --violet: #b58cff;      /* operator / other */
+  --gold: #ffd23a;        /* coins, values */
+  --bad: #ff6b5c;         /* blocked */
+  --text: #e6eaf2;
+  --muted: #9aa3b5;
+  --mc: 'VT323', 'Courier New', monospace;         /* the in-game face, 20px = 10 GUI px */
+  --ui: 'IBM Plex Sans', system-ui, sans-serif;    /* the brief around the screens */
+}
+body { background: var(--bg); color: var(--text); font-family: var(--ui); padding-block: 32px; padding-inline: 16px; line-height: 1.5; }
+.wrap { max-width: 920px; margin: 0 auto; display: grid; gap: 40px; }
+h1 { font-family: var(--mc); font-size: 40px; font-weight: 400; letter-spacing: 1px; color: var(--accent); margin: 0; text-wrap: balance; }
+h2 { font-family: var(--mc); font-size: 32px; font-weight: 400; margin: 0; color: var(--text); }
+h2 small { color: var(--muted); font-size: 24px; margin-left: 8px; }
+p { max-width: 68ch; margin: 0; }
+.lead { color: var(--muted); }
+.option { display: grid; gap: 14px; }
+.brief { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 32px; }
+.brief p { font-size: 15px; }
+.brief b { color: var(--accent); font-weight: 600; }
+.brief .con b { color: var(--gold); }
+.frame { overflow-x: auto; border: 1px solid var(--line); background: #06080c; padding: 12px; }
+.screen { position: relative; width: 856px; height: 480px; font-family: var(--mc); font-size: 20px; line-height: 1; color: var(--text);
+  background:
+    radial-gradient(ellipse at 30% 20%, #16331f 0, transparent 50%),
+    radial-gradient(ellipse at 70% 80%, #2a2316 0, transparent 50%),
+    #1a2230; image-rendering: pixelated; }
+.panel { position: absolute; background: rgba(16,21,28,.94); border: 2px solid var(--accent); box-sizing: border-box; }
+.panel.quiet { border-color: var(--line); }
+.title { position: absolute; left: 20px; top: 16px; color: var(--accent); letter-spacing: 2px; }
+.help { position: absolute; color: var(--muted); font-size: 15px; }
+.inset { position: absolute; background: var(--inset); border: 2px solid var(--line); box-sizing: border-box; }
+.row { position: absolute; left: 0; right: 0; height: 28px; padding: 4px 10px; box-sizing: border-box; display: flex; align-items: center; gap: 10px; }
+.row.sel { background: rgba(25,211,176,.14); box-shadow: inset 2px 0 0 var(--accent); }
+.pill { font-size: 15px; padding: 2px 6px; border: 2px solid var(--line); color: var(--muted); line-height: 1; }
+.pill.protected { border-color: var(--accent); color: var(--accent); }
+.pill.claim { border-color: var(--violet); color: var(--violet); }
+.pill.mine { border-color: var(--gold); color: var(--gold); }
+.pill.sale { border-color: var(--gold); color: var(--gold); }
+.pill.global { color: var(--muted); }
+.tabs { position: absolute; display: flex; gap: 4px; }
+.tab { padding: 6px 12px; border: 2px solid var(--line); border-bottom: none; color: var(--muted); background: var(--inset); }
+.tab.on { color: var(--accent); border-color: var(--accent); background: rgba(25,211,176,.1); }
+.btn { position: absolute; padding: 6px 14px; border: 2px solid var(--accent); color: var(--accent); background: rgba(25,211,176,.08); }
+.btn.bad { border-color: var(--bad); color: var(--bad); background: rgba(255,107,92,.08); }
+.btn.gold { border-color: var(--gold); color: var(--gold); background: rgba(255,210,58,.08); }
+.btn.dim { border-color: var(--line); color: var(--muted); background: transparent; }
+.seg { display: inline-flex; border: 2px solid var(--line); }
+.seg span { padding: 2px 8px; color: var(--muted); font-size: 17px; border-right: 2px solid var(--line); }
+.seg span:last-child { border-right: none; }
+.seg .allow { color: var(--accent); background: rgba(25,211,176,.2); }
+.seg .deny { color: var(--bad); background: rgba(255,107,92,.2); }
+.seg .inh { color: var(--text); background: rgba(154,163,181,.18); }
+.frow { position: absolute; left: 0; right: 0; height: 26px; padding: 2px 10px; box-sizing: border-box; display: flex; align-items: center; justify-content: space-between; }
+.frow .n { color: var(--text); }
+.frow .n i { color: var(--muted); font-style: normal; font-size: 15px; margin-left: 8px; }
+.ghead { position: absolute; left: 10px; color: var(--accent); font-size: 17px; letter-spacing: 2px; }
+.map { position: absolute; display: grid; }
+.map div { width: 100%; height: 100%; }
+.rg { position: absolute; box-sizing: border-box; border: 2px solid; display: flex; align-items: flex-start; padding: 2px 4px; font-size: 15px; }
+.rg.protected { border-color: var(--accent); background: rgba(25,211,176,.22); color: var(--accent); }
+.rg.claim { border-color: var(--violet); background: rgba(181,140,255,.22); color: var(--violet); }
+.rg.mine { border-color: var(--gold); background: rgba(255,210,58,.22); color: var(--gold); }
+.rg.sale { border-color: var(--gold); background: rgba(255,210,58,.12); color: var(--gold); border-style: dashed; }
+.rg.sel { box-shadow: 0 0 0 2px var(--text); }
+.rail { position: absolute; left: 0; top: 0; bottom: 0; width: 64px; border-right: 2px solid var(--line); background: rgba(12,14,18,.9); }
+.rail div { height: 54px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: var(--muted); font-size: 13px; letter-spacing: 1px; }
+.rail div b { font-size: 22px; font-weight: 400; color: var(--muted); }
+.rail div.on { color: var(--accent); background: rgba(25,211,176,.1); box-shadow: inset 3px 0 0 var(--accent); }
+.rail div.on b { color: var(--accent); }
+.card { position: absolute; border: 2px solid var(--line); background: var(--inset); box-sizing: border-box; padding: 6px 8px; }
+.card .cn { color: var(--text); }
+.card .cd { color: var(--muted); font-size: 15px; margin-top: 2px; }
+.card .seg { margin-top: 6px; }
+.chip { display: inline-block; padding: 2px 8px; border: 2px solid var(--violet); color: var(--violet); font-size: 15px; margin: 2px 2px 0 0; }
+.kv { position: absolute; left: 10px; right: 10px; font-size: 17px; line-height: 1.35; }
+.kv span { color: var(--muted); }
+.pick { border: 1px solid var(--line); padding: 20px 24px; display: grid; gap: 8px; }
+.pick h2 { font-size: 28px; }
+.pick ul { margin: 0; padding-left: 20px; color: var(--muted); font-size: 15px; }
+.cur { position: absolute; width: 10px; height: 10px; border: 2px solid var(--text); border-radius: 50%; box-sizing: border-box; }
+@media (max-width: 700px) { .brief { grid-template-columns: 1fr; } h1 { font-size: 32px; } }
+@media (prefers-reduced-motion: no-preference) { .rg.sel { animation: pulse 2s ease-in-out infinite; } @keyframes pulse { 50% { box-shadow: 0 0 0 4px rgba(230,234,242,.6); } } }
+</style>
+
+<div class="wrap">
+  <header style="display:grid;gap:10px">
+    <h1>Region Guard admin screen: three options</h1>
+    <p class="lead">Each mock-up is one Minecraft screen at GUI scale 2 (854 by 480 pixels), drawn in BSP Core's Holo HUD style: dark panel, one-pixel turquoise border, upper-case title at top left, tabs in the header. The same seven example regions appear in all three: <b>spawn</b>, <b>market</b>, <b>arena</b>, <b>mine_iron</b>, <b>plot_a1</b> (a claim owned by Mrgregles), <b>plots_north</b> (open for buying) and the world default. Pick one, or name the parts you want combined.</p>
+  </header>
+
+  <!-- ============================================================ OPTION A -->
+  <section class="option" id="a">
+    <h2>A. Ledger <small>list on the left, one region's detail on the right</small></h2>
+    <div class="brief">
+      <p>The classic two-pane admin screen. A searchable list with type filters on the left; the chosen region's tabs on the right (FLAGS, ACCESS, RANKS, SALE, MINE, TELEPORT, INFO). Flags are a scrolling table grouped by WorldGuard's categories, each with an inherit / allow / deny switch and a search box, so the full set of about ninety flags stays workable. Where the region is in the world is a line of text, not a picture.</p>
+      <p><b>Good at:</b> many regions and many flags; keyboard-friendly; the fastest to build and the easiest to extend with a new tab per feature. <span class="con"><b>Weak at:</b></span> seeing where regions are and how they overlap; you still rely on the wand and the in-world drawing for shape.</p>
+    </div>
+    <div class="frame">
+      <div class="screen">
+        <div class="panel" style="left:12px;top:12px;width:832px;height:456px">
+          <div class="title">REGIONS - OVERWORLD</div>
+          <div class="help" style="right:20px;top:18px">7 regions - world default set</div>
+          <!-- left: list -->
+          <div class="inset" style="left:16px;top:44px;width:270px;height:28px"><span style="position:absolute;left:8px;top:4px;color:var(--muted)">search regions_</span></div>
+          <div style="position:absolute;left:16px;top:78px;display:flex;gap:4px">
+            <span class="pill protected">ALL</span><span class="pill">PROTECTED</span><span class="pill">CLAIMS</span><span class="pill">MINES</span><span class="pill">SALE</span>
+          </div>
+          <div class="inset" style="left:16px;top:104px;width:270px;height:300px">
+            <div class="row sel" style="top:4px"><span>spawn</span><span class="pill protected">protected</span><span style="margin-left:auto;color:var(--muted)">10</span></div>
+            <div class="row" style="top:32px"><span>market</span><span class="pill protected">protected</span><span style="margin-left:auto;color:var(--muted)">5</span></div>
+            <div class="row" style="top:60px"><span>arena</span><span class="pill protected">protected</span><span style="margin-left:auto;color:var(--muted)">5</span></div>
+            <div class="row" style="top:88px"><span>mine_iron</span><span class="pill mine">mine</span><span style="margin-left:auto;color:var(--muted)">3</span></div>
+            <div class="row" style="top:116px"><span>plots_north</span><span class="pill sale">open</span><span style="margin-left:auto;color:var(--muted)">1</span></div>
+            <div class="row" style="top:144px"><span>&nbsp; plot_a1</span><span class="pill claim">claim</span><span style="margin-left:auto;color:var(--muted)">2</span></div>
+            <div class="row" style="top:172px"><span>__global__</span><span class="pill global">world</span><span style="margin-left:auto;color:var(--muted)">-</span></div>
+          </div>
+          <div class="btn" style="left:16px;top:412px">+ NEW FROM SELECTION</div>
+          <div class="btn dim" style="left:214px;top:412px">WAND</div>
+          <!-- right: detail -->
+          <div style="position:absolute;left:304px;top:44px;font-size:24px">spawn <span style="color:var(--muted);font-size:17px">protected - priority 10 - no parent</span></div>
+          <div class="help" style="left:304px;top:70px">(-120, 40, -120) to (120, 200, 120) - 241 x 161 x 241 - 2 owners - 0 members</div>
+          <div class="tabs" style="left:304px;top:92px">
+            <span class="tab on">FLAGS</span><span class="tab">ACCESS</span><span class="tab">RANKS</span><span class="tab">SALE</span><span class="tab">MINE</span><span class="tab">TELEPORT</span><span class="tab">INFO</span>
+          </div>
+          <div class="inset" style="left:304px;top:124px;width:524px;height:280px">
+            <div class="inset" style="left:8px;top:8px;width:220px;height:24px;border-width:2px"><span style="position:absolute;left:6px;top:2px;color:var(--muted);font-size:17px">filter flags_</span></div>
+            <span class="help" style="right:10px;top:12px">11 set - 79 inherit</span>
+            <div class="ghead" style="top:44px">PROTECTION</div>
+            <div class="frow" style="top:62px"><span class="n">build<i>members may, others may not</i></span><span class="seg"><span class="inh">inherit</span><span>allow</span><span class="deny">deny</span></span></div>
+            <div class="frow" style="top:88px"><span class="n">block-break</span><span class="seg"><span class="inh">inherit</span><span>allow</span><span>deny</span></span></div>
+            <div class="frow" style="top:114px"><span class="n">chest-access</span><span class="seg"><span>inherit</span><span class="allow">allow</span><span>deny</span></span></div>
+            <div class="frow" style="top:140px"><span class="n">pvp</span><span class="seg"><span>inherit</span><span>allow</span><span class="deny">deny</span></span></div>
+            <div class="ghead" style="top:172px">MOBS, FIRE AND EXPLOSIONS</div>
+            <div class="frow" style="top:190px"><span class="n">mob-spawning</span><span class="seg"><span>inherit</span><span>allow</span><span class="deny">deny</span></span></div>
+            <div class="frow" style="top:216px"><span class="n">creeper-explosion</span><span class="seg"><span>inherit</span><span>allow</span><span class="deny">deny</span></span></div>
+            <div class="frow" style="top:242px"><span class="n">fire-spread<i>mixin: fire</i></span><span class="seg"><span>inherit</span><span>allow</span><span class="deny">deny</span></span></div>
+            <div class="help" style="left:10px;top:262px;font-size:13px">scroll for more_</div>
+          </div>
+          <div class="btn" style="left:304px;top:412px">TELEPORT</div>
+          <div class="btn dim" style="left:424px;top:412px">REDEFINE FROM SELECTION</div>
+          <div class="btn bad" style="right:16px;top:412px">DELETE</div>
+          <div class="help" style="left:304px;top:446px">Changes save at once. Esc closes.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ OPTION B -->
+  <section class="option" id="b">
+    <h2>B. Map <small>a top-down map of the world with regions drawn on it</small></h2>
+    <div class="brief">
+      <p>The map is the screen. Built from the chunk heightmap the way BSP Core's chunk picker is, with every region drawn as a tinted box in its type's colour and labelled. Click a region to open the drawer on the right with its summary and the flags it sets; double-click to open the full editor (option A's tabs, in a second screen). Drag on empty ground to draw a new region without the wand. The bottom bar switches world, toggles layers (protected, claims, mines, for sale) and zooms.</p>
+      <p><b>Good at:</b> seeing overlaps, gaps and parents at a glance; drawing plots for sale; spotting a claim where it should not be. <span class="con"><b>Weak at:</b></span> tall regions and vertical layering (the map is flat); needs the client to know region shapes, so it comes with more network code; a second screen is still needed for the long flag table.</p>
+    </div>
+    <div class="frame">
+      <div class="screen" id="screen-b">
+        <div class="panel" style="left:12px;top:12px;width:832px;height:456px">
+          <div class="title">REGION MAP - OVERWORLD</div>
+          <div class="help" style="left:300px;top:18px">chunk -8..8 - 1 px = 1 block - click a region, drag to draw</div>
+          <div class="map" id="map-b" style="left:16px;top:44px;width:544px;height:360px;grid-template-columns:repeat(34,1fr);grid-template-rows:repeat(23,1fr);border:2px solid var(--line);box-sizing:border-box"></div>
+          <!-- regions over the map (positions in px within the map box) -->
+          <div class="rg protected sel" style="left:176px;top:124px;width:208px;height:176px">spawn 10</div>
+          <div class="rg protected" style="left:196px;top:220px;width:96px;height:64px">market 5</div>
+          <div class="rg protected" style="left:400px;top:64px;width:128px;height:96px">arena 5</div>
+          <div class="rg mine" style="left:36px;top:76px;width:112px;height:88px">mine_iron 3</div>
+          <div class="rg sale" style="left:52px;top:252px;width:300px;height:140px">plots_north 1 - open, 12 coins per block</div>
+          <div class="rg claim" style="left:72px;top:300px;width:80px;height:64px">plot_a1 2</div>
+          <div class="cur" style="left:262px;top:200px"></div>
+          <!-- drawer -->
+          <div class="panel quiet" style="left:572px;top:44px;width:256px;height:360px">
+            <div style="position:absolute;left:10px;top:8px;font-size:24px">spawn</div>
+            <span class="pill protected" style="position:absolute;right:10px;top:12px">protected</span>
+            <div class="kv" style="top:40px">priority <span>10</span><br>bounds <span>(-120,40,-120) to (120,200,120)</span><br>owners <span>Mrgregles, Kai</span><br>ranks <span>any</span><br>parent <span>none</span></div>
+            <div class="ghead" style="top:134px">FLAGS SET HERE</div>
+            <div class="frow" style="top:150px;padding-left:10px;padding-right:10px"><span class="n">pvp</span><span class="seg"><span>inherit</span><span>allow</span><span class="deny">deny</span></span></div>
+            <div class="frow" style="top:176px;padding-left:10px;padding-right:10px"><span class="n">mob-spawning</span><span class="seg"><span>inherit</span><span>allow</span><span class="deny">deny</span></span></div>
+            <div class="frow" style="top:202px;padding-left:10px;padding-right:10px"><span class="n">chest-access</span><span class="seg"><span>inherit</span><span class="allow">allow</span><span>deny</span></span></div>
+            <div class="frow" style="top:228px;padding-left:10px;padding-right:10px"><span class="n">greeting</span><span style="color:var(--muted);font-size:15px">"Welcome to spawn"</span></div>
+            <div class="help" style="left:10px;top:258px">+ 7 more</div>
+            <div class="btn" style="left:10px;top:286px">OPEN EDITOR</div>
+            <div class="btn dim" style="left:10px;top:320px">TELEPORT</div>
+            <div class="btn bad" style="right:10px;top:320px">DELETE</div>
+          </div>
+          <!-- bottom bar -->
+          <div class="inset" style="left:16px;top:412px;width:812px;height:36px">
+            <span style="position:absolute;left:8px;top:7px;color:var(--muted)">world</span><span class="pill protected" style="position:absolute;left:62px;top:7px">overworld</span><span class="pill" style="position:absolute;left:156px;top:7px">nether</span><span class="pill" style="position:absolute;left:226px;top:7px">the_end</span>
+            <span style="position:absolute;left:330px;top:7px;color:var(--muted)">layers</span><span class="pill protected" style="position:absolute;left:392px;top:7px">protected</span><span class="pill claim" style="position:absolute;left:480px;top:7px">claims</span><span class="pill mine" style="position:absolute;left:548px;top:7px">mines</span><span class="pill sale" style="position:absolute;left:612px;top:7px">for sale</span>
+            <span class="pill" style="position:absolute;right:52px;top:7px">-</span><span style="position:absolute;right:30px;top:7px;color:var(--muted)">1x</span><span class="pill" style="position:absolute;right:8px;top:7px">+</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ OPTION C -->
+  <section class="option" id="c">
+    <h2>C. Inspector <small>one region at a time, flags as a card grid, a map thumbnail in the corner</small></h2>
+    <div class="brief">
+      <p>A single-pane editor built around the region you are standing in. The left rail switches sections (flags, people, ranks, sale, mine, teleport, info); the header shows the region with previous and next arrows and a search box. Flags are cards in a grid, grouped by category, each with its switch and a one-line hint, so a tab shows twelve or so at once without a table. The right column keeps a small map thumbnail with the region highlighted plus the key facts and the allowed ranks.</p>
+      <p><b>Good at:</b> editing one region quickly in the field: open it with the wand while standing inside, change three flags, close; reads well on a laptop screen; the card hints teach new admins what a flag does. <span class="con"><b>Weak at:</b></span> comparing many regions; the card grid takes more room per flag than a table, so more scrolling for the full set.</p>
+    </div>
+    <div class="frame">
+      <div class="screen">
+        <div class="panel" style="left:12px;top:12px;width:832px;height:456px">
+          <div class="rail">
+            <div><b>#</b>REGION</div>
+            <div class="on"><b>F</b>FLAGS</div>
+            <div><b>P</b>PEOPLE</div>
+            <div><b>R</b>RANKS</div>
+            <div><b>$</b>SALE</div>
+            <div><b>M</b>MINE</div>
+            <div><b>T</b>TELEPORT</div>
+            <div><b>I</b>INFO</div>
+          </div>
+          <div style="position:absolute;left:80px;top:14px;display:flex;align-items:center;gap:10px">
+            <span class="pill">&lt;</span><span style="font-size:24px">overworld / <span style="color:var(--accent)">spawn</span></span><span class="pill">&gt;</span><span class="pill protected">protected</span><span style="color:var(--muted)">priority 10</span>
+          </div>
+          <div class="inset" style="right:16px;top:12px;width:200px;height:26px"><span style="position:absolute;left:6px;top:3px;color:var(--muted);font-size:17px">search_</span></div>
+          <div class="help" style="left:80px;top:44px">You are standing in this region. Changes save at once.</div>
+          <!-- flag cards -->
+          <div class="ghead" style="left:80px;top:68px">PROTECTION</div>
+          <div class="card" style="left:80px;top:86px;width:166px;height:72px"><div class="cn">build</div><div class="cd">members only unless set</div><span class="seg"><span class="inh">inh</span><span>allow</span><span class="deny">deny</span></span></div>
+          <div class="card" style="left:254px;top:86px;width:166px;height:72px"><div class="cn">chest-access</div><div class="cd">open any inventory</div><span class="seg"><span>inh</span><span class="allow">allow</span><span>deny</span></span></div>
+          <div class="card" style="left:428px;top:86px;width:166px;height:72px"><div class="cn">pvp</div><div class="cd">player vs player</div><span class="seg"><span>inh</span><span>allow</span><span class="deny">deny</span></span></div>
+          <div class="ghead" style="left:80px;top:170px">MOBS, FIRE AND EXPLOSIONS</div>
+          <div class="card" style="left:80px;top:188px;width:166px;height:72px"><div class="cn">mob-spawning</div><div class="cd">natural, spawner, egg</div><span class="seg"><span>inh</span><span>allow</span><span class="deny">deny</span></span></div>
+          <div class="card" style="left:254px;top:188px;width:166px;height:72px"><div class="cn">creeper-explosion</div><div class="cd">also spares blocks inside</div><span class="seg"><span>inh</span><span>allow</span><span class="deny">deny</span></span></div>
+          <div class="card" style="left:428px;top:188px;width:166px;height:72px"><div class="cn">fire-spread</div><div class="cd">mixin group: fire</div><span class="seg"><span>inh</span><span>allow</span><span class="deny">deny</span></span></div>
+          <div class="ghead" style="left:80px;top:272px">MOVEMENT</div>
+          <div class="card" style="left:80px;top:290px;width:166px;height:72px"><div class="cn">entry</div><div class="cd">non-members, by rank</div><span class="seg"><span class="inh">inh</span><span>allow</span><span>deny</span></span></div>
+          <div class="card" style="left:254px;top:290px;width:166px;height:72px"><div class="cn">greeting</div><div class="cd">"Welcome to spawn"</div><span class="pill" style="display:inline-block;margin-top:6px">edit text</span></div>
+          <div class="card" style="left:428px;top:290px;width:166px;height:72px"><div class="cn">game-mode</div><div class="cd">forced while inside</div><span class="pill" style="display:inline-block;margin-top:6px">adventure</span></div>
+          <div class="help" style="left:80px;top:376px">scroll for natural events, map making, miscellaneous_</div>
+          <div class="btn dim" style="left:80px;top:404px">SHOW ALL 90</div>
+          <div class="btn dim" style="left:230px;top:404px">ONLY SET (11)</div>
+          <!-- right column -->
+          <div class="map" id="map-c" style="left:612px;top:68px;width:216px;height:144px;grid-template-columns:repeat(27,1fr);grid-template-rows:repeat(18,1fr);border:2px solid var(--line);box-sizing:border-box"></div>
+          <div class="rg protected sel" style="left:680px;top:112px;width:80px;height:64px;font-size:13px">spawn</div>
+          <div class="rg protected" style="left:692px;top:150px;width:36px;height:24px;font-size:0"></div>
+          <div class="rg mine" style="left:624px;top:84px;width:40px;height:32px;font-size:0"></div>
+          <div class="rg sale" style="left:628px;top:160px;width:120px;height:48px;font-size:0"></div>
+          <div class="help" style="left:612px;top:216px">map: 1 px = 2 blocks - click to open the map</div>
+          <div class="kv" style="left:612px;right:16px;top:244px">bounds <span>(-120,40,-120) to (120,200,120)</span><br>size <span>241 x 161 x 241</span><br>owners <span>Mrgregles, Kai</span><br>members <span>none</span><br>parent <span>none</span></div>
+          <div class="ghead" style="left:612px;top:344px">RANKS MAY ENTER</div>
+          <div style="position:absolute;left:612px;top:362px;width:216px"><span class="chip">any</span></div>
+          <div class="btn" style="left:612px;top:404px">TELEPORT</div>
+          <div class="btn bad" style="right:16px;top:404px">DELETE</div>
+          <div class="help" style="left:612px;top:440px">Esc closes - Tab cycles sections</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ CHOSEN: A + B -->
+  <section class="option" id="d">
+    <h2>Chosen: A with a MAP tab <small>the ledger layout; the map is the first tab of the detail pane</small></h2>
+    <div class="brief">
+      <p>The owner's pick (2026-10-11): A's two panes and its flag table, with B's map folded into the right pane as the first tab. The screen opens on MAP with the selected region highlighted and its neighbours drawn in their type colours; click a box on the map to select that region in the list, double-click to jump to its FLAGS tab. The drawer, layer chips and zoom bar from B are gone. Drawing a region on the map is not in the first version; the wand and "new from selection" do that.</p>
+      <p><b>Opens:</b> /rg gui, or sneak and right-click with the wand. <b>Players:</b> a cut-down version for their own claims comes with Phase 4. <b>Hints:</b> the short grey flag explanations stay on the screen and hide when the window is small.</p>
+    </div>
+    <div class="frame">
+      <div class="screen">
+        <div class="panel" style="left:12px;top:12px;width:832px;height:456px">
+          <div class="title">REGIONS - OVERWORLD</div>
+          <div class="help" style="right:20px;top:18px">7 regions - world default set</div>
+          <div class="inset" style="left:16px;top:44px;width:270px;height:28px"><span style="position:absolute;left:8px;top:4px;color:var(--muted)">search regions_</span></div>
+          <div style="position:absolute;left:16px;top:78px;display:flex;gap:4px">
+            <span class="pill protected">ALL</span><span class="pill">PROTECTED</span><span class="pill">CLAIMS</span><span class="pill">MINES</span><span class="pill">SALE</span>
+          </div>
+          <div class="inset" style="left:16px;top:104px;width:270px;height:300px">
+            <div class="row sel" style="top:4px"><span>spawn</span><span class="pill protected">protected</span><span style="margin-left:auto;color:var(--muted)">10</span></div>
+            <div class="row" style="top:32px"><span>market</span><span class="pill protected">protected</span><span style="margin-left:auto;color:var(--muted)">5</span></div>
+            <div class="row" style="top:60px"><span>arena</span><span class="pill protected">protected</span><span style="margin-left:auto;color:var(--muted)">5</span></div>
+            <div class="row" style="top:88px"><span>mine_iron</span><span class="pill mine">mine</span><span style="margin-left:auto;color:var(--muted)">3</span></div>
+            <div class="row" style="top:116px"><span>plots_north</span><span class="pill sale">open</span><span style="margin-left:auto;color:var(--muted)">1</span></div>
+            <div class="row" style="top:144px"><span>&nbsp; plot_a1</span><span class="pill claim">claim</span><span style="margin-left:auto;color:var(--muted)">2</span></div>
+            <div class="row" style="top:172px"><span>__global__</span><span class="pill global">world</span><span style="margin-left:auto;color:var(--muted)">-</span></div>
+          </div>
+          <div class="btn" style="left:16px;top:412px">+ NEW FROM SELECTION</div>
+          <div class="btn dim" style="left:214px;top:412px">WAND</div>
+          <div style="position:absolute;left:304px;top:44px;font-size:24px">spawn <span style="color:var(--muted);font-size:17px">protected - priority 10 - no parent</span></div>
+          <div class="help" style="left:304px;top:70px">(-120, 40, -120) to (120, 200, 120) - 241 x 161 x 241 - 2 owners - 0 members</div>
+          <div class="tabs" style="left:304px;top:92px">
+            <span class="tab on">MAP</span><span class="tab">FLAGS</span><span class="tab">ACCESS</span><span class="tab">RANKS</span><span class="tab">SALE</span><span class="tab">MINE</span><span class="tab">TELEPORT</span><span class="tab">INFO</span>
+          </div>
+          <div class="inset" style="left:304px;top:124px;width:524px;height:280px">
+            <div class="map" id="map-d" style="left:6px;top:6px;width:508px;height:238px;grid-template-columns:repeat(32,1fr);grid-template-rows:repeat(15,1fr);border:2px solid var(--line);box-sizing:border-box"></div>
+            <div class="rg protected sel" style="left:170px;top:70px;width:200px;height:120px">spawn 10</div>
+            <div class="rg protected" style="left:190px;top:134px;width:90px;height:44px">market 5</div>
+            <div class="rg protected" style="left:384px;top:28px;width:112px;height:72px">arena 5</div>
+            <div class="rg mine" style="left:30px;top:30px;width:100px;height:68px">mine_iron 3</div>
+            <div class="rg sale" style="left:40px;top:150px;width:240px;height:88px">plots_north 1</div>
+            <div class="rg claim" style="left:56px;top:182px;width:64px;height:44px">plot_a1 2</div>
+            <div class="cur" style="left:300px;top:150px"></div>
+            <div class="help" style="left:8px;top:252px">1 px = 1 block - click a region to select it - double-click opens FLAGS - you are the white dot</div>
+          </div>
+          <div class="btn" style="left:304px;top:412px">TELEPORT</div>
+          <div class="btn dim" style="left:424px;top:412px">REDEFINE FROM SELECTION</div>
+          <div class="btn bad" style="right:16px;top:412px">DELETE</div>
+          <div class="help" style="left:304px;top:446px">Changes save at once. Esc closes.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="pick">
+    <h2>Decided 2026-10-11</h2>
+    <p>The owner chose A's layout with the map available; the combined screen above is what gets built. Options A, B and C stay here for the record.</p>
+    <ul>
+      <li>Opens with /rg gui and with sneak + right-click of the wand.</li>
+      <li>Players get a cut-down screen for their own claims in Phase 4.</li>
+      <li>Flag hints stay on screen, hidden when the window is small.</li>
+    </ul>
+  </section>
+</div>
+
+<script>
+(function () {
+  // Deterministic heightmap-like terrain for the map mock-ups: greens for grass, greys for stone, blue for water.
+  function seed(s) { return function () { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
+  function fill(id, cols, rows, s) {
+    var el = document.getElementById(id); if (!el) return;
+    var rnd = seed(s); var frag = document.createDocumentFragment();
+    for (var r = 0; r < rows; r++) for (var c = 0; c < cols; c++) {
+      var h = Math.sin(c * 0.35 + s) * 0.5 + Math.cos(r * 0.42 + c * 0.11) * 0.5 + (rnd() - 0.5) * 0.4;
+      var col;
+      if (h < -0.55) col = '#1f3d5a'; else if (h < -0.4) col = '#2a5a7a';
+      else if (h < 0.35) col = (rnd() < 0.5 ? '#2f5a2f' : '#366636');
+      else if (h < 0.7) col = '#4b5340'; else col = '#6b6f6a';
+      var d = document.createElement('div'); d.style.background = col; frag.appendChild(d);
+    }
+    el.appendChild(frag);
+  }
+  fill('map-b', 34, 23, 7);
+  fill('map-c', 27, 18, 3);
+  fill('map-d', 32, 15, 7);
+})();
+</script>

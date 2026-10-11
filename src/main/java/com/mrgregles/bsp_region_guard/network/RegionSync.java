@@ -1,0 +1,358 @@
+package com.mrgregles.bsp_region_guard.network;
+
+import com.mojang.authlib.GameProfile;
+import com.mrgregles.bsp_region_guard.compat.BspCore;
+import com.mrgregles.bsp_region_guard.compat.LuckPermsBridge;
+import com.mrgregles.bsp_region_guard.flag.Flag;
+import com.mrgregles.bsp_region_guard.flag.FlagContext;
+import com.mrgregles.bsp_region_guard.flag.FlagLocation;
+import com.mrgregles.bsp_region_guard.flag.FlagRegistry;
+import com.mrgregles.bsp_region_guard.flag.Flags;
+import com.mrgregles.bsp_region_guard.protection.TotemRule;
+import com.mrgregles.bsp_region_guard.region.Cuboid;
+import com.mrgregles.bsp_region_guard.region.Region;
+import com.mrgregles.bsp_region_guard.region.RegionQuery;
+import com.mrgregles.bsp_region_guard.region.RegionStore;
+import com.mrgregles.bsp_region_guard.region.RegionType;
+import com.mrgregles.bsp_region_guard.registry.ModItems;
+import com.mrgregles.bsp_region_guard.selection.Selection;
+import com.mrgregles.bsp_region_guard.selection.Selections;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.levelgen.Heightmap;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
+
+/**
+ * The server side of the screen: builds the list and detail packets and applies the actions the client sends.
+ * Every action is checked against the same rule as the commands: the sender must be an operator or a BSP Core admin.
+ */
+public final class RegionSync {
+    private RegionSync() {
+    }
+
+    public static boolean mayEdit(ServerPlayer player) {
+        return player.hasPermissions(2) || BspCore.isAdmin(player);
+    }
+
+    /** Opens the screen for a player on the region they stand in (or the first one). */
+    public static void open(ServerPlayer player) {
+        if (!mayEdit(player)) {
+            player.displayClientMessage(Component.literal("Only operators and BSP Core admins can open the region screen."), true);
+            return;
+        }
+        ServerLevel level = player.serverLevel();
+        RegionStore store = RegionStore.get(level);
+        String select = null;
+        for (Region r : store.at(player.blockPosition())) {
+            if (!r.isGlobal()) {
+                select = r.id();
+                break;
+            }
+        }
+        if (select == null && store.size() > 0) {
+            select = store.all().iterator().next().id();
+        }
+        sendList(player, select, true);
+        if (select != null) {
+            sendDetail(player, store.get(select));
+        }
+    }
+
+    public static void sendList(ServerPlayer player, @Nullable String select, boolean open) {
+        ServerLevel level = player.serverLevel();
+        RegionStore store = RegionStore.get(level);
+        List<RegionListPacket.Summary> list = new ArrayList<>();
+        for (Region r : store.all()) {
+            list.add(new RegionListPacket.Summary(r.id(), r.name(), r.type().key(), r.priority(), r.parentId(), r.bounds(),
+                    r.owners().size(), r.members().size(), r.flags().size()));
+        }
+        RegionNetwork.sendTo(player, new RegionListPacket(level.dimension().location(), list, select, open));
+    }
+
+    public static void sendDetail(ServerPlayer player, @Nullable Region r) {
+        if (r == null) {
+            return;
+        }
+        RegionStore store = RegionStore.get(player.serverLevel());
+        Map<String, String> flags = new LinkedHashMap<>();
+        for (Map.Entry<Flag<?>, Object> e : r.flags().entrySet()) {
+            flags.put(e.getKey().name(), format(e.getKey(), e.getValue()));
+        }
+        Map<String, String> inherited = new LinkedHashMap<>();
+        if (r.parentId() != null) {
+            for (Flag<?> f : FlagRegistry.all()) {
+                if (r.flag(f) == null) {
+                    Object v = RegionQuery.effective(store, r, f);
+                    if (v != null) {
+                        inherited.put(f.name(), format(f, v));
+                    }
+                }
+            }
+        }
+        RegionNetwork.sendTo(player, new RegionDetailPacket(r.id(), r.name(), r.type().key(), r.priority(), r.parentId(), r.bounds(),
+                people(player, r.owners()), people(player, r.members()), new ArrayList<>(r.ranks()),
+                flags, inherited, LuckPermsBridge.groupNames(), r.version(), r.updatedAt()));
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T> String format(Flag<T> flag, Object value) {
+        return flag.format((T) value);
+    }
+
+    private static List<RegionDetailPacket.Person> people(ServerPlayer viewer, java.util.Set<UUID> uuids) {
+        List<RegionDetailPacket.Person> out = new ArrayList<>();
+        for (UUID u : uuids) {
+            String name = viewer.server.getProfileCache() == null ? null
+                    : viewer.server.getProfileCache().get(u).map(GameProfile::getName).orElse(null);
+            if (name == null) {
+                ServerPlayer online = viewer.server.getPlayerList().getPlayer(u);
+                name = online != null ? online.getGameProfile().getName() : u.toString().substring(0, 8);
+            }
+            out.add(new RegionDetailPacket.Person(u, name));
+        }
+        return out;
+    }
+
+    // ------------------------------------------------------------------ actions
+
+    public static void handle(ServerPlayer player, RegionActionPacket msg) {
+        if (!mayEdit(player)) {
+            return;
+        }
+        String outcome = apply(player, msg);
+        if (outcome != null && !outcome.isEmpty()) {
+            player.displayClientMessage(Component.literal(outcome), true);
+        }
+    }
+
+    /**
+     * Applies one action and answers with fresh packets. Returns a message for the player, or null. Package-visible
+     * for tests, which skip the permission check.
+     */
+    @Nullable
+    public static String apply(ServerPlayer player, RegionActionPacket msg) {
+        ServerLevel level = player.serverLevel();
+        RegionStore store = RegionStore.get(level);
+        String id = msg.regionId();
+        Region r = id.isEmpty() ? null : id.equals(Region.GLOBAL_ID) ? store.global() : store.get(id);
+        String a = msg.a().trim(), b = msg.b().trim();
+        try {
+            switch (msg.action()) {
+                case RegionActionPacket.LIST -> {
+                    sendList(player, r == null ? null : r.id(), false);
+                    return null;
+                }
+                case RegionActionPacket.SELECT -> {
+                    if (r != null) {
+                        sendDetail(player, r);
+                    }
+                    return null;
+                }
+                case RegionActionPacket.WAND -> {
+                    ItemStack wand = new ItemStack(ModItems.REGION_WAND.get());
+                    if (!player.getInventory().add(wand)) {
+                        player.drop(wand, false);
+                    }
+                    return "Region wand given.";
+                }
+                case RegionActionPacket.CREATE -> {
+                    Selection sel = Selections.of(player);
+                    Cuboid box = sel.cuboid();
+                    if (box == null || !level.dimension().equals(sel.dimension())) {
+                        return "Select two corners with the wand first.";
+                    }
+                    Region created = new Region(Region.validateId(a), level.dimension(), box, RegionType.PROTECTED);
+                    store.add(created);
+                    sendList(player, created.id(), false);
+                    sendDetail(player, created);
+                    return "Region " + created.id() + " created.";
+                }
+                default -> {
+                    if (r == null) {
+                        return "No region named '" + id + "'.";
+                    }
+                }
+            }
+            String message = edit(player, level, store, r, msg.action(), a, b);
+            Region after = store.get(r.id());
+            sendList(player, after == null ? null : after.id(), false);
+            if (after != null) {
+                sendDetail(player, after);
+            }
+            return message;
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return e.getMessage();
+        }
+    }
+
+    @Nullable
+    private static String edit(ServerPlayer player, ServerLevel level, RegionStore store, Region r, String action, String a, String b) {
+        switch (action) {
+            case RegionActionPacket.FLAG -> {
+                Flag<?> flag = FlagRegistry.get(a);
+                if (flag == null) {
+                    return "No flag named '" + a + "'.";
+                }
+                if (b.isEmpty()) {
+                    r.setFlag(flag, null);
+                } else {
+                    setParsed(r, flag, b, new FlagContext(level, player));
+                }
+                store.touch(r);
+                return null;
+            }
+            case RegionActionPacket.ADD_OWNER, RegionActionPacket.REMOVE_OWNER, RegionActionPacket.ADD_MEMBER, RegionActionPacket.REMOVE_MEMBER -> {
+                UUID who = resolvePlayer(player, a);
+                if (who == null) {
+                    return "No player called '" + a + "' is known to this server.";
+                }
+                switch (action) {
+                    case RegionActionPacket.ADD_OWNER -> r.addOwner(who);
+                    case RegionActionPacket.REMOVE_OWNER -> r.removeOwner(who);
+                    case RegionActionPacket.ADD_MEMBER -> r.addMember(who);
+                    default -> r.removeMember(who);
+                }
+                store.touch(r);
+                return null;
+            }
+            case RegionActionPacket.ADD_RANK -> {
+                r.addRank(a);
+                store.touch(r);
+                return null;
+            }
+            case RegionActionPacket.REMOVE_RANK -> {
+                r.removeRank(a);
+                store.touch(r);
+                return null;
+            }
+            case RegionActionPacket.PRIORITY -> {
+                r.setPriority(Integer.parseInt(a));
+                store.touch(r);
+                return null;
+            }
+            case RegionActionPacket.PARENT -> {
+                if (a.isEmpty() || a.equalsIgnoreCase("none")) {
+                    r.setParentId(null);
+                } else {
+                    Region parent = store.get(a);
+                    if (parent == null) {
+                        return "No region named '" + a + "'.";
+                    }
+                    if (parent == r || store.isAncestor(r, parent)) {
+                        return "That would make a loop of parents.";
+                    }
+                    r.setParentId(parent.id());
+                }
+                store.touch(r);
+                return null;
+            }
+            case RegionActionPacket.TYPE -> {
+                RegionType type = RegionType.byKey(a.toLowerCase());
+                if (type == null || type == RegionType.GLOBAL || r.isGlobal()) {
+                    return "Types: protected, plot_for_sale, open_for_buying, claim, mine.";
+                }
+                if ((type == RegionType.CLAIM || type == RegionType.PLOT_FOR_SALE || type == RegionType.OPEN_FOR_BUYING) && !TotemRule.claimsAllowedIn(level)) {
+                    return "Claims are not allowed in a PvP world.";
+                }
+                r.setType(type);
+                store.touch(r);
+                return null;
+            }
+            case RegionActionPacket.RENAME -> {
+                r.setName(a.isEmpty() ? r.id() : a);
+                store.touch(r);
+                return null;
+            }
+            case RegionActionPacket.DELETE -> {
+                store.remove(r.id());
+                return "Region " + r.id() + " removed.";
+            }
+            case RegionActionPacket.REDEFINE -> {
+                Selection sel = Selections.of(player);
+                Cuboid box = sel.cuboid();
+                if (box == null || !level.dimension().equals(sel.dimension())) {
+                    return "Select two corners with the wand first.";
+                }
+                if (r.isGlobal()) {
+                    return "The world default has no bounds.";
+                }
+                r.setBounds(box);
+                store.touch(r);
+                return "Region " + r.id() + " now covers " + box + ".";
+            }
+            case RegionActionPacket.SELECT_BOUNDS -> {
+                if (r.bounds() != null) {
+                    Selections.of(player).set(level.dimension(), r.bounds());
+                    return "Selection set to " + r.id() + ".";
+                }
+                return "The world default has no corners.";
+            }
+            case RegionActionPacket.TELEPORT -> {
+                return teleport(player, level, store, r);
+            }
+            default -> {
+                return "Unknown action " + action;
+            }
+        }
+    }
+
+    private static <T> void setParsed(Region r, Flag<T> flag, String value, FlagContext context) {
+        r.setFlag(flag, flag.parse(value, context));
+    }
+
+    @Nullable
+    private static UUID resolvePlayer(ServerPlayer viewer, String nameOrUuid) {
+        try {
+            return UUID.fromString(nameOrUuid);
+        } catch (IllegalArgumentException ignored) {
+            // a name
+        }
+        ServerPlayer online = viewer.server.getPlayerList().getPlayerByName(nameOrUuid);
+        if (online != null) {
+            return online.getUUID();
+        }
+        if (viewer.server.getProfileCache() != null) {
+            Optional<GameProfile> cached = viewer.server.getProfileCache().get(nameOrUuid);
+            if (cached.isPresent()) {
+                return cached.get().getId();
+            }
+        }
+        return null;
+    }
+
+    static String teleport(ServerPlayer p, ServerLevel level, RegionStore store, Region r) {
+        FlagLocation target = r.flag(Flags.TELEPORT);
+        if (target != null) {
+            ServerLevel dest = p.server.getLevel(target.dimension());
+            if (dest == null) {
+                return "The teleport point is in a world that does not exist.";
+            }
+            p.teleportTo(dest, target.x(), target.y(), target.z(), target.yaw(), target.pitch());
+        } else if (r.bounds() != null) {
+            Cuboid bnd = r.bounds();
+            double x = (bnd.minX() + bnd.maxX() + 1) / 2.0, z = (bnd.minZ() + bnd.maxZ() + 1) / 2.0;
+            int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING, (int) Math.floor(x), (int) Math.floor(z));
+            y = Math.max(bnd.minY(), Math.min(bnd.maxY() + 1, y));
+            p.teleportTo(level, x, y, z, p.getYRot(), p.getXRot());
+        } else {
+            return "The world default has nowhere to teleport to.";
+        }
+        String message = RegionQuery.effective(store, r, Flags.TELEPORT_MESSAGE);
+        return message != null ? message : "Teleported to " + r.id() + ".";
+    }
+
+    /** For the map: the surface height at a column, or {@code Integer.MIN_VALUE} when the chunk is not loaded. */
+    public static int surface(ServerLevel level, BlockPos pos) {
+        return level.hasChunk(pos.getX() >> 4, pos.getZ() >> 4) ? level.getHeight(Heightmap.Types.WORLD_SURFACE, pos.getX(), pos.getZ()) : Integer.MIN_VALUE;
+    }
+}

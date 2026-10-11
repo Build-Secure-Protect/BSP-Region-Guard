@@ -1,0 +1,81 @@
+package com.mrgregles.bsp_region_guard.network;
+
+import com.mrgregles.bsp_region_guard.region.Cuboid;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.fml.DistExecutor;
+import net.minecraftforge.network.NetworkEvent;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.List;
+import java.util.function.Supplier;
+
+/**
+ * Server to client: every region of the player's world in one line each, for the list and the map. Sent when the
+ * screen opens and after any change to a region's identity, bounds or people. {@code select} names the region the
+ * screen should show; {@code open} asks the client to open the screen.
+ */
+public record RegionListPacket(ResourceLocation dimension, List<Summary> regions, @Nullable String select, boolean open) {
+
+    /** One region as the list shows it. {@code bounds} is null for the world default. */
+    public record Summary(String id, String name, String type, int priority, @Nullable String parent, @Nullable Cuboid bounds,
+                          int owners, int members, int flagsSet) {
+        void write(FriendlyByteBuf buf) {
+            buf.writeUtf(id, 64);
+            buf.writeUtf(name, 128);
+            buf.writeUtf(type, 32);
+            buf.writeVarInt(priority);
+            buf.writeNullable(parent, (b, p) -> b.writeUtf(p, 64));
+            buf.writeNullable(bounds, RegionListPacket::writeCuboid);
+            buf.writeVarInt(owners);
+            buf.writeVarInt(members);
+            buf.writeVarInt(flagsSet);
+        }
+
+        static Summary read(FriendlyByteBuf buf) {
+            return new Summary(buf.readUtf(64), buf.readUtf(128), buf.readUtf(32), buf.readVarInt(),
+                    buf.readNullable(b -> b.readUtf(64)), buf.readNullable(RegionListPacket::readCuboid),
+                    buf.readVarInt(), buf.readVarInt(), buf.readVarInt());
+        }
+    }
+
+    static void writeCuboid(FriendlyByteBuf buf, Cuboid c) {
+        buf.writeVarInt(c.minX());
+        buf.writeVarInt(c.minY());
+        buf.writeVarInt(c.minZ());
+        buf.writeVarInt(c.maxX());
+        buf.writeVarInt(c.maxY());
+        buf.writeVarInt(c.maxZ());
+    }
+
+    static Cuboid readCuboid(FriendlyByteBuf buf) {
+        return new Cuboid(buf.readVarInt(), buf.readVarInt(), buf.readVarInt(), buf.readVarInt(), buf.readVarInt(), buf.readVarInt());
+    }
+
+    public static void encode(RegionListPacket msg, FriendlyByteBuf buf) {
+        buf.writeResourceLocation(msg.dimension);
+        buf.writeCollection(msg.regions, (b, s) -> s.write(b));
+        buf.writeNullable(msg.select, (b, s) -> b.writeUtf(s, 64));
+        buf.writeBoolean(msg.open);
+    }
+
+    public static RegionListPacket decode(FriendlyByteBuf buf) {
+        return new RegionListPacket(buf.readResourceLocation(), buf.readList(Summary::read), buf.readNullable(b -> b.readUtf(64)), buf.readBoolean());
+    }
+
+    public static void handle(RegionListPacket msg, Supplier<NetworkEvent.Context> ctx) {
+        DistExecutor.unsafeRunWhenOn(Dist.CLIENT, () -> () -> com.mrgregles.bsp_region_guard.client.RegionClient.receive(msg));
+        ctx.get().setPacketHandled(true);
+    }
+
+    @Nullable
+    public Summary find(String id) {
+        for (Summary s : regions) {
+            if (s.id().equals(id)) {
+                return s;
+            }
+        }
+        return null;
+    }
+}
