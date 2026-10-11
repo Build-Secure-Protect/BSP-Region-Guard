@@ -44,9 +44,14 @@ public class BSPRegionGuard {
         com.mrgregles.bsp_region_guard.network.RegionNetwork.register();
 
         MinecraftForge.EVENT_BUS.addListener(RegionCommands::onRegister);
+        MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.event.RegisterCommandsEvent e) -> com.mrgregles.bsp_region_guard.command.ClaimCommands.register(e.getDispatcher()));
         MinecraftForge.EVENT_BUS.addListener(WandHandler::onLeftClick);
         MinecraftForge.EVENT_BUS.addListener(WandHandler::onLogout);
-        MinecraftForge.EVENT_BUS.addListener(WandHandler::onServerTick);
+        MinecraftForge.EVENT_BUS.addListener(com.mrgregles.bsp_region_guard.network.RegionSync::onLogin);
+        MinecraftForge.EVENT_BUS.addListener(com.mrgregles.bsp_region_guard.network.RegionSync::onChangedDimension);
+        MinecraftForge.EVENT_BUS.addListener(com.mrgregles.bsp_region_guard.network.RegionSync::onRespawn);
+        com.mrgregles.bsp_region_guard.region.RegionStore.setChangeListener(com.mrgregles.bsp_region_guard.network.RegionSync::broadcast);
+        MinecraftForge.EVENT_BUS.addListener(com.mrgregles.bsp_region_guard.mine.Mines::onServerTick);
         MinecraftForge.EVENT_BUS.addListener(this::onServerStarted);
         MinecraftForge.EVENT_BUS.addListener(this::onServerStopped);
         registerProtection(MinecraftForge.EVENT_BUS);
@@ -74,6 +79,7 @@ public class BSPRegionGuard {
         bus.addListener(EventPriority.HIGH, EntityProtection::onItemToss);
         bus.addListener(EventPriority.HIGH, EntityProtection::onItemPickup);
         bus.addListener(EventPriority.HIGH, EntityProtection::onExperienceDrop);
+        bus.addListener(EventPriority.HIGH, EntityProtection::onLivingHeal);
 
         bus.addListener(EventPriority.HIGH, WorldProtection::onExplosionStart);
         bus.addListener(EventPriority.HIGH, WorldProtection::onExplosionDetonate);
@@ -104,6 +110,7 @@ public class BSPRegionGuard {
     private void onServerStopped(ServerStoppedEvent event) {
         com.mrgregles.bsp_region_guard.selection.Selections.clearAll();
         MovementTracker.clearAll();
+        com.mrgregles.bsp_region_guard.mine.Mines.clearAll();
         LuckPermsBridge.reset();
     }
 }

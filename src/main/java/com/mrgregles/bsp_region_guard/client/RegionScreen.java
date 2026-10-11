@@ -44,7 +44,10 @@ public class RegionScreen extends Screen {
         }
     }
 
-    private enum Input { NONE, NEW_ID, FLAG_VALUE, PLAYER, RANK, PARENT, NAME, TELEPORT_MESSAGE }
+    private enum Input { NONE, NEW_ID, FLAG_VALUE, PLAYER, RANK, PARENT, NAME, TELEPORT_MESSAGE, DATA, MINE_BLOCK, MINE_INTERVAL, MINE_SHELL }
+
+    @Nullable
+    private String editingData;
 
     private final List<Hit> hits = new ArrayList<>();
     @Nullable
@@ -211,6 +214,19 @@ public class RegionScreen extends Screen {
                     send(new RegionActionPacket(RegionActionPacket.FLAG, selected, "teleport-message", value));
                 }
             }
+            case DATA -> {
+                if (selected != null && editingData != null) {
+                    send(new RegionActionPacket(RegionActionPacket.SET_DATA, selected, editingData, value.isEmpty() ? "0" : value));
+                }
+            }
+            case MINE_BLOCK -> {
+                String[] parts = value.split("\\s+");
+                if (parts.length >= 1 && !parts[0].isEmpty() && selected != null) {
+                    send(new RegionActionPacket(RegionActionPacket.MINE_ADD, selected, parts[0], parts.length > 1 ? parts[1] : "10"));
+                }
+            }
+            case MINE_INTERVAL -> act(RegionActionPacket.MINE_INTERVAL, value.isEmpty() ? "0" : value);
+            case MINE_SHELL -> act(RegionActionPacket.MINE_SHELL, value.isEmpty() ? "5" : value);
             default -> {
             }
         }
@@ -429,8 +445,8 @@ public class RegionScreen extends Screen {
             case 1 -> drawFlags(g, x, y, d);
             case 2 -> drawAccess(g, x, y, d);
             case 3 -> drawRanks(g, x, y, d);
-            case 4 -> text(g, "Plots and prices come with Phase 4 (claims).", px + 8, y + CONTENT_Y + 8, MUTED, 0.75f);
-            case 5 -> text(g, "Mine settings come with Phase 5 (mines).", px + 8, y + CONTENT_Y + 8, MUTED, 0.75f);
+            case 4 -> drawSale(g, x, y, s, d);
+            case 5 -> drawMine(g, x, y, s, d);
             case 6 -> drawTeleport(g, x, y, d);
             default -> drawInfo(g, x, y, s, d);
         }
@@ -684,6 +700,108 @@ public class RegionScreen extends Screen {
             chip(g, px + PANE_W - 40, cy + 105, 34, 11, "edit", false, TQ, 0.6f, () -> openInput(Input.TELEPORT_MESSAGE, msg == null ? "" : msg, "message shown after teleporting"));
         }
         text(g, "BSP Teleport triggers (enter, exit, timer) come with Phase 8.", px + 6, cy + 122, 0xFF6F7788, 0.5f);
+    }
+
+    private void drawSale(GuiGraphics g, int x, int y, RegionListPacket.Summary s, @Nullable RegionDetailPacket d) {
+        int px = x + PANE_X, cy = y + CONTENT_Y;
+        java.util.Map<String, String> data = d == null ? java.util.Map.of() : d.data();
+        String type = s.type();
+        if (type.equals("global")) {
+            text(g, "The world default cannot be sold.", px + 6, cy + 6, MUTED, 0.75f);
+            return;
+        }
+        if (type.equals("claim")) {
+            text(g, "OWNED CLAIM", px + 6, cy + 5, VIO, 0.6f);
+            text(g, "bought for " + data.getOrDefault("boughtFor", "?") + " coins, origin: " + data.getOrDefault("origin", "?"), px + 6, cy + 13, TEXT, 0.75f);
+            text(g, "The owner gives it up with /claim abandon; an admin can too. An admin plot then goes back on sale.", px + 6, cy + 24, 0xFF6F7788, 0.5f);
+            return;
+        }
+        text(g, "PLOT FOR SALE", px + 6, cy + 5, GOLD, 0.6f);
+        text(g, "a fixed price for this whole region; the buyer becomes its owner", px + 6, cy + 12, 0xFF6F7788, 0.5f);
+        String price = data.getOrDefault("price", "0");
+        text(g, type.equals("plot_for_sale") ? "for sale at " + price + " coins" : "not for sale", px + 6, cy + 20, type.equals("plot_for_sale") ? TEXT : MUTED, 0.75f);
+        button(g, px + 6, cy + 31, 70, 12, "SET PRICE", GOLD, () -> data("price", price, "price in coins; 0 takes it off sale"));
+        text(g, "OPEN AREA", px + 6, cy + 52, GOLD, 0.6f);
+        text(g, "players outline their own plot inside and pay per block of ground", px + 6, cy + 59, 0xFF6F7788, 0.5f);
+        String cost = data.getOrDefault("costPerBlock", "0");
+        text(g, type.equals("open_for_buying") ? cost + " coins per block, plots " + data.getOrDefault("minSize", "config") + " to " + data.getOrDefault("maxSize", "config") + " blocks a side" : "not open",
+                px + 6, cy + 67, type.equals("open_for_buying") ? TEXT : MUTED, 0.75f);
+        button(g, px + 6, cy + 78, 70, 12, "SET COST", GOLD, () -> data("costPerBlock", cost, "coins per block of ground; 0 closes the area"));
+        button(g, px + 80, cy + 78, 56, 12, "MIN SIZE", MUTED, () -> data("minSize", data.getOrDefault("minSize", ""), "smallest side in blocks; empty uses the config"));
+        button(g, px + 140, cy + 78, 56, 12, "MAX SIZE", MUTED, () -> data("maxSize", data.getOrDefault("maxSize", ""), "largest side in blocks; empty uses the config"));
+        text(g, "Buying happens in BSP Core's shop screen, or with /claim buy until it exists.", px + 6, cy + 100, 0xFF6F7788, 0.5f);
+    }
+
+    private void drawMine(GuiGraphics g, int x, int y, RegionListPacket.Summary s, @Nullable RegionDetailPacket d) {
+        int px = x + PANE_X, cy = y + CONTENT_Y;
+        if (s.type().equals("global")) {
+            text(g, "The world default cannot be a mine.", px + 6, cy + 6, MUTED, 0.75f);
+            return;
+        }
+        if (!s.type().equals("mine")) {
+            text(g, "Not a mine. A mine refills itself with the blocks you list, on a timer, and lets anyone inside dig.", px + 6, cy + 6, MUTED, 0.6f);
+            text(g, "Making it a mine allows breaking and refuses placing inside.", px + 6, cy + 14, 0xFF6F7788, 0.5f);
+            button(g, px + 6, cy + 26, 90, 12, "MAKE THIS A MINE", GOLD, () -> act(RegionActionPacket.MINE_CREATE, ""));
+            return;
+        }
+        java.util.Map<String, String> data = d == null ? java.util.Map.of() : d.data();
+        text(g, "FILL TABLE", px + 6, cy + 5, GOLD, 0.6f);
+        text(g, "the heaviest block fills the mine, the others grow as veins", px + 70, cy + 5, 0xFF6F7788, 0.5f);
+        String fill = data.getOrDefault("fill", "");
+        int total = 0;
+        java.util.List<String[]> rows = new ArrayList<>();
+        if (!fill.isEmpty()) {
+            for (String part : fill.split(";")) {
+                int eq = part.lastIndexOf('=');
+                if (eq > 0) {
+                    rows.add(new String[]{part.substring(0, eq), part.substring(eq + 1)});
+                    try {
+                        total += Integer.parseInt(part.substring(eq + 1));
+                    } catch (NumberFormatException ignored) {
+                        // shown as is
+                    }
+                }
+            }
+        }
+        int ry = cy + 14;
+        if (rows.isEmpty()) {
+            text(g, "empty: add blocks below (e.g. minecraft:stone 90, minecraft:iron_ore 8)", px + 6, ry, MUTED, 0.6f);
+            ry += 9;
+        }
+        for (int i = 0; i < rows.size() && i < 7; i++) {
+            String[] row = rows.get(i);
+            int w = 0;
+            try {
+                w = Integer.parseInt(row[1]);
+            } catch (NumberFormatException ignored) {
+                // shown as is
+            }
+            text(g, font.plainSubstrByWidth(row[0], 180), px + 6, ry, TEXT, 0.6f);
+            text(g, row[1] + "  (" + (total > 0 ? 100 * w / total : 0) + "%)", px + 130, ry, MUTED, 0.6f);
+            String block = row[0];
+            chip(g, px + 176, ry - 1, 12, 8, "x", false, BAD, 0.5f, () -> send(new RegionActionPacket(RegionActionPacket.MINE_ADD, selected == null ? "" : selected, block, "0")));
+            ry += 8;
+        }
+        if (rows.size() > 7) {
+            text(g, "+ " + (rows.size() - 7) + " more (see /rg mine info)", px + 6, ry, MUTED, 0.5f);
+            ry += 8;
+        }
+        button(g, px + 6, ry + 1, 70, 11, "+ ADD BLOCK", GOLD, () -> openInput(Input.MINE_BLOCK, "", "block id and weight, e.g. minecraft:iron_ore 8"));
+        int ty = cy + 86;
+        text(g, "RESET", px + 6, ty, GOLD, 0.6f);
+        String secs = data.getOrDefault("secondsToReset", "-1");
+        String interval = data.getOrDefault("intervalSeconds", "0");
+        text(g, "-1".equals(secs) || "0".equals(interval) ? "no automatic reset" : "every " + interval + " s, next in " + secs + " s", px + 40, ty, TEXT, 0.6f);
+        button(g, px + 6, ty + 9, 56, 11, "INTERVAL", MUTED, () -> openInput(Input.MINE_INTERVAL, "0".equals(interval) ? "" : interval, "seconds between resets; empty stops them"));
+        button(g, px + 66, ty + 9, 60, 11, "RESET NOW", BAD, () -> act(RegionActionPacket.MINE_RESET, ""));
+        button(g, px + 130, ty + 9, 56, 11, Boolean.parseBoolean(data.getOrDefault("hasSpawn", "false")) ? "MOVE SPAWN" : "SET SPAWN", TQ, () -> act(RegionActionPacket.MINE_SPAWN, ""));
+        button(g, px + 190, ty + 9, 70, 11, Boolean.parseBoolean(data.getOrDefault("hasShell", "false")) ? "RESIZE SHELL" : "MAKE SHELL", MUTED, () -> openInput(Input.MINE_SHELL, "5", "blocks around the mine where only the mine can be dug"));
+        text(g, "players inside are moved to the spawn (or above the mine) when it resets; warnings 60 s and 10 s before", px + 6, ty + 23, 0xFF6F7788, 0.5f);
+    }
+
+    private void data(String key, String current, String hint) {
+        editingData = key;
+        openInput(Input.DATA, current.equals("0") ? "" : current, hint);
     }
 
     private void flag(String name, String value) {

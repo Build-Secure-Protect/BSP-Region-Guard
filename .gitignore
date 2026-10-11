@@ -35,3 +35,9 @@ CLAUDE.md
 **/CLAUDE.md
 .claude/
 .claude*
+
+# dev-run-only mod jars (LuckPerms for the GameTests); never shipped
+libs/
+
+# local Mohist test server (jar, world, logs); set up by tools/setup_test_server.sh
+server/

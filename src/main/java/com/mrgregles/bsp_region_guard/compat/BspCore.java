@@ -54,6 +54,13 @@ public final class BspCore {
         CoinWallet.give(player, value);
     }
 
+    /** Replaces BSP Core's admin name list for the rest of the server run; returns the previous list. For tests. */
+    public static List<? extends String> setAdminNames(List<String> names) {
+        List<? extends String> previous = BSPConfig.ADMINS.get();
+        BSPConfig.ADMINS.set(names);
+        return previous;
+    }
+
     // ------------------------------------------------------------------ totems
 
     /** A world where Shatter Totems may be placed: the raiding (PvP) worlds. */
@@ -93,6 +100,15 @@ public final class BspCore {
             }
         }
         return out;
+    }
+
+    /** Whether a block state is a placed Shatter Totem. */
+    public static boolean isTotemBlock(net.minecraft.world.level.block.state.BlockState state) {
+        return state.is(com.mrgregles.bsp_core.registry.ModBlocks.SHATTER_TOTEM.get());
+    }
+
+    public static net.minecraft.world.level.block.state.BlockState totemBlockState() {
+        return com.mrgregles.bsp_core.registry.ModBlocks.SHATTER_TOTEM.get().defaultBlockState();
     }
 
     /** Whether a steal is running at a placed totem (the chunk must be loaded). */

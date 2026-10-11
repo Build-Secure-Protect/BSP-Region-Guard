@@ -118,6 +118,54 @@ public final class RegionCommands {
                 .executes(ctx -> rename(ctx.getSource(), id(ctx), StringArgumentType.getString(ctx, "name"))))));
         rg.then(Commands.literal("teleport").then(id().executes(ctx -> teleport(ctx.getSource(), id(ctx)))));
         rg.then(Commands.literal("bypass").executes(ctx -> bypass(ctx.getSource())));
+        rg.then(Commands.literal("sale").then(id().then(Commands.argument("price", IntegerArgumentType.integer(0))
+                .executes(ctx -> sale(ctx.getSource(), id(ctx), IntegerArgumentType.getInteger(ctx, "price"))))));
+        rg.then(Commands.literal("open").then(id().then(Commands.argument("costPerBlock", IntegerArgumentType.integer(0))
+                .executes(ctx -> open(ctx.getSource(), id(ctx), IntegerArgumentType.getInteger(ctx, "costPerBlock"), 0, 0))
+                .then(Commands.argument("minSize", IntegerArgumentType.integer(1)).then(Commands.argument("maxSize", IntegerArgumentType.integer(1))
+                        .executes(ctx -> open(ctx.getSource(), id(ctx), IntegerArgumentType.getInteger(ctx, "costPerBlock"),
+                                IntegerArgumentType.getInteger(ctx, "minSize"), IntegerArgumentType.getInteger(ctx, "maxSize"))))))));
+        rg.then(Commands.literal("plotflags").then(id().then(Commands.argument("flags", StringArgumentType.greedyString())
+                .executes(ctx -> plotFlags(ctx.getSource(), id(ctx), StringArgumentType.getString(ctx, "flags"))))));
+        rg.then(Commands.literal("mine")
+                .then(Commands.literal("create").then(id().executes(ctx -> mineCreate(ctx.getSource(), id(ctx)))))
+                .then(Commands.literal("add").then(id().then(Commands.argument("block", net.minecraft.commands.arguments.ResourceLocationArgument.id())
+                        .suggests((c, b) -> SharedSuggestionProvider.suggestResource(net.minecraftforge.registries.ForgeRegistries.BLOCKS.getKeys(), b))
+                        .then(Commands.argument("weight", IntegerArgumentType.integer(0, 1000000))
+                                .executes(ctx -> mineAdd(ctx.getSource(), id(ctx), net.minecraft.commands.arguments.ResourceLocationArgument.getId(ctx, "block"), IntegerArgumentType.getInteger(ctx, "weight")))))))
+                .then(Commands.literal("remove").then(id().then(Commands.argument("block", net.minecraft.commands.arguments.ResourceLocationArgument.id())
+                        .executes(ctx -> mineAdd(ctx.getSource(), id(ctx), net.minecraft.commands.arguments.ResourceLocationArgument.getId(ctx, "block"), 0)))))
+                .then(Commands.literal("interval").then(id().then(Commands.argument("seconds", IntegerArgumentType.integer(0))
+                        .executes(ctx -> mineInterval(ctx.getSource(), id(ctx), IntegerArgumentType.getInteger(ctx, "seconds"))))))
+                .then(Commands.literal("spawn").then(id().executes(ctx -> mineSpawn(ctx.getSource(), id(ctx)))))
+                .then(Commands.literal("shell").then(id().then(Commands.argument("radius", IntegerArgumentType.integer(1, 64))
+                        .executes(ctx -> mineShell(ctx.getSource(), id(ctx), IntegerArgumentType.getInteger(ctx, "radius"))))))
+                .then(Commands.literal("reset").then(id().executes(ctx -> mineReset(ctx.getSource(), id(ctx)))))
+                .then(Commands.literal("info").then(id().executes(ctx -> mineInfo(ctx.getSource(), id(ctx))))));
+        rg.then(Commands.literal("claims")
+                .then(Commands.literal("list").executes(ctx -> claimsList(ctx.getSource())))
+                .then(Commands.literal("wipe").executes(ctx -> ok(ctx.getSource(), com.mrgregles.bsp_region_guard.claim.ClaimWipe.request(player(ctx.getSource()), ctx.getSource().getLevel())))
+                        .then(Commands.argument("code", StringArgumentType.word())
+                                .executes(ctx -> ok(ctx.getSource(), com.mrgregles.bsp_region_guard.claim.ClaimWipe.confirm(player(ctx.getSource()), ctx.getSource().getLevel(), StringArgumentType.getString(ctx, "code"))))))
+                .then(Commands.literal("backups").executes(ctx -> {
+                    var files = com.mrgregles.bsp_region_guard.claim.ClaimWipe.backups(ctx.getSource().getServer());
+                    return ok(ctx.getSource(), files.isEmpty() ? "No claim backups." : "Claim backups, newest first: " + String.join(", ", files));
+                }))
+                .then(Commands.literal("restore").then(Commands.argument("file", StringArgumentType.word())
+                        .suggests((c, b) -> SharedSuggestionProvider.suggest(com.mrgregles.bsp_region_guard.claim.ClaimWipe.backups(c.getSource().getServer()), b))
+                        .executes(ctx -> ok(ctx.getSource(), com.mrgregles.bsp_region_guard.claim.ClaimWipe.restore(player(ctx.getSource()), StringArgumentType.getString(ctx, "file")))))));
+        rg.then(Commands.literal("ranks").executes(ctx -> {
+            boolean present = com.mrgregles.bsp_region_guard.compat.LuckPermsBridge.isPresent();
+            var groups = com.mrgregles.bsp_region_guard.compat.LuckPermsBridge.groupNames();
+            return ok(ctx.getSource(), "LuckPerms: " + (present ? "found" : "not found") + (present ? ". Groups: " + (groups.isEmpty() ? "none loaded" : String.join(", ", groups)) : ". Rank checks are skipped."));
+        }).then(Commands.argument("players", GameProfileArgument.gameProfile()).executes(ctx -> {
+            StringBuilder sb = new StringBuilder();
+            for (GameProfile gp : GameProfileArgument.getGameProfiles(ctx, "players")) {
+                var groups = com.mrgregles.bsp_region_guard.compat.LuckPermsBridge.groupsOf(gp.getId());
+                sb.append(sb.length() == 0 ? "" : "; ").append(gp.getName()).append(": ").append(groups.isEmpty() ? "no groups loaded (offline players are not loaded)" : String.join(", ", groups));
+            }
+            return ok(ctx.getSource(), sb.toString());
+        })));
         rg.then(Commands.literal("gui").executes(ctx -> {
             com.mrgregles.bsp_region_guard.network.RegionSync.open(player(ctx.getSource()));
             return 1;
@@ -206,6 +254,7 @@ public final class RegionCommands {
         } else {
             sel.setPos2(p.serverLevel().dimension(), pos);
         }
+        Selections.sync(p);
         Cuboid box = sel.cuboid();
         return ok(src, (first ? "First" : "Second") + " corner set to " + pos.getX() + ", " + pos.getY() + ", " + pos.getZ()
                 + (box == null ? "" : " (" + box.sizeX() + " x " + box.sizeY() + " x " + box.sizeZ() + ")"));
@@ -218,7 +267,8 @@ public final class RegionCommands {
             return fail(src, "The global region has no corners to select.");
         }
         Selections.of(p).set(p.serverLevel().dimension(), r.bounds());
-        return ok(src, "Selection set to " + r.id() + ": " + r.bounds() + ". Hold the wand to see it.");
+        Selections.sync(p);
+        return ok(src, "Selection set to " + r.id() + ": " + r.bounds() + ".");
     }
 
     // ------------------------------------------------------------------ create, change, remove
@@ -331,6 +381,131 @@ public final class RegionCommands {
         RegionStore.get(src.getLevel()).touch(r);
         return ok(src, did ? "Rank " + rank.toLowerCase() + (add ? " may now enter " : " removed from ") + r.id() + "."
                 : "Nothing changed.");
+    }
+
+    // ------------------------------------------------------------------ claims
+
+    private static int sale(CommandSourceStack src, String id, int price) throws CommandSyntaxException {
+        Region r = region(src, id);
+        if (r.isGlobal()) {
+            return fail(src, "The world default cannot be sold.");
+        }
+        if (!com.mrgregles.bsp_region_guard.protection.TotemRule.claimsAllowedIn(src.getLevel())) {
+            return fail(src, "Claims are not allowed in a PvP world.");
+        }
+        if (r.type() == RegionType.CLAIM) {
+            return fail(src, r.id() + " is already owned; the owner can abandon it, or an admin can with /claim abandon.");
+        }
+        r.setType(RegionType.PLOT_FOR_SALE);
+        com.mrgregles.bsp_region_guard.claim.ClaimData.set(r, com.mrgregles.bsp_region_guard.claim.ClaimData.PRICE, price);
+        RegionStore.get(src.getLevel()).touch(r);
+        return ok(src, r.id() + " is for sale at " + price + " coins.");
+    }
+
+    private static int open(CommandSourceStack src, String id, int cost, int min, int max) throws CommandSyntaxException {
+        Region r = region(src, id);
+        if (r.isGlobal()) {
+            return fail(src, "The world default cannot be an open area.");
+        }
+        if (!com.mrgregles.bsp_region_guard.protection.TotemRule.claimsAllowedIn(src.getLevel())) {
+            return fail(src, "Claims are not allowed in a PvP world.");
+        }
+        r.setType(RegionType.OPEN_FOR_BUYING);
+        com.mrgregles.bsp_region_guard.claim.ClaimData.set(r, com.mrgregles.bsp_region_guard.claim.ClaimData.COST_PER_BLOCK, cost);
+        com.mrgregles.bsp_region_guard.claim.ClaimData.set(r, com.mrgregles.bsp_region_guard.claim.ClaimData.MIN_SIZE, min);
+        com.mrgregles.bsp_region_guard.claim.ClaimData.set(r, com.mrgregles.bsp_region_guard.claim.ClaimData.MAX_SIZE, max);
+        RegionStore.get(src.getLevel()).touch(r);
+        return ok(src, r.id() + " is open for buying at " + cost + " coins per block" + (min > 0 || max > 0 ? ", plots " + min + " to " + max + " blocks a side." : "."));
+    }
+
+    private static int plotFlags(CommandSourceStack src, String id, String flags) throws CommandSyntaxException {
+        Region r = region(src, id);
+        var unknown = com.mrgregles.bsp_region_guard.claim.ClaimFlags.setAllowed(r, flags);
+        RegionStore.get(src.getLevel()).touch(r);
+        String now = String.join(", ", com.mrgregles.bsp_region_guard.claim.ClaimFlags.allowedFor(RegionStore.get(src.getLevel()), r));
+        return ok(src, "Buyers of " + r.id() + " may set: " + now + (unknown.isEmpty() ? "" : " (not flags, ignored: " + String.join(", ", unknown) + ")"));
+    }
+
+    // ------------------------------------------------------------------ mines
+
+    private static Region mine(CommandSourceStack src, String id) throws CommandSyntaxException {
+        Region r = region(src, id);
+        if (r.type() != RegionType.MINE) {
+            throw new SimpleCommandExceptionType(Component.literal(r.id() + " is not a mine. Use /rg mine create " + r.id() + " first.")).create();
+        }
+        return r;
+    }
+
+    private static int mineCreate(CommandSourceStack src, String id) throws CommandSyntaxException {
+        Region r = region(src, id);
+        if (r.isGlobal()) {
+            return fail(src, "The world default cannot be a mine.");
+        }
+        com.mrgregles.bsp_region_guard.mine.Mines.makeMine(RegionStore.get(src.getLevel()), r);
+        return ok(src, r.id() + " is now a mine: breaking is allowed inside, placing is not. Add blocks with /rg mine add " + r.id() + " <block> <weight>.");
+    }
+
+    private static int mineAdd(CommandSourceStack src, String id, net.minecraft.resources.ResourceLocation block, int weight) throws CommandSyntaxException {
+        Region r = mine(src, id);
+        if (weight > 0 && !net.minecraftforge.registries.ForgeRegistries.BLOCKS.containsKey(block)) {
+            return fail(src, "No block called " + block + ".");
+        }
+        com.mrgregles.bsp_region_guard.mine.MineData.put(r, block, weight);
+        RegionStore.get(src.getLevel()).touch(r);
+        return ok(src, weight > 0 ? block + " added to " + r.id() + " with weight " + weight + "." : block + " removed from " + r.id() + ".");
+    }
+
+    private static int mineInterval(CommandSourceStack src, String id, int seconds) throws CommandSyntaxException {
+        Region r = mine(src, id);
+        com.mrgregles.bsp_region_guard.mine.Mines.schedule(RegionStore.get(src.getLevel()), r, seconds);
+        return ok(src, seconds > 0 ? r.id() + " resets every " + seconds + " seconds; the first reset is in " + seconds + " seconds." : r.id() + " no longer resets on its own.");
+    }
+
+    private static int mineSpawn(CommandSourceStack src, String id) throws CommandSyntaxException {
+        ServerPlayer p = player(src);
+        Region r = mine(src, id);
+        com.mrgregles.bsp_region_guard.mine.MineData.setSpawn(r, FlagLocation.of(p.serverLevel(), p.getX(), p.getY(), p.getZ(), p.getYRot(), p.getXRot()));
+        RegionStore.get(src.getLevel()).touch(r);
+        return ok(src, "Players in " + r.id() + " are moved here when it resets.");
+    }
+
+    private static int mineShell(CommandSourceStack src, String id, int radius) throws CommandSyntaxException {
+        Region r = mine(src, id);
+        Region shell = com.mrgregles.bsp_region_guard.mine.Mines.makeShell(src.getLevel(), RegionStore.get(src.getLevel()), r, radius);
+        return ok(src, shell.id() + " surrounds " + r.id() + " by " + radius + " blocks: only the mine can be dug there, nothing can be placed.");
+    }
+
+    private static int mineReset(CommandSourceStack src, String id) throws CommandSyntaxException {
+        Region r = mine(src, id);
+        return ok(src, com.mrgregles.bsp_region_guard.mine.Mines.reset(src.getLevel(), RegionStore.get(src.getLevel()), r));
+    }
+
+    private static int mineInfo(CommandSourceStack src, String id) throws CommandSyntaxException {
+        Region r = mine(src, id);
+        var fill = com.mrgregles.bsp_region_guard.mine.MineData.fill(r);
+        int total = com.mrgregles.bsp_region_guard.mine.MineData.totalWeight(fill);
+        MutableComponent out = Component.literal(r.id() + ": " + r.bounds().volume() + " blocks");
+        long left = com.mrgregles.bsp_region_guard.mine.Mines.secondsToReset(r);
+        out.append(left < 0 ? ", no automatic reset" : ", resets every " + com.mrgregles.bsp_region_guard.mine.MineData.intervalSeconds(r) + " s, next in " + left + " s");
+        out.append(fill.isEmpty() ? "\n  fill table empty" : "");
+        for (var e : fill) {
+            out.append("\n  " + e.block() + "  " + e.weight() + "  (" + (100 * e.weight() / Math.max(1, total)) + "%)");
+        }
+        src.sendSuccess(() -> out, false);
+        return 1;
+    }
+
+    private static int claimsList(CommandSourceStack src) {
+        var claims = com.mrgregles.bsp_region_guard.claim.ClaimWipe.claimsIn(src.getLevel());
+        if (claims.isEmpty()) {
+            return ok(src, "No claims in " + src.getLevel().dimension().location() + ".");
+        }
+        MutableComponent out = Component.literal("Claims in " + src.getLevel().dimension().location() + " (" + claims.size() + "):");
+        for (Region r : claims) {
+            out.append("\n  " + r.id() + "  " + names(src, r.owners()) + "  " + com.mrgregles.bsp_region_guard.claim.ClaimData.boughtFor(r) + " coins");
+        }
+        src.sendSuccess(() -> out, false);
+        return 1;
     }
 
     // ------------------------------------------------------------------ flags

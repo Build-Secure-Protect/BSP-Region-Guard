@@ -25,6 +25,15 @@ public final class RegionNetwork {
         CHANNEL.messageBuilder(RegionDetailPacket.class, id++, NetworkDirection.PLAY_TO_CLIENT)
                 .encoder(RegionDetailPacket::encode).decoder(RegionDetailPacket::decode)
                 .consumerMainThread(RegionDetailPacket::handle).add();
+        CHANNEL.messageBuilder(SelectionPacket.class, id++, NetworkDirection.PLAY_TO_CLIENT)
+                .encoder(SelectionPacket::encode).decoder(SelectionPacket::decode)
+                .consumerMainThread(SelectionPacket::handle).add();
+        CHANNEL.messageBuilder(ClaimOpenPacket.class, id++, NetworkDirection.PLAY_TO_CLIENT)
+                .encoder(ClaimOpenPacket::encode).decoder(ClaimOpenPacket::decode)
+                .consumerMainThread(ClaimOpenPacket::handle).add();
+        CHANNEL.messageBuilder(ClaimActionPacket.class, id++, NetworkDirection.PLAY_TO_SERVER)
+                .encoder(ClaimActionPacket::encode).decoder(ClaimActionPacket::decode)
+                .consumerMainThread(ClaimActionPacket::handle).add();
         CHANNEL.messageBuilder(RegionActionPacket.class, id++, NetworkDirection.PLAY_TO_SERVER)
                 .encoder(RegionActionPacket::encode).decoder(RegionActionPacket::decode)
                 .consumerMainThread(RegionActionPacket::handle).add();

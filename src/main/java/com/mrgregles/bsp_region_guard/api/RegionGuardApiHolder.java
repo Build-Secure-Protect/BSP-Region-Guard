@@ -11,6 +11,11 @@ final class RegionGuardApiHolder {
                     .map(c -> c.getModInfo().getVersion().toString())
                     .orElse("unknown");
         }
+
+        @Override
+        public ClaimService claims() {
+            return com.mrgregles.bsp_region_guard.claim.Claims.INSTANCE;
+        }
     };
 
     private RegionGuardApiHolder() {

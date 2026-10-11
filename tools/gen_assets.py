@@ -15,6 +15,8 @@ ASSETS = Path(__file__).resolve().parent.parent / "src/main/resources/assets/bsp
 LANG = {
     "item.bsp_region_guard.region_wand": "Region Wand",
     "bsp_region_guard.name": "BSP Region Guard",
+    "key.categories.bsp_region_guard": "BSP Region Guard",
+    "key.bsp_region_guard.show_regions": "Show regions",
 }
 
 # ---------------------------------------------------------------- textures

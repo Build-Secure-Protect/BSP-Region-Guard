@@ -2,6 +2,8 @@ package com.mrgregles.bsp_region_guard.protection;
 
 import com.mrgregles.bsp_region_guard.flag.Flags;
 import com.mrgregles.bsp_region_guard.flag.StateFlag;
+import com.mrgregles.bsp_region_guard.region.RegionQuery;
+import com.mrgregles.bsp_region_guard.region.RegionStore;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.BlockTags;
@@ -47,6 +49,14 @@ public final class BlockProtection {
             event.setCanceled(true);
             return;
         }
+        // a mine's shell: only the mine's own blocks may be dug (the flag is set on the shell region)
+        if (RegionQuery.explicit(level, event.getPos(), Flags.MINE_ONLY_BREAK).orElse(null) == com.mrgregles.bsp_region_guard.flag.State.ALLOW
+                && com.mrgregles.bsp_region_guard.mine.Mines.mineAt(RegionStore.get(level), event.getPos()) == null
+                && !RegionQuery.bypasses(event.getPlayer())) {
+            event.setCanceled(true);
+            Protection.tell(event.getPlayer(), level, event.getPos(), "Only the mine can be dug here.");
+            return;
+        }
         if (event.getExpToDrop() > 0 && !Protection.mayWorld(level, event.getPos(), Flags.EXP_DROPS)) {
             event.setExpToDrop(0);
         }
@@ -69,6 +79,14 @@ public final class BlockProtection {
         }
         if (!Protection.checkPlayer(level, event.getPos(), Flags.BLOCK_PLACE, player)) {
             event.setCanceled(true);
+            return;
+        }
+        if (com.mrgregles.bsp_region_guard.compat.BspCore.isTotemBlock(event.getPlacedBlock())) {
+            var claim = com.mrgregles.bsp_region_guard.claim.ClaimFlags.hinderingClaimAt(level, event.getPos());
+            if (claim != null) {
+                event.setCanceled(true);
+                Protection.tell(player, level, event.getPos(), "A Shatter Totem cannot stand in " + claim.id() + ": its rules could stop a steal.");
+            }
         }
     }
 

@@ -1,24 +1,26 @@
 package com.mrgregles.bsp_region_guard.mixin;
 
-import com.mrgregles.bsp_region_guard.RegionGuardConfig;
-import com.mrgregles.bsp_region_guard.flag.Flags;
-import com.mrgregles.bsp_region_guard.protection.WorldFlags;
-import net.minecraft.server.level.ServerPlayer;
+import com.mrgregles.bsp_region_guard.protection.EntityProtection;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.food.FoodData;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Redirect;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-/** {@code natural-health-regen}: food does not heal players inside (potions and golden apples still do). */
+/**
+ * {@code natural-health-regen}: marks the food tick while it runs, so the heal event handler in
+ * {@link EntityProtection} knows a heal is natural regeneration (potions and golden apples are untouched).
+ */
 @Mixin(FoodData.class)
 public abstract class FoodDataMixin {
-    @Redirect(method = "tick", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/entity/player/Player;heal(F)V"))
-    private void bsp_region_guard$regen(Player player, float amount) {
-        if (player instanceof ServerPlayer sp
-                && WorldFlags.denies(sp.serverLevel(), sp.blockPosition(), Flags.NATURAL_HEALTH_REGEN, RegionGuardConfig.MIXIN_HUNGER)) {
-            return;
-        }
-        player.heal(amount);
+    @Inject(method = "tick", at = @At("HEAD"))
+    private void bsp_region_guard$begin(Player player, CallbackInfo ci) {
+        EntityProtection.beginFoodTick(player);
+    }
+
+    @Inject(method = "tick", at = @At("RETURN"))
+    private void bsp_region_guard$end(Player player, CallbackInfo ci) {
+        EntityProtection.endFoodTick();
     }
 }

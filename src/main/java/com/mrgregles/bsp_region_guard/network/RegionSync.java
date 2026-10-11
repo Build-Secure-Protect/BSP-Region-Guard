@@ -68,15 +68,58 @@ public final class RegionSync {
         }
     }
 
-    public static void sendList(ServerPlayer player, @Nullable String select, boolean open) {
-        ServerLevel level = player.serverLevel();
-        RegionStore store = RegionStore.get(level);
+    /** Admins see every region; other players only the regions they belong to and the plots for sale, so the client can draw them. */
+    public static List<RegionListPacket.Summary> listFor(ServerPlayer player) {
+        RegionStore store = RegionStore.get(player.serverLevel());
+        boolean all = mayEdit(player);
         List<RegionListPacket.Summary> list = new ArrayList<>();
         for (Region r : store.all()) {
-            list.add(new RegionListPacket.Summary(r.id(), r.name(), r.type().key(), r.priority(), r.parentId(), r.bounds(),
-                    r.owners().size(), r.members().size(), r.flags().size()));
+            boolean visible = all || r.isMember(player.getUUID())
+                    || r.type() == RegionType.PLOT_FOR_SALE || r.type() == RegionType.OPEN_FOR_BUYING;
+            if (visible) {
+                list.add(new RegionListPacket.Summary(r.id(), r.name(), r.type().key(), r.priority(), r.parentId(), r.bounds(),
+                        r.owners().size(), r.members().size(), r.flags().size()));
+            }
         }
-        RegionNetwork.sendTo(player, new RegionListPacket(level.dimension().location(), list, select, open));
+        return list;
+    }
+
+    public static void sendList(ServerPlayer player, @Nullable String select, boolean open) {
+        RegionNetwork.sendTo(player, new RegionListPacket(player.serverLevel().dimension().location(), listFor(player), select, open));
+    }
+
+    /** Every player in the store's world gets a fresh list (after a region changed). */
+    public static void broadcast(RegionStore store) {
+        net.minecraft.server.MinecraftServer server = net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer();
+        if (server == null) {
+            return;
+        }
+        ServerLevel level = server.getLevel(store.dimension());
+        if (level == null) {
+            return;
+        }
+        for (ServerPlayer p : level.players()) {
+            sendList(p, null, false);
+        }
+    }
+
+    public static void onLogin(net.minecraftforge.event.entity.player.PlayerEvent.PlayerLoggedInEvent event) {
+        if (event.getEntity() instanceof ServerPlayer p) {
+            sendList(p, null, false);
+            com.mrgregles.bsp_region_guard.selection.Selections.sync(p);
+        }
+    }
+
+    public static void onChangedDimension(net.minecraftforge.event.entity.player.PlayerEvent.PlayerChangedDimensionEvent event) {
+        if (event.getEntity() instanceof ServerPlayer p) {
+            sendList(p, null, false);
+        }
+    }
+
+    public static void onRespawn(net.minecraftforge.event.entity.player.PlayerEvent.PlayerRespawnEvent event) {
+        if (event.getEntity() instanceof ServerPlayer p) {
+            sendList(p, null, false);
+        }
     }
 
     public static void sendDetail(ServerPlayer player, @Nullable Region r) {
@@ -99,9 +142,25 @@ public final class RegionSync {
                 }
             }
         }
+        Map<String, String> data = new LinkedHashMap<>();
+        for (String key : r.typeData().getAllKeys()) {
+            if (!key.equals(com.mrgregles.bsp_region_guard.mine.MineData.FILL) && !key.equals(com.mrgregles.bsp_region_guard.mine.MineData.SPAWN)) {
+                data.put(key, r.typeData().get(key).getAsString());
+            }
+        }
+        if (r.type() == RegionType.MINE) {
+            StringBuilder fill = new StringBuilder();
+            for (var e : com.mrgregles.bsp_region_guard.mine.MineData.fill(r)) {
+                fill.append(fill.length() == 0 ? "" : ";").append(e.block()).append('=').append(e.weight());
+            }
+            data.put("fill", fill.toString());
+            data.put("secondsToReset", String.valueOf(com.mrgregles.bsp_region_guard.mine.Mines.secondsToReset(r)));
+            data.put("hasSpawn", String.valueOf(com.mrgregles.bsp_region_guard.mine.MineData.spawn(r) != null));
+            data.put("hasShell", String.valueOf(store.has(r.id() + "_shell")));
+        }
         RegionNetwork.sendTo(player, new RegionDetailPacket(r.id(), r.name(), r.type().key(), r.priority(), r.parentId(), r.bounds(),
                 people(player, r.owners()), people(player, r.members()), new ArrayList<>(r.ranks()),
-                flags, inherited, LuckPermsBridge.groupNames(), r.version(), r.updatedAt()));
+                flags, inherited, LuckPermsBridge.groupNames(), r.version(), r.updatedAt(), data));
     }
 
     @SuppressWarnings("unchecked")
@@ -293,12 +352,80 @@ public final class RegionSync {
             case RegionActionPacket.SELECT_BOUNDS -> {
                 if (r.bounds() != null) {
                     Selections.of(player).set(level.dimension(), r.bounds());
+                    Selections.sync(player);
                     return "Selection set to " + r.id() + ".";
                 }
                 return "The world default has no corners.";
             }
             case RegionActionPacket.TELEPORT -> {
                 return teleport(player, level, store, r);
+            }
+            case RegionActionPacket.MINE_CREATE -> {
+                if (r.isGlobal()) {
+                    return "The world default cannot be a mine.";
+                }
+                com.mrgregles.bsp_region_guard.mine.Mines.makeMine(store, r);
+                return r.id() + " is now a mine.";
+            }
+            case RegionActionPacket.MINE_ADD -> {
+                net.minecraft.resources.ResourceLocation block = net.minecraft.resources.ResourceLocation.tryParse(a.contains(":") ? a : "minecraft:" + a);
+                int weight = b.isEmpty() ? 0 : Integer.parseInt(b);
+                if (block == null || weight > 0 && !net.minecraftforge.registries.ForgeRegistries.BLOCKS.containsKey(block)) {
+                    return "No block called " + a + ".";
+                }
+                com.mrgregles.bsp_region_guard.mine.MineData.put(r, block, weight);
+                store.touch(r);
+                return null;
+            }
+            case RegionActionPacket.MINE_INTERVAL -> {
+                com.mrgregles.bsp_region_guard.mine.Mines.schedule(store, r, a.isEmpty() ? 0 : Integer.parseInt(a));
+                return null;
+            }
+            case RegionActionPacket.MINE_SPAWN -> {
+                com.mrgregles.bsp_region_guard.mine.MineData.setSpawn(r, a.equals("clear") ? null
+                        : FlagLocation.of(level, player.getX(), player.getY(), player.getZ(), player.getYRot(), player.getXRot()));
+                store.touch(r);
+                return a.equals("clear") ? "Reset spawn cleared." : "Players are moved to where you stand when the mine resets.";
+            }
+            case RegionActionPacket.MINE_SHELL -> {
+                if (r.type() != RegionType.MINE) {
+                    return r.id() + " is not a mine.";
+                }
+                Region shell = com.mrgregles.bsp_region_guard.mine.Mines.makeShell(level, store, r, Math.max(1, Math.min(64, a.isEmpty() ? 5 : Integer.parseInt(a))));
+                return shell.id() + " surrounds the mine.";
+            }
+            case RegionActionPacket.MINE_RESET -> {
+                return com.mrgregles.bsp_region_guard.mine.Mines.reset(level, store, r);
+            }
+            case RegionActionPacket.SET_DATA -> {
+                if (r.isGlobal()) {
+                    return "The world default cannot be sold.";
+                }
+                String key = a;
+                if (key.equals(com.mrgregles.bsp_region_guard.claim.ClaimData.PLAYER_FLAGS)) {
+                    var unknown = com.mrgregles.bsp_region_guard.claim.ClaimFlags.setAllowed(r, b);
+                    store.touch(r);
+                    return unknown.isEmpty() ? null : "Not flags, ignored: " + String.join(", ", unknown);
+                }
+                int value = a.isEmpty() ? 0 : Integer.parseInt(b.isEmpty() ? "0" : b);
+                boolean sale = key.equals(com.mrgregles.bsp_region_guard.claim.ClaimData.PRICE);
+                boolean open = key.equals(com.mrgregles.bsp_region_guard.claim.ClaimData.COST_PER_BLOCK);
+                if ((sale || open) && !TotemRule.claimsAllowedIn(level)) {
+                    return "Claims are not allowed in a PvP world.";
+                }
+                if (r.type() == RegionType.CLAIM && (sale || open)) {
+                    return r.id() + " is owned; abandon it first.";
+                }
+                com.mrgregles.bsp_region_guard.claim.ClaimData.set(r, key, value);
+                if (sale && value > 0) {
+                    r.setType(RegionType.PLOT_FOR_SALE);
+                } else if (open && value > 0) {
+                    r.setType(RegionType.OPEN_FOR_BUYING);
+                } else if ((sale || open) && value <= 0) {
+                    r.setType(RegionType.PROTECTED);
+                }
+                store.touch(r);
+                return null;
             }
             default -> {
                 return "Unknown action " + action;

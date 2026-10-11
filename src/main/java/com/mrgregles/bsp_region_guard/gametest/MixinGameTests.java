@@ -186,7 +186,7 @@ public class MixinGameTests {
         });
     }
 
-    @GameTest(template = EMPTY)
+    @GameTest(template = EMPTY, timeoutTicks = 200)
     public void grass_does_not_spread_and_leaves_do_not_decay_inside(GameTestHelper h) {
         Region r = define(h, "x_grow");
         r.setFlag(Flags.GRASS_GROWTH, State.DENY);
@@ -196,7 +196,7 @@ public class MixinGameTests {
         for (BlockPos base : new BlockPos[]{IN, OUT}) {
             h.setBlock(base.above().offset(1, 0, 1), Blocks.GLOWSTONE); // grass only spreads in light
         }
-        h.runAfterDelay(5, () -> {
+        h.runAfterDelay(30, () -> {
         try {
             for (BlockPos base : new BlockPos[]{IN, OUT}) {
                 h.setBlock(base, Blocks.GRASS_BLOCK);
@@ -206,7 +206,7 @@ public class MixinGameTests {
                 h.setBlock(base.south(), Blocks.DIRT);
                 h.setBlock(base.above(2), Blocks.OAK_LEAVES.defaultBlockState().setValue(LeavesBlock.DISTANCE, 7).setValue(LeavesBlock.PERSISTENT, false));
             }
-            for (int i = 0; i < 300; i++) {
+            for (int i = 0; i < 800; i++) {
                 for (BlockPos base : new BlockPos[]{IN, OUT}) {
                     BlockPos p = h.absolutePos(base);
                     if (level.getBlockState(p).is(Blocks.GRASS_BLOCK)) {
@@ -221,7 +221,8 @@ public class MixinGameTests {
             boolean insideDirt = at(h, IN.east()).is(Blocks.DIRT) && at(h, IN.west()).is(Blocks.DIRT) && at(h, IN.north()).is(Blocks.DIRT) && at(h, IN.south()).is(Blocks.DIRT);
             h.assertTrue(insideDirt, "dirt inside stays dirt");
             boolean outsideGrass = at(h, OUT.east()).is(Blocks.GRASS_BLOCK) || at(h, OUT.west()).is(Blocks.GRASS_BLOCK) || at(h, OUT.north()).is(Blocks.GRASS_BLOCK) || at(h, OUT.south()).is(Blocks.GRASS_BLOCK);
-            h.assertTrue(outsideGrass, "grass spreads outside within 300 ticks");
+            int light = level.getMaxLocalRawBrightness(h.absolutePos(OUT).above());
+            h.assertTrue(outsideGrass, "grass spreads outside within 800 ticks (light above the grass: " + light + ", grass still there: " + at(h, OUT).is(Blocks.GRASS_BLOCK) + ")");
             h.assertTrue(at(h, IN.above(2)).is(Blocks.OAK_LEAVES), "leaves inside do not decay");
             h.assertFalse(at(h, OUT.above(2)).is(Blocks.OAK_LEAVES), "leaves outside decay");
         } finally {

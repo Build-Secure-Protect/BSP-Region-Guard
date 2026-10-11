@@ -2,7 +2,9 @@
 
 What to try after each build, in the order the features were added. Tick what works, note what does not. Claude cannot run the client, so this list is the hand-off between a build and the owner.
 
-Headless checks already run by Claude: `./gradlew runGameTestServer` (region model and resolution rules).
+Headless checks already run by Claude: `./gradlew runGameTestServer` (43 tests: regions, every enforcement rule a server can exercise, movement, mixins, the totem rule, the screens' server side, claims, mines, and LuckPerms with the real LuckPerms Forge mod loaded from `libs/`).
+
+**LuckPerms on the live network.** Verified on a local Mohist 1.20.1 server with the Bukkit edition of LuckPerms (5.5.87): the startup log says `LuckPerms reached through the Bukkit edition` and `rg ranks` lists the groups. On the live backends, check for the same two lines. The local test server lives in `server/` (not committed): `tools/setup_test_server.sh` copies the current jars, `server/start.sh` starts it, `tools/rcon.py "<command>"` runs console commands. **BSP Core must be the `-slim` jar on Mohist** (request RG-C4 to BSP Core): the full jar's bundled MySQL driver clashes with Mohist's own.
 
 ## Phase 1: regions, flags and commands (build 0.1.0, 2026-10-10)
 
@@ -111,4 +113,55 @@ As an operator or BSP Core admin, with a few regions defined (use the Phase 1 co
 - [ ] Two admins with the screen open: a change by one shows for the other after they click anything (there is no push yet; note it if it bothers you).
 - [ ] Open the screen in the nether: the title says NETHER and lists that world's regions only.
 
-Not yet in this build: in-world region drawing (Phase 3b), claims (Phase 4), mines (Phase 5).
+## Phase 3b: regions drawn in the world (build 0.1.0, 2026-10-11)
+
+- [ ] As an admin, every region within 256 blocks shows as a box with a thin outline, faint faces and its id floating above the centre; colours by type (turquoise protected, violet claim, gold mine or sale). Walk inside: the faces fade a little and the box stays readable.
+- [ ] Press B: "Regions hidden." and the boxes vanish; B again brings them back. The key can be changed under Controls, category BSP Region Guard.
+- [ ] Set wand corners: each corner gets a small gold frame; with both set, the selection box is gold. `/rg select <id>` and the screen's SELECT button move the gold box to that region.
+- [ ] Define a region in the screen or with `/rg define`: the box appears at once without reopening anything. Delete it: it disappears. Redefine: it moves. A second admin online sees the same without doing anything.
+- [ ] Change world (nether portal): only that world's regions show. Die and respawn: regions still show.
+- [ ] As a non-admin player: no admin regions are drawn. Make the player an owner of a region of type claim (`/rg type <id> claim` in a non-PvP world, `/rg addowner <id> <name>`): that one box shows for them in violet, and B hides it. A `plot_for_sale` region shows for them in gold.
+- [ ] Log out and in: boxes are there straight away.
+- [ ] Look at a region from 100 blocks away: box visible, label gone (labels show within 96 blocks).
+
+## Phase 4a: claims (build 0.1.0, 2026-10-11)
+
+Claims need a world that is not a PvP world: either a second dimension not in BSP Core's `restrictions.allowedDimensions`, or `claims.allowInPvpWorlds = true` in `world/serverconfig/bsp_region_guard-server.toml` for testing. Give the test player coins with BSP Core (`/bsp` admin tools or the creative tab).
+
+- [ ] Admin: define a region and `/rg sale shop1 100`: `/rg info shop1` says plot for sale; every player sees its gold box in the world and `/claim list` lists it with the price. The SALE tab shows the price; SET PRICE 0 takes it off sale.
+- [ ] Player without coins: `/claim quote shop1` names the price and says you cannot afford it. With 150 coins: `/claim buy shop1` takes 100, the box turns violet (a claim), `/claim here` says it is yours, you can build inside while another player cannot, and the admin screen lists it as a claim with you as owner.
+- [ ] `/claim add shop1 <friend>`: the friend can build; `/claim remove` stops that. `/claim flag shop1 pvp deny` works; `/claim flag shop1 tnt deny` is refused with the list of allowed flags.
+- [ ] `/claim abandon shop1`: 50 coins back, the region is for sale again at 100, the box is gold again.
+- [ ] Admin: a big region and `/rg open field 2` (2 coins per block). Player: `/claim tool`, outline 3 x 3: `/claim buy field` refuses (too small); outline partly outside: refused; outline 6 x 6: `/claim quote field` says 72 coins; `/claim buy field` creates `field-<name>-1` as a violet box from bedrock to sky, 72 coins taken. A second outline overlapping it: refused. With `claims.maxPerPlayer = 1`, a second plot elsewhere: refused with the limit.
+- [ ] `/claim enlarge field-<name>-1` with a bigger outline containing the plot: pays for the added blocks only; a smaller or shifted outline is refused.
+- [ ] `/claim abandon field-<name>-1`: refund, the box disappears.
+- [ ] Wipe: as a BSP Core admin (in the config list, or op when the list is empty), `/rg claims wipe` prints the count, the world and a four-digit code; `/rg claims wipe 0000` (wrong) wipes nothing; the right code within a minute removes every claim of that world, keeps plots for sale and protected regions, names the backup file, and other admins online see a notice; `/rg claims backups` lists it; `/rg claims restore <file>` brings the claims back with their owners. A non-admin op is refused when the admin list is set.
+- [ ] In a PvP world: `/rg sale` and `/claim tool` are refused with a message about PvP worlds.
+
+## Phase 4b: the player claim screen (build 0.1.0, 2026-10-11)
+
+As a non-admin player in a world where claims are allowed, owning at least one claim (buy one with `/claim buy` first).
+
+- [ ] `/claim gui` opens on the claim you stand in; sneak + right-click with the plot tool does the same (an admin gets the admin screen instead). Without a claim the screen lists what is for sale and offers the PLOT TOOL.
+- [ ] The map on the left shows your plot outlined in violet with the area around it; the wheel zooms. With two claims, the arrows in the header step between them.
+- [ ] "+ add", a name, Enter: the member appears as a chip; its x removes them. Adding yourself says you are the owner already; an unknown name is reported.
+- [ ] The RULES switches cycle grey (follow the area) to on to off with each click; `/rg flag <claim> <flag>` as an admin agrees (grey = not set, on = allow, off = deny). Only the flags from the config list (or the plot's own list) appear.
+- [ ] MESSAGES: edit "on entering", type a greeting, Enter: walking into the claim shows it; empty text clears it.
+- [ ] ENLARGE with no outline says to outline first; with a bigger outline containing the plot it pays and the box grows (plots outlined in an open area only).
+- [ ] TELEPORT puts you on top of the claim's centre.
+- [ ] GIVE UP asks "REALLY GIVE UP?" then refunds and closes the claim; the screen moves to your next claim or the empty state.
+- [ ] Admin: `/rg plotflags shop4 greeting,chest-access` then a buyer of shop4 sees only those two rules on the screen and `/claim flag shop4 entry deny` is refused with the allowed list; `/rg plotflags shop4 default` restores the config list. The SALE tab shows the list and lets you edit it.
+- [ ] Totem rule (needs `claims.allowInPvpWorlds = true` or totems allowed in the claim world): in a claim with "strangers may enter" switched off, placing a Shatter Totem is refused with a message; switch it back to grey and the totem can be placed; with the totem standing inside, switching PvP off is refused ("A Shatter Totem stands in this claim"), while a greeting still works.
+
+## Phase 5: mines (build 0.1.0, 2026-10-11)
+
+- [ ] Define a region (say 20 x 8 x 20) and `/rg mine create quarry`: `/rg info quarry` shows type mine with `block-break=allow`, `block-place=deny`. The box turns gold in the world.
+- [ ] `/rg mine add quarry minecraft:stone 80`, `minecraft:iron_ore 15`, `minecraft:gold_ore 5`, `minecraft:diamond_ore 1`: `/rg mine info quarry` lists them with percentages. `/rg mine add quarry minecraft:nothing 5` is refused.
+- [ ] `/rg mine reset quarry`: the box fills with stone and ore veins (clusters, not speckles); a second reset gives a different layout. A large mine (60 x 30 x 60) fills over a few ticks without freezing; lower `mines.blocksPerTick` in the server config to watch it fill in strips.
+- [ ] Stand inside and reset: you are moved just above the mine. `/rg mine spawn quarry` elsewhere, then reset from inside: you land at that spot.
+- [ ] `/rg mine interval quarry 90`: `/rg mine info` shows the countdown; players within 48 blocks get "resets in 60 seconds" and "in 10 seconds" in chat and on the action bar, then "has been reset" when it fires. `/rg mine interval quarry 0` stops it.
+- [ ] Any player can dig in the mine but cannot place blocks there. `/rg mine shell quarry 5`: a region `quarry_shell` appears 5 blocks around; inside the shell but outside the mine, digging says "Only the mine can be dug here." and placing is refused; beyond the shell the world behaves as before. An admin with bypass can still dig the shell.
+- [ ] `/rg flag quarry allowed-ranks vip` (with LuckPerms): a player without the group is pushed back at the mine's edge; a `vip` player digs. `/rg ranks <player>` shows an online player's groups.
+- [ ] Admin screen, MINE tab: on a non-mine region, MAKE THIS A MINE; on a mine, the fill table with x to remove, + ADD BLOCK ("minecraft:coal_ore 10"), INTERVAL, RESET NOW, SET SPAWN / MOVE SPAWN, MAKE SHELL / RESIZE SHELL, and the live countdown.
+
+Not yet in this build: BSP Core's shop screen (request RG-C3), cross-server sync (Phase 7), BSP Teleport triggers (Phase 8).

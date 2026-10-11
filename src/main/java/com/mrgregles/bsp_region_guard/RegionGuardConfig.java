@@ -20,6 +20,11 @@ public final class RegionGuardConfig {
     public static final ForgeConfigSpec.BooleanValue TOTEM_EXEMPT_PVP;
     public static final ForgeConfigSpec.BooleanValue CLAIMS_IN_PVP_WORLDS;
     public static final ForgeConfigSpec.ConfigValue<List<? extends String>> PVP_WORLDS;
+    public static final ForgeConfigSpec.IntValue CLAIM_MIN_SIZE, CLAIM_MAX_SIZE, CLAIM_MAX_PER_PLAYER, CLAIM_REFUND_PERCENT;
+    public static final ForgeConfigSpec.ConfigValue<List<? extends String>> CLAIM_LIMITS_BY_RANK, CLAIM_PLAYER_FLAGS;
+
+    public static final ForgeConfigSpec.IntValue MINE_BLOCKS_PER_TICK;
+    public static final ForgeConfigSpec.ConfigValue<List<? extends Integer>> MINE_WARN_SECONDS;
 
     public static final ForgeConfigSpec.BooleanValue MIXIN_FIRE;
     public static final ForgeConfigSpec.BooleanValue MIXIN_FLUIDS;
@@ -52,6 +57,21 @@ public final class RegionGuardConfig {
                 .define("allowInPvpWorlds", false);
         PVP_WORLDS = b.comment("Which worlds count as PvP worlds, e.g. [\"minecraft:overworld\"]. Empty uses BSP Core's allowed totem dimensions.")
                 .defineListAllowEmpty("pvpWorlds", List.of(), o -> o instanceof String);
+        CLAIM_MIN_SIZE = b.comment("Smallest side of a plot a player outlines in an open area, in blocks.").defineInRange("minPlotSize", 5, 1, 512);
+        CLAIM_MAX_SIZE = b.comment("Largest side of a plot a player outlines in an open area, in blocks.").defineInRange("maxPlotSize", 64, 1, 512);
+        CLAIM_MAX_PER_PLAYER = b.comment("Claims a player may own per world, unless a rank below says more.").defineInRange("maxPerPlayer", 3, 0, 1000);
+        CLAIM_LIMITS_BY_RANK = b.comment("Claims per world by LuckPerms group, as \"group:count\". The highest matching count wins.")
+                .defineListAllowEmpty("limitsByRank", List.of("vip:5", "mvp:8"), o -> o instanceof String s && s.contains(":"));
+        CLAIM_REFUND_PERCENT = b.comment("Share of the price paid back when a claim is abandoned.").defineInRange("abandonRefundPercent", 50, 0, 100);
+        CLAIM_PLAYER_FLAGS = b.comment("Flags a claim's owner may set on their own claim.")
+                .defineListAllowEmpty("playerFlags", List.of("entry", "chest-access", "use", "interact", "ride", "sleep", "greeting", "farewell",
+                        "entry-deny-message", "mob-spawning", "pvp"), o -> o instanceof String);
+        b.pop();
+
+        b.comment("Automated mines.").push("mines");
+        MINE_BLOCKS_PER_TICK = b.comment("Blocks written per tick while a mine refills. Lower it if resets cause lag.").defineInRange("blocksPerTick", 20000, 100, 1000000);
+        MINE_WARN_SECONDS = b.comment("Seconds before a reset at which players near the mine are warned.")
+                .defineListAllowEmpty("warnSeconds", List.of(60, 10), o -> o instanceof Integer i && i > 0);
         b.pop();
 
         b.comment("The flags that need patches into Minecraft's own code (mixins), in groups.",

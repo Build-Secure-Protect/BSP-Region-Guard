@@ -19,7 +19,7 @@ Java 17 toolchain (downloaded automatically), Forge 47.4.10. BSP Core must be bu
 ./gradlew build
 ```
 
-The jar lands in `build/libs/`. Headless tests: `./gradlew runGameTestServer`.
+The jar lands in `build/libs/`. Headless tests: `./gradlew runGameTestServer`. To include the LuckPerms test, prepare the dev-only LuckPerms jar as described in `tools/make_luckperms_dev_jar.py` (the `libs/` folder is not committed).
 
 ## License
 

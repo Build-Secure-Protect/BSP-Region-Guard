@@ -6,6 +6,7 @@ import com.mrgregles.bsp_region_guard.flag.StateFlag;
 import com.mrgregles.bsp_region_guard.region.RegionQuery;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.DamageTypeTags;
 import net.minecraft.world.Container;
 import net.minecraft.world.damagesource.DamageSource;
@@ -265,6 +266,29 @@ public final class EntityProtection {
             return;
         }
         if (!Protection.mayWorld(level, event.getEntity().blockPosition(), Flags.EXP_DROPS)) {
+            event.setCanceled(true);
+        }
+    }
+
+    // ------------------------------------------------------------------ natural regeneration (with FoodDataMixin)
+
+    private static final ThreadLocal<Player> FOOD_TICK = new ThreadLocal<>();
+
+    public static void beginFoodTick(Player player) {
+        FOOD_TICK.set(player);
+    }
+
+    public static void endFoodTick() {
+        FOOD_TICK.remove();
+    }
+
+    /** A heal during the player's own food tick is natural regeneration; {@code natural-health-regen} may stop it. */
+    public static void onLivingHeal(net.minecraftforge.event.entity.living.LivingHealEvent event) {
+        if (!(event.getEntity() instanceof ServerPlayer player) || FOOD_TICK.get() != player) {
+            return;
+        }
+        if (!com.mrgregles.bsp_region_guard.protection.WorldFlags.allows(player.serverLevel(), player.blockPosition(), Flags.NATURAL_HEALTH_REGEN,
+                com.mrgregles.bsp_region_guard.RegionGuardConfig.MIXIN_HUNGER)) {
             event.setCanceled(true);
         }
     }

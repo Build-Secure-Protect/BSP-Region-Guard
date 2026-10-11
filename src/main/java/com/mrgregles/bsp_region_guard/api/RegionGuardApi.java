@@ -18,4 +18,7 @@ public interface RegionGuardApi {
 
     /** The mod's version string, for example {@code 0.1.0}. */
     String modVersion();
+
+    /** Land claims: listings, quotes, purchases, abandoning. */
+    ClaimService claims();
 }

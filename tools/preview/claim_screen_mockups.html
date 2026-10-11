@@ -1,0 +1,268 @@
+<title>Region Guard Claim Screen</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=VT323&family=IBM+Plex+Sans:wght@400;600&display=swap">
+<style>
+/* Layout: three Minecraft screens (GUI scale 2, 856 x 480) stacked, each with a short brief. Single dark look: this is a game HUD. */
+:root {
+  color-scheme: dark;
+  --bg: #0b0e13;          /* page ground, deeper than the panel */
+  --panel: #10151c;       /* Holo HUD panel */
+  --inset: #0c0e12;       /* slots and insets */
+  --line: #2a2f3a;        /* dim lines */
+  --accent: #19d3b0;      /* turquoise */
+  --violet: #b58cff;      /* operator / other */
+  --gold: #ffd23a;        /* coins, values */
+  --bad: #ff6b5c;         /* blocked */
+  --text: #e6eaf2;
+  --muted: #9aa3b5;
+  --mc: 'VT323', 'Courier New', monospace;         /* the in-game face, 20px = 10 GUI px */
+  --ui: 'IBM Plex Sans', system-ui, sans-serif;    /* the brief around the screens */
+}
+body { background: var(--bg); color: var(--text); font-family: var(--ui); padding-block: 32px; padding-inline: 16px; line-height: 1.5; }
+.wrap { max-width: 920px; margin: 0 auto; display: grid; gap: 40px; }
+h1 { font-family: var(--mc); font-size: 40px; font-weight: 400; letter-spacing: 1px; color: var(--accent); margin: 0; text-wrap: balance; }
+h2 { font-family: var(--mc); font-size: 32px; font-weight: 400; margin: 0; color: var(--text); }
+h2 small { color: var(--muted); font-size: 24px; margin-left: 8px; }
+p { max-width: 68ch; margin: 0; }
+.lead { color: var(--muted); }
+.option { display: grid; gap: 14px; }
+.brief { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 32px; }
+.brief p { font-size: 15px; }
+.brief b { color: var(--accent); font-weight: 600; }
+.brief .con b { color: var(--gold); }
+.frame { overflow-x: auto; border: 1px solid var(--line); background: #06080c; padding: 12px; }
+.screen { position: relative; width: 856px; height: 480px; font-family: var(--mc); font-size: 20px; line-height: 1; color: var(--text);
+  background:
+    radial-gradient(ellipse at 30% 20%, #16331f 0, transparent 50%),
+    radial-gradient(ellipse at 70% 80%, #2a2316 0, transparent 50%),
+    #1a2230; image-rendering: pixelated; }
+.panel { position: absolute; background: rgba(16,21,28,.94); border: 2px solid var(--accent); box-sizing: border-box; }
+.panel.quiet { border-color: var(--line); }
+.title { position: absolute; left: 20px; top: 16px; color: var(--accent); letter-spacing: 2px; }
+.help { position: absolute; color: var(--muted); font-size: 15px; }
+.inset { position: absolute; background: var(--inset); border: 2px solid var(--line); box-sizing: border-box; }
+.row { position: absolute; left: 0; right: 0; height: 28px; padding: 4px 10px; box-sizing: border-box; display: flex; align-items: center; gap: 10px; }
+.row.sel { background: rgba(25,211,176,.14); box-shadow: inset 2px 0 0 var(--accent); }
+.pill { font-size: 15px; padding: 2px 6px; border: 2px solid var(--line); color: var(--muted); line-height: 1; }
+.pill.protected { border-color: var(--accent); color: var(--accent); }
+.pill.claim { border-color: var(--violet); color: var(--violet); }
+.pill.mine { border-color: var(--gold); color: var(--gold); }
+.pill.sale { border-color: var(--gold); color: var(--gold); }
+.pill.global { color: var(--muted); }
+.tabs { position: absolute; display: flex; gap: 4px; }
+.tab { padding: 6px 12px; border: 2px solid var(--line); border-bottom: none; color: var(--muted); background: var(--inset); }
+.tab.on { color: var(--accent); border-color: var(--accent); background: rgba(25,211,176,.1); }
+.btn { position: absolute; padding: 6px 14px; border: 2px solid var(--accent); color: var(--accent); background: rgba(25,211,176,.08); }
+.btn.bad { border-color: var(--bad); color: var(--bad); background: rgba(255,107,92,.08); }
+.btn.gold { border-color: var(--gold); color: var(--gold); background: rgba(255,210,58,.08); }
+.btn.dim { border-color: var(--line); color: var(--muted); background: transparent; }
+.seg { display: inline-flex; border: 2px solid var(--line); }
+.seg span { padding: 2px 8px; color: var(--muted); font-size: 17px; border-right: 2px solid var(--line); }
+.seg span:last-child { border-right: none; }
+.seg .allow { color: var(--accent); background: rgba(25,211,176,.2); }
+.seg .deny { color: var(--bad); background: rgba(255,107,92,.2); }
+.seg .inh { color: var(--text); background: rgba(154,163,181,.18); }
+.frow { position: absolute; left: 0; right: 0; height: 26px; padding: 2px 10px; box-sizing: border-box; display: flex; align-items: center; justify-content: space-between; }
+.frow .n { color: var(--text); }
+.frow .n i { color: var(--muted); font-style: normal; font-size: 15px; margin-left: 8px; }
+.ghead { position: absolute; left: 10px; color: var(--accent); font-size: 17px; letter-spacing: 2px; }
+.map { position: absolute; display: grid; }
+.map div { width: 100%; height: 100%; }
+.rg { position: absolute; box-sizing: border-box; border: 2px solid; display: flex; align-items: flex-start; padding: 2px 4px; font-size: 15px; }
+.rg.protected { border-color: var(--accent); background: rgba(25,211,176,.22); color: var(--accent); }
+.rg.claim { border-color: var(--violet); background: rgba(181,140,255,.22); color: var(--violet); }
+.rg.mine { border-color: var(--gold); background: rgba(255,210,58,.22); color: var(--gold); }
+.rg.sale { border-color: var(--gold); background: rgba(255,210,58,.12); color: var(--gold); border-style: dashed; }
+.rg.sel { box-shadow: 0 0 0 2px var(--text); }
+.rail { position: absolute; left: 0; top: 0; bottom: 0; width: 64px; border-right: 2px solid var(--line); background: rgba(12,14,18,.9); }
+.rail div { height: 54px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: var(--muted); font-size: 13px; letter-spacing: 1px; }
+.rail div b { font-size: 22px; font-weight: 400; color: var(--muted); }
+.rail div.on { color: var(--accent); background: rgba(25,211,176,.1); box-shadow: inset 3px 0 0 var(--accent); }
+.rail div.on b { color: var(--accent); }
+.card { position: absolute; border: 2px solid var(--line); background: var(--inset); box-sizing: border-box; padding: 6px 8px; }
+.card .cn { color: var(--text); }
+.card .cd { color: var(--muted); font-size: 15px; margin-top: 2px; }
+.card .seg { margin-top: 6px; }
+.chip { display: inline-block; padding: 2px 8px; border: 2px solid var(--violet); color: var(--violet); font-size: 15px; margin: 2px 2px 0 0; }
+.kv { position: absolute; left: 10px; right: 10px; font-size: 17px; line-height: 1.35; }
+.kv span { color: var(--muted); }
+.pick { border: 1px solid var(--line); padding: 20px 24px; display: grid; gap: 8px; }
+.pick h2 { font-size: 28px; }
+.pick ul { margin: 0; padding-left: 20px; color: var(--muted); font-size: 15px; }
+.cur { position: absolute; width: 10px; height: 10px; border: 2px solid var(--text); border-radius: 50%; box-sizing: border-box; }
+@media (max-width: 700px) { .brief { grid-template-columns: 1fr; } h1 { font-size: 32px; } }
+@media (prefers-reduced-motion: no-preference) { .rg.sel { animation: pulse 2s ease-in-out infinite; } @keyframes pulse { 50% { box-shadow: 0 0 0 4px rgba(230,234,242,.6); } } }
+</style>
+<style>
+.screen.small { width: 600px; height: 360px; }
+.toggle { display: inline-flex; align-items: center; gap: 6px; font-size: 17px; color: var(--text); }
+.toggle i { width: 26px; height: 12px; border: 2px solid var(--line); background: var(--inset); position: relative; display: inline-block; }
+.toggle i:after { content: ""; position: absolute; top: 1px; left: 1px; width: 10px; height: 10px; background: var(--muted); }
+.toggle.on i { border-color: var(--accent); }
+.toggle.on i:after { left: 15px; background: var(--accent); }
+.toggle.off i { border-color: var(--bad); }
+.toggle.off i:after { background: var(--bad); }
+</style>
+
+<div class="wrap">
+  <header style="display:grid;gap:10px">
+    <h1>Claim screen for players: three options</h1>
+    <p class="lead">What a player sees for their own claims (owner decision D17). Buying stays in BSP Core's shop screen, so this screen is for living with a claim: who may come in and build, the handful of flags an owner may set (the config list: entry, chest access, use, interact, ride, sleep, greeting, farewell, entry message, mob spawning, PvP), facts, and giving the claim up. Same Holo HUD style as the admin screen. Example player: Kai, with two claims, <b>field-kai-1</b> (outlined in the open area "field") and <b>shop3</b> (an admin plot). Opened with /claim gui or by sneaking and right-clicking the plot tool.</p>
+  </header>
+
+  <!-- ============================================================ OPTION A -->
+  <section class="option" id="a">
+    <h2>A. Small ledger <small>the admin screen's layout, cut down to what a player needs</small></h2>
+    <div class="brief">
+      <p>My claims on the left (and, below them, plots for sale and open areas nearby, each with a "buy in the shop" hint). The chosen claim on the right with four tabs: MAP, PEOPLE, FLAGS, INFO. The flag tab is the same switch row as the admin screen but only for the allowed flags. Players who have seen an admin at work will find it familiar, and it shares nearly all its code with the admin screen.</p>
+      <p><b>Good at:</b> several claims; one code base. <span class="con"><b>Weak at:</b></span> it looks like a tool, not a home screen; for a single claim the list column is wasted space.</p>
+    </div>
+    <div class="frame">
+      <div class="screen">
+        <div class="panel" style="left:12px;top:12px;width:832px;height:456px">
+          <div class="title">MY CLAIMS - OVERWORLD</div>
+          <div class="help" style="right:20px;top:18px">2 of 3 claims used</div>
+          <div class="ghead" style="left:16px;top:44px">MINE</div>
+          <div class="inset" style="left:16px;top:60px;width:270px;height:88px">
+            <div class="row sel" style="top:4px"><span>field-kai-1</span><span class="pill claim">8 x 8</span></div>
+            <div class="row" style="top:32px"><span>shop3</span><span class="pill claim">12 x 10</span></div>
+          </div>
+          <div class="ghead" style="left:16px;top:158px">FOR SALE NEARBY</div>
+          <div class="inset" style="left:16px;top:174px;width:270px;height:120px">
+            <div class="row" style="top:4px"><span>shop4</span><span class="pill sale">300 coins</span></div>
+            <div class="row" style="top:32px"><span>field</span><span class="pill sale">2 / block</span></div>
+            <div class="help" style="left:10px;top:70px">buy at the BSP Core shop</div>
+          </div>
+          <div class="btn dim" style="left:16px;top:412px">PLOT TOOL</div>
+          <div style="position:absolute;left:304px;top:44px;font-size:24px">field-kai-1 <span style="color:var(--muted);font-size:17px">yours - in field - 8 x 8</span></div>
+          <div class="help" style="left:304px;top:70px">bought for 128 coins, 2 days ago - 2 members</div>
+          <div class="tabs" style="left:304px;top:92px"><span class="tab">MAP</span><span class="tab">PEOPLE</span><span class="tab on">FLAGS</span><span class="tab">INFO</span></div>
+          <div class="inset" style="left:304px;top:124px;width:524px;height:280px">
+            <div class="help" style="left:10px;top:8px">what you may change on your own claim</div>
+            <div class="frow" style="top:26px"><span class="n">entry<i>deny keeps strangers out; members always pass</i></span><span class="seg"><span class="inh">inherit</span><span>allow</span><span class="deny">deny</span></span></div>
+            <div class="frow" style="top:52px"><span class="n">chest-access<i>opening chests and other inventories</i></span><span class="seg"><span>inherit</span><span class="allow">allow</span><span>deny</span></span></div>
+            <div class="frow" style="top:78px"><span class="n">use<i>doors, buttons, levers</i></span><span class="seg"><span class="inh">inherit</span><span>allow</span><span>deny</span></span></div>
+            <div class="frow" style="top:104px"><span class="n">interact<i>machines, animals, armour stands</i></span><span class="seg"><span class="inh">inherit</span><span>allow</span><span>deny</span></span></div>
+            <div class="frow" style="top:130px"><span class="n">pvp</span><span class="seg"><span>inherit</span><span>allow</span><span class="deny">deny</span></span></div>
+            <div class="frow" style="top:156px"><span class="n">mob-spawning</span><span class="seg"><span>inherit</span><span>allow</span><span class="deny">deny</span></span></div>
+            <div class="frow" style="top:182px"><span class="n">greeting</span><span style="color:var(--text);font-size:15px">"Kai's place" <span class="pill" style="margin-left:6px">edit</span></span></div>
+            <div class="frow" style="top:208px"><span class="n">entry-deny-message</span><span style="color:var(--muted);font-size:15px">not set <span class="pill" style="margin-left:6px">edit</span></span></div>
+          </div>
+          <div class="btn" style="left:304px;top:412px">TELEPORT</div>
+          <div class="btn dim" style="left:424px;top:412px">ENLARGE FROM TOOL</div>
+          <div class="btn bad" style="right:16px;top:412px">GIVE UP</div>
+          <div class="help" style="left:304px;top:446px">Changes save at once. Esc closes.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ OPTION B -->
+  <section class="option" id="b">
+    <h2>B. Claim card <small>one claim at a time, map first, everything on one page</small></h2>
+    <div class="brief">
+      <p>Opens on the claim you are standing in (or your first). A map of the claim and its neighbours on the left, with the claim outlined and the plots for sale around it in gold, so enlarging and buying next door make sense visually. On the right, members as chips with a + and an x, and the allowed flags as simple on/off switches with one-line hints (inherit is "follow the area's rule", shown as a third, grey state). Facts and the GIVE UP button at the bottom. Arrows in the header step through your claims.</p>
+      <p><b>Good at:</b> the usual case (one or two claims); nothing to learn; the map explains what a claim is. <span class="con"><b>Weak at:</b></span> many claims (arrows only); a long allowed-flag list would need scrolling.</p>
+    </div>
+    <div class="frame">
+      <div class="screen">
+        <div class="panel" style="left:12px;top:12px;width:832px;height:456px">
+          <div class="title">MY CLAIM</div>
+          <div style="position:absolute;left:220px;top:12px;display:flex;align-items:center;gap:10px"><span class="pill">&lt;</span><span style="font-size:24px">field-kai-1</span><span class="pill">&gt;</span><span class="pill claim">1 of 2</span><span style="color:var(--muted)">in field - 8 x 8 - bought for 128 coins</span></div>
+          <div class="map" id="map-b" style="left:16px;top:44px;width:360px;height:280px;grid-template-columns:repeat(30,1fr);grid-template-rows:repeat(23,1fr);border:2px solid var(--line);box-sizing:border-box"></div>
+          <div class="rg sale" style="left:20px;top:48px;width:352px;height:272px;font-size:13px">field - open, 2 coins per block</div>
+          <div class="rg claim sel" style="left:140px;top:140px;width:96px;height:96px">field-kai-1</div>
+          <div class="rg claim" style="left:250px;top:120px;width:70px;height:70px;font-size:0"></div>
+          <div class="rg claim" style="left:60px;top:220px;width:60px;height:60px;font-size:0"></div>
+          <div class="cur" style="left:184px;top:184px"></div>
+          <div class="help" style="left:16px;top:330px">your plot and the field around it - outline a bigger plot with the tool, then ENLARGE</div>
+          <div class="btn dim" style="left:16px;top:352px">PLOT TOOL</div>
+          <div class="btn dim" style="left:120px;top:352px">ENLARGE</div>
+          <div class="btn" style="left:224px;top:352px">TELEPORT HOME</div>
+          <div class="ghead" style="left:396px;top:44px">WHO MAY BUILD HERE</div>
+          <div style="position:absolute;left:396px;top:62px;width:420px"><span class="chip">Kai (owner)</span><span class="chip">Mo <b style="color:var(--bad)">x</b></span><span class="chip">Priya <b style="color:var(--bad)">x</b></span><span class="pill protected" style="display:inline-block;margin-top:2px">+ add</span></div>
+          <div class="ghead" style="left:396px;top:104px">RULES</div>
+          <div class="help" style="left:396px;top:120px">off = nobody but members; grey = follow the area's rule</div>
+          <div style="position:absolute;left:396px;top:140px;display:grid;grid-template-columns:1fr 1fr;gap:10px 20px;width:420px">
+            <span class="toggle off"><i></i>strangers may enter</span>
+            <span class="toggle on"><i></i>strangers may open chests</span>
+            <span class="toggle"><i></i>strangers may use doors</span>
+            <span class="toggle"><i></i>strangers may use machines</span>
+            <span class="toggle off"><i></i>PvP inside</span>
+            <span class="toggle off"><i></i>mobs spawn inside</span>
+            <span class="toggle"><i></i>strangers may ride</span>
+            <span class="toggle"><i></i>strangers may sleep</span>
+          </div>
+          <div class="ghead" style="left:396px;top:262px">MESSAGES</div>
+          <div class="frow" style="top:278px;left:390px;right:16px"><span class="n">on entering</span><span style="font-size:15px">"Kai's place" <span class="pill" style="margin-left:6px">edit</span></span></div>
+          <div class="frow" style="top:302px;left:390px;right:16px"><span class="n">when refused</span><span style="font-size:15px;color:var(--muted)">not set <span class="pill" style="margin-left:6px">edit</span></span></div>
+          <div class="help" style="left:396px;top:352px">bought 2 days ago - give up returns 64 coins</div>
+          <div class="btn bad" style="right:16px;top:412px">GIVE UP THIS CLAIM</div>
+          <div class="help" style="left:16px;top:446px">Changes save at once. Esc closes. Buying plots: the BSP Core shop.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ OPTION C -->
+  <section class="option" id="c">
+    <h2>C. Compact panel <small>a small inventory-sized panel, no map, switches only</small></h2>
+    <div class="brief">
+      <p>A 300 by 180 panel like a chest screen, for quick changes without leaving the game: the claim's name and size, a row of member heads with + and x, the allowed flags as two columns of switches, and GIVE UP. Everything the owner can change is one click away and the panel never scrolls; a tab row at the top switches between claims. No map: the in-world drawing (the violet box) already shows the claim.</p>
+      <p><b>Good at:</b> speed and small screens; nothing to explain. <span class="con"><b>Weak at:</b></span> text flags (greeting, refusal message) need a separate line; no room for plots for sale; no map for enlarging.</p>
+    </div>
+    <div class="frame">
+      <div class="screen small">
+        <div class="panel" style="left:0;top:0;width:600px;height:360px">
+          <div class="tabs" style="left:16px;top:10px"><span class="tab on">field-kai-1</span><span class="tab">shop3</span></div>
+          <div class="help" style="right:16px;top:14px">8 x 8 - 128 coins - in field</div>
+          <div class="ghead" style="left:16px;top:44px">MEMBERS</div>
+          <div style="position:absolute;left:16px;top:60px"><span class="chip">Mo x</span><span class="chip">Priya x</span><span class="pill protected" style="display:inline-block">+</span></div>
+          <div class="ghead" style="left:16px;top:96px">STRANGERS MAY</div>
+          <div style="position:absolute;left:16px;top:114px;display:grid;grid-template-columns:1fr 1fr;gap:8px 24px;width:560px">
+            <span class="toggle off"><i></i>enter</span><span class="toggle on"><i></i>open chests</span>
+            <span class="toggle"><i></i>use doors</span><span class="toggle"><i></i>use machines</span>
+            <span class="toggle"><i></i>ride</span><span class="toggle"><i></i>sleep</span>
+          </div>
+          <div class="ghead" style="left:16px;top:208px">INSIDE</div>
+          <div style="position:absolute;left:16px;top:226px;display:grid;grid-template-columns:1fr 1fr;gap:8px 24px;width:560px">
+            <span class="toggle off"><i></i>PvP</span><span class="toggle off"><i></i>mobs spawn</span>
+          </div>
+          <div class="frow" style="top:262px;left:10px;right:10px"><span class="n">greeting</span><span style="font-size:15px">"Kai's place" <span class="pill" style="margin-left:6px">edit</span></span></div>
+          <div class="btn dim" style="left:16px;top:312px">ENLARGE FROM TOOL</div>
+          <div class="btn" style="left:190px;top:312px">TELEPORT</div>
+          <div class="btn bad" style="right:16px;top:312px">GIVE UP</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="pick">
+    <h2>How to answer</h2>
+    <p>Reply with A, B or C, or a mix. My recommendation is <b>B</b>: a player has one or two claims, the map makes enlarging and buying next door obvious, and the on/off wording ("strangers may enter") is easier than inherit / allow / deny. If the allowed-flag list grows past about ten, B's rules area scrolls.</p>
+    <ul>
+      <li>Opening: /claim gui and sneak + right-click with the plot tool (the same wand), unless you prefer something else.</li>
+      <li>Wording: the flags are shown as plain sentences on this screen ("strangers may open chests") rather than flag names; the command keeps the names.</li>
+      <li>Teleport home: a "TELEPORT" button to your claim is cheap to add; say if claims should not be teleport targets (BSP-Teleport may own that later).</li>
+    </ul>
+  </section>
+</div>
+
+<script>
+(function () {
+  function seed(s) { return function () { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
+  function fill(id, cols, rows, s) {
+    var el = document.getElementById(id); if (!el) return;
+    var rnd = seed(s); var frag = document.createDocumentFragment();
+    for (var r = 0; r < rows; r++) for (var c = 0; c < cols; c++) {
+      var h = Math.sin(c * 0.35 + s) * 0.5 + Math.cos(r * 0.42 + c * 0.11) * 0.5 + (rnd() - 0.5) * 0.4;
+      var col;
+      if (h < -0.55) col = '#1f3d5a'; else if (h < -0.4) col = '#2a5a7a';
+      else if (h < 0.35) col = (rnd() < 0.5 ? '#2f5a2f' : '#366636');
+      else if (h < 0.7) col = '#4b5340'; else col = '#6b6f6a';
+      var d = document.createElement('div'); d.style.background = col; frag.appendChild(d);
+    }
+    el.appendChild(frag);
+  }
+  fill('map-b', 30, 23, 11);
+})();
+</script>

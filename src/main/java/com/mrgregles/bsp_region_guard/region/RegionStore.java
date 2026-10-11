@@ -32,8 +32,23 @@ public final class RegionStore extends SavedData {
     @Nullable
     private Region global;
 
+    @Nullable
+    private static java.util.function.Consumer<RegionStore> changeListener;
+
     private RegionStore(ResourceKey<Level> dimension) {
         this.dimension = dimension;
+    }
+
+    /** Told after every add, remove or touch, so clients can be kept up to date. */
+    public static void setChangeListener(@Nullable java.util.function.Consumer<RegionStore> listener) {
+        changeListener = listener;
+    }
+
+    private void changed() {
+        setDirty();
+        if (changeListener != null) {
+            changeListener.accept(this);
+        }
     }
 
     public static RegionStore get(ServerLevel level) {
@@ -105,7 +120,7 @@ public final class RegionStore extends SavedData {
             index.add(region);
         }
         region.bumpVersion();
-        setDirty();
+        changed();
     }
 
     /** Removes a region. Children of it lose their parent. Returns false when there was no such region. */
@@ -125,7 +140,7 @@ public final class RegionStore extends SavedData {
                 r.bumpVersion();
             }
         }
-        setDirty();
+        changed();
         return true;
     }
 
@@ -139,7 +154,7 @@ public final class RegionStore extends SavedData {
             index.add(region);
         }
         region.bumpVersion();
-        setDirty();
+        changed();
     }
 
     /** Rebuilds the index from scratch (after a bulk load). */

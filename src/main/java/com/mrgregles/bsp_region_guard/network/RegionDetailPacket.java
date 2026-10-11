@@ -16,12 +16,13 @@ import java.util.function.Supplier;
 /**
  * Server to client: everything the screen shows about one region. Flag values travel as the text the flag formats
  * them to (the same text the commands accept), so the client never needs the value types. {@code inherited} holds
- * values that come from the parent chain and are not set on the region itself.
+ * values that come from the parent chain and are not set on the region itself. {@code data} is the region's type
+ * data (price, cost per block, who bought it) as text.
  */
 public record RegionDetailPacket(String id, String name, String type, int priority, @Nullable String parent, @Nullable Cuboid bounds,
                                  List<Person> owners, List<Person> members, List<String> ranks,
                                  Map<String, String> flags, Map<String, String> inherited, List<String> availableRanks,
-                                 int version, long updatedAt) {
+                                 int version, long updatedAt, Map<String, String> data) {
 
     public record Person(UUID uuid, String name) {
         void write(FriendlyByteBuf buf) {
@@ -49,6 +50,7 @@ public record RegionDetailPacket(String id, String name, String type, int priori
         buf.writeCollection(msg.availableRanks, (b, r) -> b.writeUtf(r, 64));
         buf.writeVarInt(msg.version);
         buf.writeLong(msg.updatedAt);
+        buf.writeMap(msg.data, (b, k) -> b.writeUtf(k, 64), (b, v) -> b.writeUtf(v, 256));
     }
 
     public static RegionDetailPacket decode(FriendlyByteBuf buf) {
@@ -57,7 +59,8 @@ public record RegionDetailPacket(String id, String name, String type, int priori
                 buf.readList(Person::read), buf.readList(Person::read), buf.readList(b -> b.readUtf(64)),
                 buf.readMap(LinkedHashMap::new, b -> b.readUtf(64), b -> b.readUtf(1024)),
                 buf.readMap(LinkedHashMap::new, b -> b.readUtf(64), b -> b.readUtf(1024)),
-                buf.readList(b -> b.readUtf(64)), buf.readVarInt(), buf.readLong());
+                buf.readList(b -> b.readUtf(64)), buf.readVarInt(), buf.readLong(),
+                buf.readMap(LinkedHashMap::new, b -> b.readUtf(64), b -> b.readUtf(256)));
     }
 
     public static void handle(RegionDetailPacket msg, Supplier<NetworkEvent.Context> ctx) {

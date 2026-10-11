@@ -11,6 +11,9 @@ public final class RegionClient {
     private static RegionListPacket list;
     @Nullable
     private static RegionDetailPacket detail;
+    @Nullable
+    private static com.mrgregles.bsp_region_guard.network.SelectionPacket selection;
+    private static boolean showRegions = true;
 
     private RegionClient() {
     }
@@ -32,6 +35,8 @@ public final class RegionClient {
             mc.setScreen(new RegionScreen(msg.select()));
         } else if (mc.screen instanceof RegionScreen screen) {
             screen.onList(msg);
+        } else if (mc.screen instanceof ClaimScreen screen) {
+            screen.onList(msg);
         }
     }
 
@@ -39,11 +44,41 @@ public final class RegionClient {
         detail = msg;
         if (Minecraft.getInstance().screen instanceof RegionScreen screen) {
             screen.onDetail(msg);
+        } else if (Minecraft.getInstance().screen instanceof ClaimScreen screen) {
+            screen.onDetail(msg);
         }
+    }
+
+    public static void receive(com.mrgregles.bsp_region_guard.network.ClaimOpenPacket msg) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.screen instanceof ClaimScreen screen) {
+            screen.onOpen(msg);
+        } else {
+            mc.setScreen(new ClaimScreen(msg));
+        }
+    }
+
+    public static void receive(com.mrgregles.bsp_region_guard.network.SelectionPacket msg) {
+        selection = msg;
+    }
+
+    @Nullable
+    public static com.mrgregles.bsp_region_guard.network.SelectionPacket selection() {
+        return selection;
+    }
+
+    public static boolean showRegions() {
+        return showRegions;
+    }
+
+    public static boolean toggleShowRegions() {
+        showRegions = !showRegions;
+        return showRegions;
     }
 
     public static void clear() {
         list = null;
         detail = null;
+        selection = null;
     }
 }

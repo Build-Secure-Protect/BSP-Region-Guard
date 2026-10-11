@@ -52,7 +52,7 @@ public class SyncGameTests {
 
         RegionDetailPacket detail = new RegionDetailPacket("spawn", "Spawn", "protected", 10, "parent", box,
                 List.of(new RegionDetailPacket.Person(UUID.randomUUID(), "Mrgregles")), List.of(), List.of("vip"),
-                Map.of("pvp", "deny", "greeting", "Welcome to spawn"), Map.of("mob-spawning", "deny"), List.of("default", "vip"), 7, 123456789L);
+                Map.of("pvp", "deny", "greeting", "Welcome to spawn"), Map.of("mob-spawning", "deny"), List.of("default", "vip"), 7, 123456789L, Map.of("price", "1200"));
         buf = new FriendlyByteBuf(Unpooled.buffer());
         RegionDetailPacket.encode(detail, buf);
         RegionDetailPacket back2 = RegionDetailPacket.decode(buf);
@@ -132,6 +132,31 @@ public class SyncGameTests {
             store(h).remove("sync_parent");
             Selections.forget(admin.getUUID());
             admin.discard();
+        }
+        h.succeed();
+    }
+
+    @GameTest(template = EMPTY)
+    public void players_only_receive_their_own_claims_and_plots_for_sale(GameTestHelper h) {
+        ServerLevel level = h.getLevel();
+        ServerPlayer player = TestPlayers.mockServerPlayer(h);
+        Region secret = new Region("list_secret", level.dimension(), Cuboid.of(h.absolutePos(new BlockPos(1, 1, 1)), h.absolutePos(new BlockPos(3, 3, 3))), RegionType.PROTECTED);
+        Region mine = new Region("list_mine", level.dimension(), Cuboid.of(h.absolutePos(new BlockPos(5, 1, 1)), h.absolutePos(new BlockPos(7, 3, 3))), RegionType.CLAIM);
+        mine.addOwner(player.getUUID());
+        Region sale = new Region("list_sale", level.dimension(), Cuboid.of(h.absolutePos(new BlockPos(9, 1, 1)), h.absolutePos(new BlockPos(11, 3, 3))), RegionType.PLOT_FOR_SALE);
+        store(h).add(secret);
+        store(h).add(mine);
+        store(h).add(sale);
+        try {
+            List<String> ids = RegionSync.listFor(player).stream().map(RegionListPacket.Summary::id).toList();
+            h.assertTrue(!RegionSync.mayEdit(player), "the mock player is not an admin");
+            h.assertTrue(ids.contains("list_mine") && ids.contains("list_sale") && !ids.contains("list_secret"),
+                    "a player sees their claim and the plot for sale, not the admin region: " + ids);
+        } finally {
+            store(h).remove("list_secret");
+            store(h).remove("list_mine");
+            store(h).remove("list_sale");
+            player.discard();
         }
         h.succeed();
     }

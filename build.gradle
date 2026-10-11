@@ -71,6 +71,8 @@ repositories {
     }
     // BSP-Core has no published artifact: its built jar is picked up from the sibling repo.
     flatDir { dirs bsp_core_libs }
+    // Dev-run-only jars (LuckPerms for the GameTests), not shipped. See tools/make_luckperms_dev_jar.py.
+    flatDir { dirs 'libs' }
 }
 
 dependencies {
@@ -83,6 +85,15 @@ dependencies {
     compileOnly "net.luckperms:api:${luckperms_api_version}"
 
     annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
+
+    // LuckPerms in dev runs only (the GameTests exercise the bridge). The inner jar is remapped by ForgeGradle here;
+    // tools/make_luckperms_dev_jar.py repackages the remapped inner jar into the loader as LuckPerms-Forge-dev.
+    if (file('libs/LuckPerms-Forge-inner-5.4.102.jar').exists()) {
+        runtimeOnly fg.deobf("blank:LuckPerms-Forge-inner:5.4.102")
+    }
+    if (file('libs/LuckPerms-Forge-dev-5.4.102.jar').exists()) {
+        runtimeOnly files('libs/LuckPerms-Forge-dev-5.4.102.jar')
+    }
 }
 
 tasks.named('processResources', ProcessResources).configure {
