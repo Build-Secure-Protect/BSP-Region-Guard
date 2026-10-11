@@ -12,7 +12,20 @@ Available from `FMLCommonSetupEvent` on. `RegionGuardApi.API_VERSION` is raised 
 
 ## Services
 
-None yet beyond `modVersion()`. Regions, flags, claims, mines and teleport triggers are documented here as they are built.
+| Call | What |
+|---|---|
+| `regions().regionIdsAt(level, pos)` | ids of the regions at a position, highest priority first, world default last |
+| `regions().allows(level, pos, flag, player)` | whether a state flag allows the action there (exemptions included); flags are the constants in `flag.Flags` |
+| `regions().value(level, pos, flag)` | a flag's value there, or null |
+| `regions().registerFlag(flag)` | add your own flag before the server starts; it appears in the admin screen |
+| `regions().addExemption(...)` | lift region rules for a player in a spot |
+| `claims()` | see Claims below |
+| `mines().isMine / reset / secondsToReset` | mines |
+| `publish(kind, dimension, regionId, payload)` | send a message to the other servers through the shared storage; false when storage is off |
+
+## Region triggers
+
+Admins attach triggers to regions (`/rg trigger add ...`): on enter, exit, a timer while inside, or server shutdown, send the player to a world and position on this server or on another server. Each firing is a `RegionTriggerEvent` (cancellable). Region Guard carries out same-server moves itself; cross-server moves are BSP Teleport's: it listens, cancels and moves the player. When no listener cancels a cross-server trigger, Region Guard publishes kind `trigger` with payload `uuid;server;world;x;y;z` through the shared storage.
 
 ## Claims (`RegionGuardApi.get().claims()`)
 
@@ -49,5 +62,7 @@ Both extend `PlayerEvent`; `getEntity()` is the `ServerPlayer`. They fire from t
 
 | `MineResetEvent` | a mine starts refilling (players inside already moved out); `level()`, `mineId()`, `blocks()` | not cancellable |
 | `ClaimPurchasedEvent`, `ClaimAbandonedEvent` | see the claims section | not cancellable |
+| `RegionTriggerEvent` | a region trigger fired for a player: `player()`, `regionId()`, `cause()` (ENTER, EXIT, TIMER, SHUTDOWN), `destinationServer()` (empty = this server), `destinationWorld()`, `x() y() z()`, `message()`; cancel to take the move over | cancellable |
+| `RemoteMessageEvent` | another server published a message through the shared storage: `source()`, `kind()`, `dimension()`, `regionId()`, `payload()`; publish with `storage.RegionMirror.active().publish(kind, dimension, regionId, payload)` (null when storage is off) | not cancellable |
 
 Mines are driven by `com.mrgregles.bsp_region_guard.mine.Mines` (`reset`, `schedule`, `secondsToReset`, `makeShell`, `spawnOf`) and `MineData` (fill table, interval, spawn); a `MineService` in the `api` package wraps them in Phase 9.

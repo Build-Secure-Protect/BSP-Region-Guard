@@ -160,4 +160,31 @@ public class SyncGameTests {
         }
         h.succeed();
     }
+
+    @GameTest(template = EMPTY)
+    public void screen_trigger_actions_add_and_remove(GameTestHelper h) {
+        ServerLevel level = h.getLevel();
+        ServerPlayer admin = TestPlayers.mockServerPlayer(h);
+        BlockPos at = h.absolutePos(new BlockPos(3, 2, 3));
+        admin.setPos(at.getX() + 0.5, at.getY(), at.getZ() + 0.5);
+        Region r = new Region("sync_trig", level.dimension(), Cuboid.of(h.absolutePos(new BlockPos(1, 1, 1)), h.absolutePos(new BlockPos(5, 5, 5))), RegionType.PROTECTED);
+        store(h).add(r);
+        try {
+            String added = RegionSync.apply(admin, new RegionActionPacket(RegionActionPacket.TRIGGER_ADD, "sync_trig", "enter", "here Welcome in"));
+            var triggers = com.mrgregles.bsp_region_guard.trigger.Trigger.of(r.typeData());
+            h.assertTrue(triggers.size() == 1 && (int) triggers.get(0).x() == at.getX() && "Welcome in".equals(triggers.get(0).message()), "an enter trigger at 'here' with a message: " + added);
+            String bad = RegionSync.apply(admin, new RegionActionPacket(RegionActionPacket.TRIGGER_ADD, "sync_trig", "timer", "here"));
+            h.assertTrue(bad != null && bad.contains("seconds") && com.mrgregles.bsp_region_guard.trigger.Trigger.of(r.typeData()).size() == 1, "a timer without seconds is refused");
+            RegionSync.apply(admin, new RegionActionPacket(RegionActionPacket.TRIGGER_ADD, "sync_trig", "timer", "30 lobby/minecraft:overworld 0 64 0"));
+            triggers = com.mrgregles.bsp_region_guard.trigger.Trigger.of(r.typeData());
+            h.assertTrue(triggers.size() == 2 && "lobby".equals(triggers.get(1).server()) && triggers.get(1).intervalSeconds() == 30, "a cross-server timer trigger");
+            RegionSync.apply(admin, new RegionActionPacket(RegionActionPacket.TRIGGER_REMOVE, "sync_trig", "1", ""));
+            triggers = com.mrgregles.bsp_region_guard.trigger.Trigger.of(r.typeData());
+            h.assertTrue(triggers.size() == 1 && "lobby".equals(triggers.get(0).server()), "removing the first leaves the timer");
+        } finally {
+            store(h).remove("sync_trig");
+            admin.discard();
+        }
+        h.succeed();
+    }
 }

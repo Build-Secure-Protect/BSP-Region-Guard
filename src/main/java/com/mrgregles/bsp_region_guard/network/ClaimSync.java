@@ -1,6 +1,5 @@
 package com.mrgregles.bsp_region_guard.network;
 
-import com.mojang.authlib.GameProfile;
 import com.mrgregles.bsp_region_guard.api.ClaimResult;
 import com.mrgregles.bsp_region_guard.claim.ClaimFlags;
 import com.mrgregles.bsp_region_guard.claim.Claims;
@@ -18,7 +17,6 @@ import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 /** The server side of the player's claim screen. Every action goes through {@link Claims}, which checks ownership. */
@@ -90,7 +88,7 @@ public final class ClaimSync {
         switch (msg.action()) {
             case ClaimActionPacket.FLAG -> result = Claims.INSTANCE.setPlayerFlag(player, claim.id(), msg.a(), msg.b());
             case ClaimActionPacket.ADD_MEMBER, ClaimActionPacket.REMOVE_MEMBER -> {
-                UUID who = resolve(player, msg.a().trim());
+                UUID who = RegionSync.resolvePlayer(player, msg.a().trim());
                 if (who == null) {
                     return "No player called '" + msg.a().trim() + "' is known to this server.";
                 }
@@ -123,25 +121,5 @@ public final class ClaimSync {
         }
         RegionSync.sendList(player, null, false);
         return result.message();
-    }
-
-    @Nullable
-    private static UUID resolve(ServerPlayer viewer, String nameOrUuid) {
-        try {
-            return UUID.fromString(nameOrUuid);
-        } catch (IllegalArgumentException ignored) {
-            // a name
-        }
-        ServerPlayer online = viewer.server.getPlayerList().getPlayerByName(nameOrUuid);
-        if (online != null) {
-            return online.getUUID();
-        }
-        if (viewer.server.getProfileCache() != null) {
-            Optional<GameProfile> cached = viewer.server.getProfileCache().get(nameOrUuid);
-            if (cached.isPresent()) {
-                return cached.get().getId();
-            }
-        }
-        return null;
     }
 }

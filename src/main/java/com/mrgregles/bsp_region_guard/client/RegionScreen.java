@@ -44,7 +44,10 @@ public class RegionScreen extends Screen {
         }
     }
 
-    private enum Input { NONE, NEW_ID, FLAG_VALUE, PLAYER, RANK, PARENT, NAME, TELEPORT_MESSAGE, DATA, MINE_BLOCK, MINE_INTERVAL, MINE_SHELL }
+    private enum Input { NONE, NEW_ID, FLAG_VALUE, PLAYER, RANK, PARENT, NAME, TELEPORT_MESSAGE, DATA, MINE_BLOCK, MINE_INTERVAL, MINE_SHELL, TRIGGER }
+
+    private String triggerCause = "enter";
+    private boolean showRemote;
 
     @Nullable
     private String editingData;
@@ -104,6 +107,9 @@ public class RegionScreen extends Screen {
     }
 
     private void select(String id) {
+        if (id.contains("/")) {
+            return; // another server's region: shown on the map and in the list, not editable here
+        }
         if (!id.equals(selected)) {
             selected = id;
             confirmDelete = false;
@@ -226,6 +232,11 @@ public class RegionScreen extends Screen {
                 }
             }
             case MINE_INTERVAL -> act(RegionActionPacket.MINE_INTERVAL, value.isEmpty() ? "0" : value);
+            case TRIGGER -> {
+                if (selected != null && !value.isEmpty()) {
+                    send(new RegionActionPacket(RegionActionPacket.TRIGGER_ADD, selected, triggerCause, value));
+                }
+            }
             case MINE_SHELL -> act(RegionActionPacket.MINE_SHELL, value.isEmpty() ? "5" : value);
             default -> {
             }
@@ -241,7 +252,7 @@ public class RegionScreen extends Screen {
         return switch (type) {
             case "claim" -> VIO & 0xFFFFFF;
             case "mine", "plot_for_sale", "open_for_buying" -> GOLD & 0xFFFFFF;
-            case "global" -> MUTED & 0xFFFFFF;
+            case "global", "remote" -> MUTED & 0xFFFFFF;
             default -> TQ & 0xFFFFFF;
         };
     }
@@ -252,6 +263,7 @@ public class RegionScreen extends Screen {
             case "mine" -> "M";
             case "plot_for_sale", "open_for_buying" -> "S";
             case "global" -> "W";
+            case "remote" -> "R";
             default -> "P";
         };
     }
@@ -528,6 +540,10 @@ public class RegionScreen extends Screen {
         }));
         String scale = "1 px = " + map.bpp + (map.bpp == 1 ? " block" : " blocks") + " - wheel zooms - click a region - double-click opens FLAGS";
         text(g, scale, mx + 2, my + RegionMap.H + 2, MUTED, 0.6f);
+        chip(g, mx + RegionMap.W - 70, my + 2, 68, 10, showRemote ? "HIDE OTHERS" : "OTHER SERVERS", showRemote, MUTED, 0.5f, () -> {
+            showRemote = !showRemote;
+            send(RegionActionPacket.of(showRemote ? RegionActionPacket.LIST_REMOTE : RegionActionPacket.LIST, selected == null ? "" : selected));
+        });
         if (hovered != null) {
             String tip = hovered.id() + " - " + hovered.type().replace('_', ' ') + " - priority " + hovered.priority();
             text(g, tip, mx + RegionMap.W - 2 - (int) (font.width(tip) * 0.6f), my + RegionMap.H + 2, TEXT, 0.6f);
@@ -682,24 +698,50 @@ public class RegionScreen extends Screen {
         int px = x + PANE_X, cy = y + CONTENT_Y;
         String tp = d == null ? null : d.flags().get("teleport");
         String spawn = d == null ? null : d.flags().get("spawn");
-        String msg = d == null ? null : d.flags().get("teleport-message");
-        text(g, "TELEPORT POINT", px + 6, cy + 5, TQ, 0.6f);
-        text(g, "where /rg teleport and the TELEPORT button go", px + 6, cy + 12, 0xFF6F7788, 0.5f);
-        text(g, tp == null ? "not set: the top of the region's centre" : tp, px + 6, cy + 20, tp == null ? MUTED : TEXT, 0.75f);
-        button(g, px + 6, cy + 31, 56, 12, "SET HERE", TQ, () -> flag("teleport", "here"));
-        button(g, px + 66, cy + 31, 40, 12, "CLEAR", BAD, () -> flag("teleport", ""));
-        button(g, px + 110, cy + 31, 30, 12, "GO", MUTED, () -> act(RegionActionPacket.TELEPORT, ""));
-        text(g, "RESPAWN POINT", px + 6, cy + 52, TQ, 0.6f);
-        text(g, "where players who die inside the region respawn", px + 6, cy + 59, 0xFF6F7788, 0.5f);
-        text(g, spawn == null ? "not set: normal respawn" : spawn, px + 6, cy + 67, spawn == null ? MUTED : TEXT, 0.75f);
-        button(g, px + 6, cy + 78, 56, 12, "SET HERE", TQ, () -> flag("spawn", "here"));
-        button(g, px + 66, cy + 78, 40, 12, "CLEAR", BAD, () -> flag("spawn", ""));
-        text(g, "MESSAGE AFTER TELEPORT", px + 6, cy + 99, TQ, 0.6f);
-        text(g, msg == null ? "none" : "\"" + font.plainSubstrByWidth(msg, 200) + "\"", px + 6, cy + 107, msg == null ? MUTED : TEXT, 0.75f);
-        if (inputMode != Input.TELEPORT_MESSAGE) {
-            chip(g, px + PANE_W - 40, cy + 105, 34, 11, "edit", false, TQ, 0.6f, () -> openInput(Input.TELEPORT_MESSAGE, msg == null ? "" : msg, "message shown after teleporting"));
+        text(g, "TELEPORT POINT", px + 6, cy + 4, TQ, 0.6f);
+        text(g, tp == null ? "not set: the top of the region's centre" : font.plainSubstrByWidth(tp, 200), px + 80, cy + 4, tp == null ? MUTED : TEXT, 0.6f);
+        chip(g, px + 6, cy + 12, 44, 10, "SET HERE", false, TQ, 0.5f, () -> flag("teleport", "here"));
+        chip(g, px + 54, cy + 12, 30, 10, "CLEAR", false, BAD, 0.5f, () -> flag("teleport", ""));
+        chip(g, px + 88, cy + 12, 24, 10, "GO", false, MUTED, 0.5f, () -> act(RegionActionPacket.TELEPORT, ""));
+        text(g, "RESPAWN POINT", px + 6, cy + 26, TQ, 0.6f);
+        text(g, spawn == null ? "not set: normal respawn" : font.plainSubstrByWidth(spawn, 200), px + 80, cy + 26, spawn == null ? MUTED : TEXT, 0.6f);
+        chip(g, px + 6, cy + 34, 44, 10, "SET HERE", false, TQ, 0.5f, () -> flag("spawn", "here"));
+        chip(g, px + 54, cy + 34, 30, 10, "CLEAR", false, BAD, 0.5f, () -> flag("spawn", ""));
+
+        text(g, "TRIGGERS", px + 6, cy + 50, GOLD, 0.6f);
+        text(g, "move players on entering, leaving, a timer, or server shutdown", px + 50, cy + 50, 0xFF6F7788, 0.5f);
+        java.util.Map<String, String> data = d == null ? java.util.Map.of() : d.data();
+        int ry = cy + 59, n = 0;
+        for (int i = 1; i <= 20; i++) {
+            String line = data.get("trigger." + i);
+            if (line == null) {
+                break;
+            }
+            n++;
+            if (n > 5) {
+                text(g, "+ more: /rg trigger list " + selected, px + 6, ry, MUTED, 0.5f);
+                ry += 8;
+                break;
+            }
+            text(g, i + ". " + font.plainSubstrByWidth(line, 380), px + 6, ry, TEXT, 0.5f);
+            int index = i;
+            chip(g, px + PANE_W - 18, ry - 1, 12, 8, "x", false, BAD, 0.5f, () -> act(RegionActionPacket.TRIGGER_REMOVE, String.valueOf(index)));
+            ry += 8;
         }
-        text(g, "BSP Teleport triggers (enter, exit, timer) come with Phase 8.", px + 6, cy + 122, 0xFF6F7788, 0.5f);
+        if (n == 0) {
+            text(g, "none", px + 6, ry, MUTED, 0.5f);
+            ry += 8;
+        }
+        if (inputMode != Input.TRIGGER) {
+            String[] causes = {"enter", "exit", "timer", "shutdown"};
+            for (int i = 0; i < causes.length; i++) {
+                String c = causes[i];
+                chip(g, px + 6 + i * 46, ry + 2, 44, 10, c.toUpperCase(java.util.Locale.ROOT), triggerCause.equals(c), GOLD, 0.5f, () -> triggerCause = c);
+            }
+            chip(g, px + 6 + 4 * 46, ry + 2, 50, 10, "+ ADD", false, GOLD, 0.5f, () -> openInput(Input.TRIGGER, "here",
+                    triggerCause.equals("timer") ? "seconds, then: here | world x y z | server/world x y z [message]" : "here | world x y z | server/world x y z [message]"));
+        }
+        text(g, "cross-server destinations (server/world) are carried out by BSP Teleport", px + 6, cy + CONTENT_H - 10, 0xFF6F7788, 0.5f);
     }
 
     private void drawSale(GuiGraphics g, int x, int y, RegionListPacket.Summary s, @Nullable RegionDetailPacket d) {
@@ -714,6 +756,7 @@ public class RegionScreen extends Screen {
             text(g, "OWNED CLAIM", px + 6, cy + 5, VIO, 0.6f);
             text(g, "bought for " + data.getOrDefault("boughtFor", "?") + " coins, origin: " + data.getOrDefault("origin", "?"), px + 6, cy + 13, TEXT, 0.75f);
             text(g, "The owner gives it up with /claim abandon; an admin can too. An admin plot then goes back on sale.", px + 6, cy + 24, 0xFF6F7788, 0.5f);
+            text(g, "BUYER MAY SET: " + data.getOrDefault("playerFlags", "the config list"), px + 6, cy + 36, GOLD, 0.6f);
             return;
         }
         text(g, "PLOT FOR SALE", px + 6, cy + 5, GOLD, 0.6f);
@@ -729,7 +772,9 @@ public class RegionScreen extends Screen {
         button(g, px + 6, cy + 78, 70, 12, "SET COST", GOLD, () -> data("costPerBlock", cost, "coins per block of ground; 0 closes the area"));
         button(g, px + 80, cy + 78, 56, 12, "MIN SIZE", MUTED, () -> data("minSize", data.getOrDefault("minSize", ""), "smallest side in blocks; empty uses the config"));
         button(g, px + 140, cy + 78, 56, 12, "MAX SIZE", MUTED, () -> data("maxSize", data.getOrDefault("maxSize", ""), "largest side in blocks; empty uses the config"));
-        text(g, "Buying happens in BSP Core's shop screen, or with /claim buy until it exists.", px + 6, cy + 100, 0xFF6F7788, 0.5f);
+        text(g, "BUYER MAY SET: " + data.getOrDefault("playerFlags", "the config list"), px + 6, cy + 96, GOLD, 0.6f);
+        chip(g, px + PANE_W - 40, cy + 94, 34, 10, "edit", false, GOLD, 0.5f, () -> data("playerFlags", data.getOrDefault("playerFlags", ""), "flags the buyer may set, comma separated; 'default' for the config list"));
+        text(g, "Buying happens in BSP Core's shop screen, or with /claim buy until it exists.", px + 6, cy + 108, 0xFF6F7788, 0.5f);
     }
 
     private void drawMine(GuiGraphics g, int x, int y, RegionListPacket.Summary s, @Nullable RegionDetailPacket d) {

@@ -164,4 +164,26 @@ As a non-admin player in a world where claims are allowed, owning at least one c
 - [ ] `/rg flag quarry allowed-ranks vip` (with LuckPerms): a player without the group is pushed back at the mine's edge; a `vip` player digs. `/rg ranks <player>` shows an online player's groups.
 - [ ] Admin screen, MINE tab: on a non-mine region, MAKE THIS A MINE; on a mine, the fill table with x to remove, + ADD BLOCK ("minecraft:coal_ore 10"), INTERVAL, RESET NOW, SET SPAWN / MOVE SPAWN, MAKE SHELL / RESIZE SHELL, and the live countdown.
 
-Not yet in this build: BSP Core's shop screen (request RG-C3), cross-server sync (Phase 7), BSP Teleport triggers (Phase 8).
+## Phase 7: shared storage (build 0.1.0, 2026-10-12)
+
+Needs a MySQL database reachable from two test servers (two copies of `server/` on different ports work), each with its own `storage.serverId` and the same `tablePrefix`. On Forge backends BSP Core's full jar must be present for the driver; on Mohist the slim jar.
+
+- [ ] With `storage.mode = mysql` and the details filled in, the log says `Region storage connected: mysql ...` and `Region storage reconcile for minecraft:overworld: ...` for each world; `/rg storage status` shows the server id, the poll interval and zero errors. A wrong password shows the error in `/rg storage status` and the server keeps running.
+- [ ] Define a region: the `bsp_rg_regions` table gains a row for this server id with the region's id and version; change a flag: the version rises; delete it: the row has `deleted = 1`.
+- [ ] Stop the server, delete `world/data/bsp_region_guard_regions.dat`, start again: the regions come back from the database (log line counts "added").
+- [ ] Second server with another `serverId`: `/rg storage servers` on either lists both servers with their region counts; neither sees the other's regions in `/rg list`.
+- [ ] A mine with the same id and world on both servers: `/rg mine reset quarry` on one resets it on the other within `pollSeconds` (the other's log shows the reset, players there see the warning line). With `syncMineResets = false` it does not.
+- [ ] `/rg storage sync` re-runs the reconcile for the current world.
+
+## Phase 8a: region triggers (build 0.1.0, 2026-10-12)
+
+- [ ] `/rg trigger add test enter here Welcome!` while standing at a spot outside the region: walking into `test` shows "Welcome!" and puts you at that spot. `/rg trigger list test` shows it; `/rg trigger remove test 1` removes it.
+- [ ] `/rg trigger add test exit minecraft:the_nether 0 70 0`: leaving the region sends you to the nether at that position.
+- [ ] `/rg trigger add test timer 10 here`: standing inside, every 10 seconds you are moved to the spot.
+- [ ] `/rg trigger add test shutdown here`: stop the server while standing inside: the log shows the trigger firing (the move itself needs BSP Teleport for another server; locally you are already leaving).
+- [ ] `/rg trigger add test enter lobby/minecraft:overworld 0 64 0 See you there`: with no BSP Teleport installed, nothing moves and the log warns that no teleport mod handled it (or, with storage on, a `trigger` message appears in the messages table).
+
+- [ ] Admin screen, TELEPORT tab: the triggers list shows what `/rg trigger list` shows; x removes one; pick a cause chip, + ADD, type `here` (or `30 here` for a timer), Enter: the trigger appears and works.
+- [ ] Admin screen, MAP tab with shared storage on and a second server's regions in the database: OTHER SERVERS draws them in grey with "server/id" labels; clicking one does nothing; HIDE OTHERS removes them.
+
+Not yet in this build: BSP Core's shop screen (RG-C3), BSP Teleport's side of cross-server triggers (see the BSP-Teleport handoff in the vault), Redis.

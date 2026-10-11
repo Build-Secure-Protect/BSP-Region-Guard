@@ -142,6 +142,40 @@ public final class RegionCommands {
                         .executes(ctx -> mineShell(ctx.getSource(), id(ctx), IntegerArgumentType.getInteger(ctx, "radius"))))))
                 .then(Commands.literal("reset").then(id().executes(ctx -> mineReset(ctx.getSource(), id(ctx)))))
                 .then(Commands.literal("info").then(id().executes(ctx -> mineInfo(ctx.getSource(), id(ctx))))));
+        rg.then(Commands.literal("trigger")
+                .then(Commands.literal("list").then(id().executes(ctx -> triggerList(ctx.getSource(), id(ctx)))))
+                .then(Commands.literal("remove").then(id().then(Commands.argument("index", IntegerArgumentType.integer(1))
+                        .executes(ctx -> triggerRemove(ctx.getSource(), id(ctx), IntegerArgumentType.getInteger(ctx, "index"))))))
+                .then(Commands.literal("add").then(id().then(Commands.argument("cause", StringArgumentType.word())
+                        .suggests((c, b) -> SharedSuggestionProvider.suggest(List.of("enter", "exit", "timer", "shutdown"), b))
+                        .then(Commands.argument("destination", StringArgumentType.greedyString())
+                                .executes(ctx -> triggerAdd(ctx.getSource(), id(ctx), StringArgumentType.getString(ctx, "cause"), StringArgumentType.getString(ctx, "destination"))))))));
+        rg.then(Commands.literal("storage")
+                .then(Commands.literal("status").executes(ctx -> {
+                    var m = com.mrgregles.bsp_region_guard.storage.RegionMirror.active();
+                    return ok(ctx.getSource(), m == null ? "Shared storage is off (storage.mode = none)." : m.status());
+                }))
+                .then(Commands.literal("sync").executes(ctx -> {
+                    var m = com.mrgregles.bsp_region_guard.storage.RegionMirror.active();
+                    if (m == null) {
+                        return fail(ctx.getSource(), "Shared storage is off.");
+                    }
+                    m.reconcile(ctx.getSource().getLevel());
+                    return ok(ctx.getSource(), "Reconciling " + ctx.getSource().getLevel().dimension().location() + " with the database; see the log.");
+                }))
+                .then(Commands.literal("servers").executes(ctx -> {
+                    var m = com.mrgregles.bsp_region_guard.storage.RegionMirror.active();
+                    if (m == null) {
+                        return fail(ctx.getSource(), "Shared storage is off.");
+                    }
+                    CommandSourceStack src = ctx.getSource();
+                    m.countByServer(counts -> {
+                        StringBuilder sb = new StringBuilder("Regions per server:");
+                        counts.forEach((server, n) -> sb.append("\n  ").append(server).append(server.equals(m.serverId()) ? " (this server)" : "").append(": ").append(n));
+                        src.sendSuccess(() -> Component.literal(counts.isEmpty() ? "No regions in the database yet." : sb.toString()), false);
+                    });
+                    return 1;
+                })));
         rg.then(Commands.literal("claims")
                 .then(Commands.literal("list").executes(ctx -> claimsList(ctx.getSource())))
                 .then(Commands.literal("wipe").executes(ctx -> ok(ctx.getSource(), com.mrgregles.bsp_region_guard.claim.ClaimWipe.request(player(ctx.getSource()), ctx.getSource().getLevel())))
@@ -424,6 +458,55 @@ public final class RegionCommands {
         RegionStore.get(src.getLevel()).touch(r);
         String now = String.join(", ", com.mrgregles.bsp_region_guard.claim.ClaimFlags.allowedFor(RegionStore.get(src.getLevel()), r));
         return ok(src, "Buyers of " + r.id() + " may set: " + now + (unknown.isEmpty() ? "" : " (not flags, ignored: " + String.join(", ", unknown) + ")"));
+    }
+
+    // ------------------------------------------------------------------ triggers
+
+    private static int triggerList(CommandSourceStack src, String id) throws CommandSyntaxException {
+        Region r = region(src, id);
+        var triggers = com.mrgregles.bsp_region_guard.trigger.Trigger.of(r.typeData());
+        if (triggers.isEmpty()) {
+            return ok(src, r.id() + " has no triggers. Add one: /rg trigger add " + r.id() + " <enter|exit|timer|shutdown> <destination>.");
+        }
+        MutableComponent out = Component.literal("Triggers on " + r.id() + ":");
+        for (int i = 0; i < triggers.size(); i++) {
+            out.append("\n  " + (i + 1) + ". " + triggers.get(i).describe());
+        }
+        src.sendSuccess(() -> out, false);
+        return 1;
+    }
+
+    private static int triggerRemove(CommandSourceStack src, String id, int index) throws CommandSyntaxException {
+        Region r = region(src, id);
+        var triggers = com.mrgregles.bsp_region_guard.trigger.Trigger.of(r.typeData());
+        if (index > triggers.size()) {
+            return fail(src, r.id() + " has only " + triggers.size() + " trigger" + (triggers.size() == 1 ? "" : "s") + ".");
+        }
+        triggers.remove(index - 1);
+        com.mrgregles.bsp_region_guard.trigger.Trigger.store(r.typeData(), triggers);
+        RegionStore.get(src.getLevel()).touch(r);
+        return ok(src, "Trigger " + index + " removed from " + r.id() + ".");
+    }
+
+    private static int triggerAdd(CommandSourceStack src, String id, String causeName, String destination) throws CommandSyntaxException {
+        ServerPlayer p = player(src);
+        Region r = region(src, id);
+        com.mrgregles.bsp_region_guard.api.event.RegionTriggerEvent.Cause cause;
+        try {
+            cause = com.mrgregles.bsp_region_guard.api.event.RegionTriggerEvent.Cause.valueOf(causeName.toUpperCase(java.util.Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            return fail(src, "Causes: enter, exit, timer, shutdown.");
+        }
+        try {
+            var trigger = com.mrgregles.bsp_region_guard.trigger.Triggers.parse(p, cause, destination);
+            var triggers = com.mrgregles.bsp_region_guard.trigger.Trigger.of(r.typeData());
+            triggers.add(trigger);
+            com.mrgregles.bsp_region_guard.trigger.Trigger.store(r.typeData(), triggers);
+            RegionStore.get(src.getLevel()).touch(r);
+            return ok(src, "Trigger added to " + r.id() + ": " + trigger.describe() + (trigger.server().isEmpty() ? "" : " (cross-server: BSP Teleport carries it out)"));
+        } catch (IllegalArgumentException e) {
+            return fail(src, e.getMessage());
+        }
     }
 
     // ------------------------------------------------------------------ mines

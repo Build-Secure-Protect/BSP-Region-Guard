@@ -148,6 +148,11 @@ public final class RegionSync {
                 data.put(key, r.typeData().get(key).getAsString());
             }
         }
+        var triggers = com.mrgregles.bsp_region_guard.trigger.Trigger.of(r.typeData());
+        for (int i = 0; i < triggers.size() && i < 20; i++) {
+            data.put("trigger." + (i + 1), triggers.get(i).describe());
+        }
+        data.remove(com.mrgregles.bsp_region_guard.trigger.Trigger.KEY);
         if (r.type() == RegionType.MINE) {
             StringBuilder fill = new StringBuilder();
             for (var e : com.mrgregles.bsp_region_guard.mine.MineData.fill(r)) {
@@ -215,6 +220,19 @@ public final class RegionSync {
                     if (r != null) {
                         sendDetail(player, r);
                     }
+                    return null;
+                }
+                case RegionActionPacket.LIST_REMOTE -> {
+                    var mirror = com.mrgregles.bsp_region_guard.storage.RegionMirror.active();
+                    if (mirror == null) {
+                        return "Shared storage is off; no other servers to show.";
+                    }
+                    String select = r == null ? null : r.id();
+                    mirror.fetchOthers(level, remote -> {
+                        List<RegionListPacket.Summary> list = listFor(player);
+                        list.addAll(remote);
+                        RegionNetwork.sendTo(player, new RegionListPacket(level.dimension().location(), list, select, false));
+                    });
                     return null;
                 }
                 case RegionActionPacket.WAND -> {
@@ -397,6 +415,31 @@ public final class RegionSync {
             case RegionActionPacket.MINE_RESET -> {
                 return com.mrgregles.bsp_region_guard.mine.Mines.reset(level, store, r);
             }
+            case RegionActionPacket.TRIGGER_ADD -> {
+                com.mrgregles.bsp_region_guard.api.event.RegionTriggerEvent.Cause cause;
+                try {
+                    cause = com.mrgregles.bsp_region_guard.api.event.RegionTriggerEvent.Cause.valueOf(a.toUpperCase(java.util.Locale.ROOT));
+                } catch (IllegalArgumentException e) {
+                    return "Causes: enter, exit, timer, shutdown.";
+                }
+                var trigger = com.mrgregles.bsp_region_guard.trigger.Triggers.parse(player, cause, b);
+                var triggers = com.mrgregles.bsp_region_guard.trigger.Trigger.of(r.typeData());
+                triggers.add(trigger);
+                com.mrgregles.bsp_region_guard.trigger.Trigger.store(r.typeData(), triggers);
+                store.touch(r);
+                return "Trigger added: " + trigger.describe();
+            }
+            case RegionActionPacket.TRIGGER_REMOVE -> {
+                var triggers = com.mrgregles.bsp_region_guard.trigger.Trigger.of(r.typeData());
+                int index = Integer.parseInt(a);
+                if (index < 1 || index > triggers.size()) {
+                    return "No trigger " + index + ".";
+                }
+                triggers.remove(index - 1);
+                com.mrgregles.bsp_region_guard.trigger.Trigger.store(r.typeData(), triggers);
+                store.touch(r);
+                return null;
+            }
             case RegionActionPacket.SET_DATA -> {
                 if (r.isGlobal()) {
                     return "The world default cannot be sold.";
@@ -438,7 +481,7 @@ public final class RegionSync {
     }
 
     @Nullable
-    private static UUID resolvePlayer(ServerPlayer viewer, String nameOrUuid) {
+    public static UUID resolvePlayer(ServerPlayer viewer, String nameOrUuid) {
         try {
             return UUID.fromString(nameOrUuid);
         } catch (IllegalArgumentException ignored) {

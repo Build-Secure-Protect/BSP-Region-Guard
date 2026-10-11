@@ -23,6 +23,10 @@ public final class RegionGuardConfig {
     public static final ForgeConfigSpec.IntValue CLAIM_MIN_SIZE, CLAIM_MAX_SIZE, CLAIM_MAX_PER_PLAYER, CLAIM_REFUND_PERCENT;
     public static final ForgeConfigSpec.ConfigValue<List<? extends String>> CLAIM_LIMITS_BY_RANK, CLAIM_PLAYER_FLAGS;
 
+    public static final ForgeConfigSpec.ConfigValue<String> STORAGE_MODE, STORAGE_HOST, STORAGE_DATABASE, STORAGE_USER, STORAGE_PASSWORD, STORAGE_TABLE_PREFIX, STORAGE_SERVER_ID;
+    public static final ForgeConfigSpec.IntValue STORAGE_PORT, STORAGE_POLL_SECONDS;
+    public static final ForgeConfigSpec.BooleanValue STORAGE_SYNC_MINE_RESETS;
+
     public static final ForgeConfigSpec.IntValue MINE_BLOCKS_PER_TICK;
     public static final ForgeConfigSpec.ConfigValue<List<? extends Integer>> MINE_WARN_SECONDS;
 
@@ -66,6 +70,21 @@ public final class RegionGuardConfig {
         CLAIM_PLAYER_FLAGS = b.comment("Flags a claim's owner may set on their own claim.")
                 .defineListAllowEmpty("playerFlags", List.of("entry", "chest-access", "use", "interact", "ride", "sleep", "greeting", "farewell",
                         "entry-deny-message", "mob-spawning", "pvp"), o -> o instanceof String);
+        b.pop();
+
+        b.comment("Shared storage for several servers (optional). Regions are mirrored to MySQL under this server's id and",
+                "messages (mine resets, triggers) travel through a table polled every few seconds. No driver is bundled:",
+                "BSP Core's full jar provides one on Forge servers; Mohist ships its own.").push("storage");
+        STORAGE_MODE = b.comment("none or mysql").define("mode", "none");
+        STORAGE_HOST = b.define("host", "localhost");
+        STORAGE_PORT = b.defineInRange("port", 3306, 1, 65535);
+        STORAGE_DATABASE = b.define("database", "bsp");
+        STORAGE_USER = b.define("user", "bsp");
+        STORAGE_PASSWORD = b.comment("Plain text, as BSP Core's; keep the config file private.").define("password", "");
+        STORAGE_TABLE_PREFIX = b.define("tablePrefix", "bsp_rg_");
+        STORAGE_SERVER_ID = b.comment("This server's name in the shared tables. Unique per server.").define("serverId", "server-1");
+        STORAGE_POLL_SECONDS = b.comment("How often messages from other servers are fetched.").defineInRange("pollSeconds", 5, 1, 300);
+        STORAGE_SYNC_MINE_RESETS = b.comment("When another server resets a mine, reset the mine with the same id in the same world here too.").define("syncMineResets", true);
         b.pop();
 
         b.comment("Automated mines.").push("mines");

@@ -121,8 +121,18 @@ public final class Mines {
 
     // ------------------------------------------------------------------ resets
 
-    /** Resets a mine now: moves players out, plans the refill, schedules the next reset. Returns a message. */
+    /** Resets a mine now: moves players out, plans the refill, schedules the next reset, tells the other servers. */
     public static String reset(ServerLevel level, RegionStore store, Region mine) {
+        String message = resetQuietly(level, store, mine);
+        if (com.mrgregles.bsp_region_guard.storage.RegionMirror.active() != null && mine.type() == RegionType.MINE) {
+            com.mrgregles.bsp_region_guard.storage.RegionMirror.active().publish(com.mrgregles.bsp_region_guard.storage.RegionMirror.KIND_MINE_RESET,
+                    level.dimension().location().toString(), mine.id(), "");
+        }
+        return message;
+    }
+
+    /** A reset that does not tell other servers (used when the reset came from one). */
+    public static String resetQuietly(ServerLevel level, RegionStore store, Region mine) {
         if (mine.type() != RegionType.MINE || mine.bounds() == null) {
             return mine.id() + " is not a mine.";
         }

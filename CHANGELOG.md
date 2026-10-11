@@ -5,6 +5,12 @@ All notable changes to BSP Region Guard. Format follows Keep a Changelog; versio
 ## [Unreleased]
 
 ### Added
+- The TELEPORT tab now lists a region's triggers with a remove button and adds new ones (pick ENTER, EXIT, TIMER or SHUTDOWN, type the destination). The MAP tab's OTHER SERVERS button overlays other servers' regions from the shared storage in grey (read-only, prefixed with the server name).
+- Region triggers: `/rg trigger add <region> <enter|exit|timer|shutdown> [<seconds>] <here | world x y z | server/world x y z> [message]`, `/rg trigger list|remove`. A trigger fires `RegionTriggerEvent` for the player; same-server destinations are carried out by Region Guard, cross-server ones are left to BSP Teleport (which cancels the event to take over) and are also published through the shared storage as kind `trigger`. Shutdown triggers fire for everyone inside when the server stops.
+- The public API gained `regions()` (regions at a position, flag answers, flag registration, exemptions), `mines()` (is mine, reset, countdown) and `publish(...)`; see `docs/API.md`.
+- One more GameTest (47 in all): an enter trigger moves the player, a cancelling listener takes it over, the API facade answers.
+- Shared storage for several servers (`storage` section of the server config, `mode = mysql`): every region of this server is mirrored to MySQL under its `serverId` as it changes (removals leave tombstones); on start each world is reconciled with the database (newer rows replace, tombstones remove, unknown local regions are pushed); messages between servers travel through a table polled every `pollSeconds` and arrive as `RemoteMessageEvent`; a mine reset on one server resets the mine with the same id in the same world on the others (`syncMineResets`). No database driver is bundled: BSP Core's full jar provides one on Forge servers and Mohist ships its own. `/rg storage status|sync|servers`.
+- Three more GameTests (46 in all) on an in-memory backend: push and tombstones, reconcile, messages between two servers with a synced mine reset.
 - LuckPerms on Mohist: the bridge now also reaches the Bukkit edition of LuckPerms, found through Bukkit's plugin manager and used by reflection, so a Forge mod on a Mohist backend sees the same groups the plugins do. Verified on a local Mohist 1.20.1 server with LuckPerms Bukkit 5.5.87: `rg ranks` lists the groups. The startup log says which edition was reached.
 - `/rg ranks [players]`: a console-friendly check of the LuckPerms bridge and a player's groups.
 

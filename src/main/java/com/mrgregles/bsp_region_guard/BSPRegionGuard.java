@@ -50,8 +50,25 @@ public class BSPRegionGuard {
         MinecraftForge.EVENT_BUS.addListener(com.mrgregles.bsp_region_guard.network.RegionSync::onLogin);
         MinecraftForge.EVENT_BUS.addListener(com.mrgregles.bsp_region_guard.network.RegionSync::onChangedDimension);
         MinecraftForge.EVENT_BUS.addListener(com.mrgregles.bsp_region_guard.network.RegionSync::onRespawn);
-        com.mrgregles.bsp_region_guard.region.RegionStore.setChangeListener(com.mrgregles.bsp_region_guard.network.RegionSync::broadcast);
+        com.mrgregles.bsp_region_guard.region.RegionStore.setChangeListener(store -> {
+            com.mrgregles.bsp_region_guard.network.RegionSync.broadcast(store);
+            var mirror = com.mrgregles.bsp_region_guard.storage.RegionMirror.active();
+            if (mirror != null) {
+                mirror.onStoreChanged(store);
+            }
+        });
+        MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.event.server.ServerAboutToStartEvent e) -> com.mrgregles.bsp_region_guard.storage.RegionMirror.start(e.getServer()));
+        MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.event.level.LevelEvent.Load e) -> {
+            var mirror = com.mrgregles.bsp_region_guard.storage.RegionMirror.active();
+            if (mirror != null && e.getLevel() instanceof net.minecraft.server.level.ServerLevel level) {
+                mirror.reconcile(level);
+            }
+        });
         MinecraftForge.EVENT_BUS.addListener(com.mrgregles.bsp_region_guard.mine.Mines::onServerTick);
+        MinecraftForge.EVENT_BUS.addListener(com.mrgregles.bsp_region_guard.trigger.Triggers::onEnter);
+        MinecraftForge.EVENT_BUS.addListener(com.mrgregles.bsp_region_guard.trigger.Triggers::onLeave);
+        MinecraftForge.EVENT_BUS.addListener(com.mrgregles.bsp_region_guard.trigger.Triggers::onServerTick);
+        MinecraftForge.EVENT_BUS.addListener(com.mrgregles.bsp_region_guard.trigger.Triggers::onServerStopping);
         MinecraftForge.EVENT_BUS.addListener(this::onServerStarted);
         MinecraftForge.EVENT_BUS.addListener(this::onServerStopped);
         registerProtection(MinecraftForge.EVENT_BUS);
@@ -111,6 +128,8 @@ public class BSPRegionGuard {
         com.mrgregles.bsp_region_guard.selection.Selections.clearAll();
         MovementTracker.clearAll();
         com.mrgregles.bsp_region_guard.mine.Mines.clearAll();
+        com.mrgregles.bsp_region_guard.storage.RegionMirror.stop();
+        com.mrgregles.bsp_region_guard.trigger.Triggers.clearAll();
         LuckPermsBridge.reset();
     }
 }

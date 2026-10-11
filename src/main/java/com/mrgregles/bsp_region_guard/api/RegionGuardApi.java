@@ -21,4 +21,16 @@ public interface RegionGuardApi {
 
     /** Land claims: listings, quotes, purchases, abandoning. */
     ClaimService claims();
+
+    /** Regions and flags at positions. */
+    RegionService regions();
+
+    /** Mines. */
+    MineService mines();
+
+    /**
+     * Publishes a message to the other servers through the shared storage (arrives there as
+     * {@code RemoteMessageEvent}). Does nothing when storage is off; returns whether it was sent.
+     */
+    boolean publish(String kind, String dimension, String regionId, String payload);
 }
