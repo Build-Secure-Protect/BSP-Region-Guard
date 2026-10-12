@@ -3,7 +3,7 @@
 A Forge mod for Minecraft 1.20.1 that looks after areas of the world for the [Build Secure Protect](https://www.curseforge.com/minecraft/modpacks/build-secure-protect) modpack and server:
 
 - **World protection**: admins draw regions and set flags (block breaking, PvP, explosions, entry by rank and many more), through an in-game screen with the regions drawn in the world.
-- **Land claims**: admin-priced plots, or open areas where players outline their own plot and pay per block with BSP Core coins.
+- **Land claims**: admin-priced plots, or open areas where players outline their own plot and pay per block from their BSP Core bank (Shatter Pieces).
 - **Automated mines**: regions filled with admin-chosen ores that refill on a timer, with rank-gated entry.
 - **Region teleports**: with BSP Teleport, move players in or out of regions on entry, exit, timers or server shutdown.
 - **Cross-server**: regions, mine resets and triggers shared across the BSP network through MySQL (Redis optional).

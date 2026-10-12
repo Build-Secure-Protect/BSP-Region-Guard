@@ -11,6 +11,7 @@ import com.mrgregles.bsp_region_guard.api.ClaimResult;
 import com.mrgregles.bsp_region_guard.api.ClaimService;
 import com.mrgregles.bsp_region_guard.claim.ClaimData;
 import com.mrgregles.bsp_region_guard.claim.Claims;
+import com.mrgregles.bsp_region_guard.compat.BspCore;
 import com.mrgregles.bsp_region_guard.flag.FlagRegistry;
 import com.mrgregles.bsp_region_guard.region.Cuboid;
 import com.mrgregles.bsp_region_guard.region.Region;
@@ -118,11 +119,11 @@ public final class ClaimCommands {
         } else {
             out.append(Component.literal("Plots for sale: ").withStyle(ChatFormatting.GOLD)).append(plots.isEmpty() ? "none" : "");
             for (ClaimService.Listing l : plots) {
-                out.append("\n  " + l.id() + "  " + l.bounds().sizeX() + " x " + l.bounds().sizeZ() + "  " + l.price() + " coins");
+                out.append("\n  " + l.id() + "  " + l.bounds().sizeX() + " x " + l.bounds().sizeZ() + "  " + BspCore.money(l.price()));
             }
             out.append(Component.literal("\nOpen areas (outline your own plot with /claim tool): ").withStyle(ChatFormatting.GOLD)).append(open.isEmpty() ? "none" : "");
             for (ClaimService.Listing l : open) {
-                out.append("\n  " + l.id() + "  " + l.costPerBlock() + " coins per block");
+                out.append("\n  " + l.id() + "  " + BspCore.money(l.costPerBlock()) + " per block");
             }
         }
         out.append(Component.literal("\nYour claims here: ").withStyle(ChatFormatting.LIGHT_PURPLE)).append(mine.isEmpty() ? "none" : String.join(", ", mine))
@@ -156,9 +157,17 @@ public final class ClaimCommands {
                 src.sendFailure(Component.literal("Outline your plot first: /claim tool, then left-click and right-click the corners."));
                 return 0;
             }
-            return result(src, buy ? claims.purchaseOpen(p, id, ground) : claims.quoteOpen(p, id, ground));
+            if (!buy) {
+                return result(src, claims.quoteOpen(p, id, ground));
+            }
+            claims.purchaseOpen(p, id, ground, res -> result(src, res));
+            return 1;
         }
-        return result(src, buy ? claims.purchasePlot(p, id) : claims.quotePlot(p, id));
+        if (!buy) {
+            return result(src, claims.quotePlot(p, id));
+        }
+        claims.purchasePlot(p, id, res -> result(src, res)); // the bank answers a moment later on a network
+        return 1;
     }
 
     private static int enlarge(CommandSourceStack src, String id) throws CommandSyntaxException {
@@ -169,7 +178,8 @@ public final class ClaimCommands {
             src.sendFailure(Component.literal("Outline the new, larger plot first with the plot tool."));
             return 0;
         }
-        return result(src, Claims.INSTANCE.enlarge(p, id, ground));
+        Claims.INSTANCE.enlarge(p, id, ground, r -> result(src, r));
+        return 1;
     }
 
     private static int abandon(CommandSourceStack src, String id) throws CommandSyntaxException {
@@ -211,11 +221,11 @@ public final class ClaimCommands {
                 return 1;
             }
             if (r.type() == RegionType.PLOT_FOR_SALE) {
-                src.sendSuccess(() -> Component.literal(r.id() + " is for sale: " + ClaimData.price(r) + " coins. /claim buy " + r.id()), false);
+                src.sendSuccess(() -> Component.literal(r.id() + " is for sale: " + BspCore.money(ClaimData.price(r)) + ". /claim buy " + r.id()), false);
                 return 1;
             }
             if (r.type() == RegionType.OPEN_FOR_BUYING) {
-                src.sendSuccess(() -> Component.literal("Open area " + r.id() + ": " + ClaimData.costPerBlock(r) + " coins per block. /claim tool to outline a plot."), false);
+                src.sendSuccess(() -> Component.literal("Open area " + r.id() + ": " + BspCore.money(ClaimData.costPerBlock(r)) + " per block. /claim tool to outline a plot."), false);
                 return 1;
             }
         }

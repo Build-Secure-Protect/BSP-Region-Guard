@@ -92,4 +92,26 @@ public class TotemGameTests {
         h.assertFalse(TotemRule.claimsAllowedIn(h.getLevel()), "no claims in a PvP world by default");
         h.succeed();
     }
+
+    /** D32: until the zone systems merge, a BSP-Core Anti Totem zone denies the matching region flags too. */
+    @GameTest(template = EMPTY)
+    public void bsp_core_anti_totem_zones_deny_the_matching_flags(GameTestHelper h) {
+        ServerLevel level = h.getLevel();
+        Player player = h.makeMockPlayer();
+        BlockPos centre = h.absolutePos(new BlockPos(5, 2, 5));
+        BlockPos inside = h.absolutePos(new BlockPos(6, 2, 5));
+        BlockPos outside = h.absolutePos(new BlockPos(5 + 6, 2, 5));
+        BspCore.putZone(level, centre, 3, java.util.Set.of(BspCore.ZONE_TELEPORT_IN, BspCore.ZONE_TOTEM_PLACE));
+        try {
+            h.assertFalse(RegionQuery.allows(level, inside, Flags.TELEPORT_IN, player), "teleport-in is denied inside a BSP-Core zone that blocks it");
+            h.assertFalse(RegionQuery.allows(level, inside, Flags.TOTEM_PLACE, player), "totem-place too");
+            h.assertTrue(RegionQuery.allows(level, inside, Flags.TELEPORT_OUT, player), "a rule the zone does not block stays allowed");
+            h.assertTrue(RegionQuery.allows(level, inside, Flags.BUILD, player), "other flags are untouched");
+            h.assertTrue(RegionQuery.allows(level, outside, Flags.TELEPORT_IN, player), "outside the zone the rule allows");
+        } finally {
+            BspCore.removeZone(level, centre);
+        }
+        h.assertTrue(RegionQuery.allows(level, inside, Flags.TELEPORT_IN, player), "once the zone is gone the rule allows again");
+        h.succeed();
+    }
 }

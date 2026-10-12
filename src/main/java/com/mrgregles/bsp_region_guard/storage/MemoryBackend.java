@@ -10,6 +10,16 @@ import java.util.TreeMap;
 public final class MemoryBackend implements MirrorBackend {
     private final Map<String, RegionRow> regions = new LinkedHashMap<>();
     private final List<Message> messages = new ArrayList<>();
+    private final long publishDelayMs;
+
+    public MemoryBackend() {
+        this(0);
+    }
+
+    /** For tests: each publish takes this long, like a slow database. */
+    public MemoryBackend(long publishDelayMs) {
+        this.publishDelayMs = publishDelayMs;
+    }
 
     private static String key(String server, String dimension, String id) {
         return server + "|" + dimension + "|" + id;
@@ -53,7 +63,18 @@ public final class MemoryBackend implements MirrorBackend {
     }
 
     @Override
-    public synchronized long publish(Message message) {
+    public long publish(Message message) {
+        if (publishDelayMs > 0) {
+            try {
+                Thread.sleep(publishDelayMs);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
+        return store(message);
+    }
+
+    private synchronized long store(Message message) {
         long id = messages.size() + 1;
         messages.add(new Message(id, message.createdAt(), message.source(), message.kind(), message.dimension(), message.regionId(), message.payload()));
         return id;
@@ -82,6 +103,11 @@ public final class MemoryBackend implements MirrorBackend {
 
     @Override
     public void close() {
+    }
+
+    /** For tests. */
+    public synchronized int messages() {
+        return messages.size();
     }
 
     /** For tests. */

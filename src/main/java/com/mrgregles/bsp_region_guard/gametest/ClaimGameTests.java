@@ -19,12 +19,15 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraftforge.gametest.GameTestHolder;
 import net.minecraftforge.gametest.PrefixGameTestTemplate;
 
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
  * The claim rules. The test world is a PvP world, so each test switches {@code claims.allowInPvpWorlds} on and off
- * again. Coins come from BSP Core's wallet: the player is funded with {@code BspCore.refund}.
+ * again. Money comes from BSP Core's bank (D31): the player is funded with {@code fund}; on a single server the bank
+ * answers at once, and {@code BspCore.holdChargeAnswers} plays the network's delay.
  */
 @GameTestHolder(BSPRegionGuard.MODID)
 @PrefixGameTestTemplate(false)
@@ -38,6 +41,19 @@ public class ClaimGameTests {
     private static Cuboid ground(GameTestHelper h, int x1, int z1, int x2, int z2) {
         BlockPos a = h.absolutePos(new BlockPos(x1, 0, z1)), b = h.absolutePos(new BlockPos(x2, 0, z2));
         return new Cuboid(a.getX(), 0, a.getZ(), b.getX(), 0, b.getZ());
+    }
+
+    private static void fund(ServerPlayer player, long pieces) {
+        BspCore.credit(player.server, player.getUUID(), pieces, "test", ok -> {
+        });
+    }
+
+    /** Runs a purchase and returns its answer, which on a single server comes at once. */
+    private static ClaimResult answer(GameTestHelper h, Consumer<Consumer<ClaimResult>> call) {
+        AtomicReference<ClaimResult> out = new AtomicReference<>();
+        call.accept(out::set);
+        h.assertTrue(out.get() != null, "the bank answers at once on a single server");
+        return out.get();
     }
 
     private static void allowClaims(boolean on) {
@@ -54,20 +70,20 @@ public class ClaimGameTests {
         store(h).add(plot);
         try {
             ClaimResult poor = Claims.INSTANCE.quotePlot(buyer, "cl_plot");
-            h.assertTrue(!poor.ok() && poor.price() == 100, "a quote without coins fails but names the price");
-            h.assertFalse(Claims.INSTANCE.purchasePlot(buyer, "cl_plot").ok(), "cannot buy without coins");
-            BspCore.refund(buyer, 150);
-            h.assertTrue(BspCore.coinValue(buyer) == 150, "funded with 150 coins");
-            ClaimResult bought = Claims.INSTANCE.purchasePlot(buyer, "cl_plot");
+            h.assertTrue(!poor.ok() && poor.price() == 100, "a quote without money fails but names the price");
+            h.assertFalse(answer(h, then -> Claims.INSTANCE.purchasePlot(buyer, "cl_plot", then)).ok(), "cannot buy without money");
+            fund(buyer, 150);
+            h.assertTrue(BspCore.balance(buyer) == 150, "funded with 150 pieces");
+            ClaimResult bought = answer(h, then -> Claims.INSTANCE.purchasePlot(buyer, "cl_plot", then));
             h.assertTrue(bought.ok() && "cl_plot".equals(bought.claimId()), "bought: " + bought.message());
-            h.assertTrue(BspCore.coinValue(buyer) == 50, "100 coins were taken");
+            h.assertTrue(BspCore.balance(buyer) == 50, "100 pieces were taken from the bank");
             h.assertTrue(plot.type() == RegionType.CLAIM && plot.isOwner(buyer.getUUID()) && ClaimData.boughtFor(plot) == 100, "the plot is the buyer's claim");
             h.assertTrue(Claims.INSTANCE.claimsOf(level, buyer.getUUID()).contains("cl_plot"), "listed among the buyer's claims");
             h.assertFalse(Claims.INSTANCE.quotePlot(buyer, "cl_plot").ok(), "an owned claim is not for sale");
 
             ClaimResult gone = Claims.INSTANCE.abandon(buyer, "cl_plot");
             h.assertTrue(gone.ok() && gone.price() == 50, "abandoned with half back: " + gone.message());
-            h.assertTrue(BspCore.coinValue(buyer) == 100, "refund paid");
+            h.assertTrue(BspCore.balance(buyer) == 100, "refund paid into the bank");
             h.assertTrue(plot.type() == RegionType.PLOT_FOR_SALE && ClaimData.price(plot) == 100 && plot.owners().isEmpty(), "an admin plot goes back on sale at its original price");
         } finally {
             allowClaims(false);
@@ -91,28 +107,30 @@ public class ClaimGameTests {
         store(h).add(taken);
         String claimId = null;
         try {
-            BspCore.refund(buyer, 1000);
+            fund(buyer, 1000);
             h.assertFalse(Claims.INSTANCE.quoteOpen(buyer, "cl_open", ground(h, 2, 2, 4, 4)).ok(), "3 x 3 is too small (min 5)");
             h.assertFalse(Claims.INSTANCE.quoteOpen(buyer, "cl_open", ground(h, -3, 2, 6, 8)).ok(), "sticking out of the area is refused");
             h.assertFalse(Claims.INSTANCE.quoteOpen(buyer, "cl_open", ground(h, 12, 12, 17, 17)).ok(), "overlapping another claim is refused");
             ClaimResult quote = Claims.INSTANCE.quoteOpen(buyer, "cl_open", ground(h, 2, 2, 7, 7));
             h.assertTrue(quote.ok() && quote.price() == 36 * 2, "6 x 6 at 2 per block costs 72: " + quote.message());
-            ClaimResult bought = Claims.INSTANCE.purchaseOpen(buyer, "cl_open", ground(h, 2, 2, 7, 7));
+            ClaimResult bought = answer(h, then -> Claims.INSTANCE.purchaseOpen(buyer, "cl_open", ground(h, 2, 2, 7, 7), then));
             h.assertTrue(bought.ok() && bought.claimId() != null, "bought: " + bought.message());
             claimId = bought.claimId();
             Region claim = store(h).get(claimId);
             h.assertTrue(claim != null && claim.type() == RegionType.CLAIM && "cl_open".equals(claim.parentId()) && claim.isOwner(buyer.getUUID()), "a child claim of the open area");
             h.assertTrue(claim.bounds().minY() == level.getMinBuildHeight() && claim.bounds().maxY() == level.getMaxBuildHeight() - 1, "full world height");
-            h.assertTrue(BspCore.coinValue(buyer) == 1000 - 72, "72 coins taken");
+            h.assertTrue(BspCore.balance(buyer) == 1000 - 72, "72 pieces taken");
             h.assertFalse(Claims.INSTANCE.quoteOpen(buyer, "cl_open", ground(h, 9, 2, 13, 6)).ok(), "a second plot is over the limit of 1");
 
-            h.assertFalse(Claims.INSTANCE.enlarge(buyer, claimId, ground(h, 3, 3, 9, 9)).ok(), "an outline that does not contain the plot is refused");
-            ClaimResult grown = Claims.INSTANCE.enlarge(buyer, claimId, ground(h, 2, 2, 9, 9));
-            h.assertTrue(grown.ok() && grown.price() == (64 - 36) * 2, "8 x 8 adds 28 blocks for 56 coins: " + grown.message());
+            String id = claimId;
+            h.assertFalse(answer(h, then -> Claims.INSTANCE.enlarge(buyer, id, ground(h, 3, 3, 9, 9), then)).ok(), "an outline that does not contain the plot is refused");
+            ClaimResult grown = answer(h, then -> Claims.INSTANCE.enlarge(buyer, id, ground(h, 2, 2, 9, 9), then));
+            h.assertTrue(grown.ok() && grown.price() == (64 - 36) * 2, "8 x 8 adds 28 blocks for 56 pieces: " + grown.message());
             h.assertTrue(claim.bounds().sizeX() == 8 && ClaimData.boughtFor(claim) == 72 + 56, "bounds grew and the price was added");
 
             ClaimResult gone = Claims.INSTANCE.abandon(buyer, claimId);
             h.assertTrue(gone.ok() && gone.price() == (72 + 56) / 2, "half of everything paid comes back");
+            h.assertTrue(BspCore.balance(buyer) == 1000 - 72 - 56 + (72 + 56) / 2, "into the bank");
             h.assertTrue(store(h).get(claimId) == null, "an outlined plot disappears when abandoned");
         } finally {
             allowClaims(false);
@@ -228,8 +246,8 @@ public class ClaimGameTests {
         try {
             h.assertTrue(unknown.equals(java.util.List.of("notaflag")), "unknown names are reported");
             h.assertTrue(com.mrgregles.bsp_region_guard.claim.ClaimFlags.allowedFor(store(h), plot).equals(java.util.List.of("greeting", "chest-access")), "the plot's own list");
-            BspCore.refund(buyer, 10);
-            h.assertTrue(Claims.INSTANCE.purchasePlot(buyer, "cl_shop").ok(), "bought");
+            fund(buyer, 10);
+            h.assertTrue(answer(h, then -> Claims.INSTANCE.purchasePlot(buyer, "cl_shop", then)).ok(), "bought");
             h.assertTrue(Claims.INSTANCE.setPlayerFlag(buyer, "cl_shop", "chest-access", "allow").ok(), "an allowed flag works");
             h.assertFalse(Claims.INSTANCE.setPlayerFlag(buyer, "cl_shop", "entry", "deny").ok(), "entry is not on this plot's list even though the config allows it");
             com.mrgregles.bsp_region_guard.claim.ClaimFlags.setAllowed(plot, "default");
@@ -248,6 +266,54 @@ public class ClaimGameTests {
             allowClaims(false);
             store(h).remove("cl_shop");
             buyer.discard();
+        }
+        h.succeed();
+    }
+
+    /**
+     * On a network the bank answers a moment later. Meanwhile the plot is held for the buyer, the buyer cannot start a
+     * second purchase, and if the plot changed before the money arrived the money goes straight back.
+     */
+    @GameTest(template = EMPTY)
+    public void a_charge_in_flight_holds_the_plot_and_pays_back_when_it_changed(GameTestHelper h) {
+        ServerLevel level = h.getLevel();
+        ServerPlayer first = TestPlayers.mockServerPlayer(h);
+        ServerPlayer second = TestPlayers.mockServerPlayer(h);
+        allowClaims(true);
+        Region plot = new Region("cl_held", level.dimension(), Cuboid.of(h.absolutePos(new BlockPos(1, 1, 1)), h.absolutePos(new BlockPos(6, 6, 6))), RegionType.PLOT_FOR_SALE);
+        ClaimData.set(plot, ClaimData.PRICE, 50);
+        store(h).add(plot);
+        BspCore.holdChargeAnswers(true);
+        try {
+            fund(first, 100);
+            fund(second, 100);
+            AtomicReference<ClaimResult> firstAnswer = new AtomicReference<>();
+            Claims.INSTANCE.purchasePlot(first, "cl_held", firstAnswer::set);
+            h.assertTrue(firstAnswer.get() == null, "no answer while the bank is busy");
+            ClaimResult other = Claims.INSTANCE.quotePlot(second, "cl_held");
+            h.assertTrue(!other.ok() && other.message().contains("Someone else is buying"), "the plot is held for the first buyer: " + other.message());
+            ClaimResult again = answer(h, then -> Claims.INSTANCE.purchasePlot(first, "cl_held", then));
+            h.assertTrue(!again.ok() && again.message().contains("still going through"), "one purchase at a time: " + again.message());
+
+            ClaimData.set(plot, ClaimData.PRICE, 70); // an admin changes the price before the money arrives
+            BspCore.releaseChargeAnswers();
+            h.assertTrue(firstAnswer.get() != null && !firstAnswer.get().ok() && firstAnswer.get().message().contains("went back"), "refused and paid back: "
+                    + (firstAnswer.get() == null ? "no answer" : firstAnswer.get().message()));
+            h.assertTrue(BspCore.balance(first) == 100, "the money is back in the bank");
+            h.assertTrue(plot.type() == RegionType.PLOT_FOR_SALE && plot.owners().isEmpty(), "the plot is still for sale");
+
+            firstAnswer.set(null);
+            Claims.INSTANCE.purchasePlot(first, "cl_held", firstAnswer::set);
+            BspCore.releaseChargeAnswers();
+            h.assertTrue(firstAnswer.get() != null && firstAnswer.get().ok(), "bought at the new price");
+            h.assertTrue(BspCore.balance(first) == 30 && plot.isOwner(first.getUUID()), "70 taken, the plot is theirs");
+            h.assertTrue(Claims.INSTANCE.quotePlot(second, "cl_held").message().contains("not for sale"), "and no longer held or for sale");
+        } finally {
+            BspCore.holdChargeAnswers(false);
+            allowClaims(false);
+            store(h).remove("cl_held");
+            first.discard();
+            second.discard();
         }
         h.succeed();
     }

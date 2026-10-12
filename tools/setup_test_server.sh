@@ -9,5 +9,6 @@ mkdir -p server/mods server/plugins
 rm -f server/mods/bsp-region-guard-*.jar server/mods/bsp-core-*.jar
 cp build/libs/bsp-region-guard-*.jar server/mods/
 # the slim jar: Mohist ships its own MySQL driver and the Java module system refuses a second copy from the full jar
-cp ../BSP-Core/build/libs/bsp-core-0.3.0-slim.jar server/mods/
+core_version=$(sed -n 's/^bsp_core_version=//p' gradle.properties)
+cp "../BSP-Core/build/libs/bsp-core-${core_version}-slim.jar" server/mods/
 ls -la server/mods

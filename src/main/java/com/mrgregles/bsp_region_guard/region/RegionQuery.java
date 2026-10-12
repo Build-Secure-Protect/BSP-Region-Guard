@@ -128,14 +128,29 @@ public final class RegionQuery {
         return false;
     }
 
+    /**
+     * Region flags that BSP-Core's Anti Totem zones also set, with BSP-Core's rule key. Until the two zone systems
+     * merge (request RG-C2), a spot is denied when either one blocks it (owner decision D32).
+     */
+    private static final java.util.Map<StateFlag, String> BSP_CORE_ZONE_RULES = java.util.Map.of(
+            Flags.TOTEM_PLACE, BspCore.ZONE_TOTEM_PLACE, Flags.TOTEM_DROP, BspCore.ZONE_TOTEM_DROP,
+            Flags.TELEPORT_IN, BspCore.ZONE_TELEPORT_IN, Flags.TELEPORT_OUT, BspCore.ZONE_TELEPORT_OUT,
+            Flags.SET_HOME, BspCore.ZONE_SET_HOME);
+
     /** Whether the flag allows the action at the position, for a player (or {@code null} for the world itself). */
     public static boolean allows(ServerLevel level, BlockPos pos, StateFlag flag, @Nullable Player player) {
         RegionStore store = RegionStore.get(level);
         List<Region> applicable = store.at(pos);
-        if (resolve(store, applicable, flag, player) == State.ALLOW) {
+        if (resolve(store, applicable, flag, player) == State.ALLOW && !blockedByBspCoreZone(level, pos, flag)) {
             return true;
         }
         return isExempt(level, pos, flag, player);
+    }
+
+    /** True when one of BSP-Core's Anti Totem zones blocks this flag's action here (D32). */
+    public static boolean blockedByBspCoreZone(ServerLevel level, BlockPos pos, StateFlag flag) {
+        String key = BSP_CORE_ZONE_RULES.get(flag);
+        return key != null && BspCore.zoneBlocks(level, pos, key);
     }
 
     /** Same as {@link #allows} for something that is not a player (fire, fluid, a mob). */

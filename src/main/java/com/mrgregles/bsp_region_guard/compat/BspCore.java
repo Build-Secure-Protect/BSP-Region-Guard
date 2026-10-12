@@ -1,17 +1,21 @@
 package com.mrgregles.bsp_region_guard.compat;
 
 import com.mrgregles.bsp_core.BSPConfig;
-import com.mrgregles.bsp_core.admin.Admins;
-import com.mrgregles.bsp_core.coin.CoinWallet;
+import com.mrgregles.bsp_core.api.BspBank;
+import com.mrgregles.bsp_core.api.BspPlayers;
+import com.mrgregles.bsp_core.api.BspZones;
 import com.mrgregles.bsp_core.data.TotemLedger;
 import com.mrgregles.bsp_core.totem.ShatterTotemBlockEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.GlobalPos;
 import net.minecraft.resources.ResourceKey;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
+
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -19,12 +23,15 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 /**
  * The only class that touches BSP-Core.
  *
- * <p>BSP-Core has no stable API yet, so every call into it goes through here: a rename there breaks this file and
- * nothing else. Move these onto {@code com.mrgregles.bsp_core.api} once it exists (request RG-C1 in the vault).
+ * <p>Calls go through BSP-Core's {@code api} package (1.0.1) where it has them. A few still reach BSP-Core's own
+ * classes because the api has no equivalent yet (follow-up to request RG-C1 in the vault): every placed totem
+ * ({@code TotemLedger.allPlaced}), the steal radius, the totem block, the steal at a position, and the test-only
+ * helpers. A rename there breaks this file and nothing else.
  */
 public final class BspCore {
     private BspCore() {
@@ -32,26 +39,71 @@ public final class BspCore {
 
     /** BSP-Core's admin level (config list; every operator when the list is empty). */
     public static boolean isAdmin(Player player) {
-        return Admins.isAdmin(player);
+        return BspPlayers.isAdmin(player);
     }
 
     public static boolean isModerator(Player player) {
-        return Admins.isModerator(player);
+        return BspPlayers.isModerator(player);
     }
 
-    /** Total coin value the player carries, across all coin tiers. */
-    public static int coinValue(Player player) {
-        return CoinWallet.totalValue(player);
+    // ------------------------------------------------------------------ money: the bank (owner decision D31)
+
+    /** Who the bank's log names as the other side of claim payments. */
+    private static final String BANK_PARTY = "Region Guard";
+
+    /** The player's bank balance in Shatter Pieces (on a network: the last value this server read). */
+    public static long balance(ServerPlayer player) {
+        return BspBank.balance(player.server, player.getUUID());
     }
 
-    /** Takes {@code cost} in coin value from the player. Returns false, taking nothing, when they cannot pay. */
-    public static boolean charge(ServerPlayer player, int cost) {
-        return CoinWallet.pay(player, cost);
+    /**
+     * Takes {@code pieces} from the player's bank. {@code then} runs on the server thread with true when the money
+     * was taken; at once on a single server, once the database answered on a network. Nothing to pay is a success.
+     */
+    public static void charge(ServerPlayer player, long pieces, String reason, Consumer<Boolean> then) {
+        if (pieces <= 0) {
+            then.accept(true);
+            return;
+        }
+        List<Runnable> held = heldAnswers;
+        if (held != null) {
+            BspBank.charge(player.server, player.getUUID(), pieces, BANK_PARTY, reason, paid -> held.add(() -> then.accept(paid)));
+            return;
+        }
+        BspBank.charge(player.server, player.getUUID(), pieces, BANK_PARTY, reason, then);
     }
 
-    /** Gives the player {@code value} in coins (refunds). */
-    public static void refund(ServerPlayer player, int value) {
-        CoinWallet.give(player, value);
+    /** For tests: while not null, the answers to charges wait here, as they would for a database round trip on a network. */
+    @Nullable
+    private static List<Runnable> heldAnswers;
+
+    /** For tests: starts or stops holding back the answers to charges (stopping does not deliver the held ones). */
+    public static void holdChargeAnswers(boolean on) {
+        heldAnswers = on ? new ArrayList<>() : null;
+    }
+
+    /** For tests: delivers the answers held so far. */
+    public static void releaseChargeAnswers() {
+        List<Runnable> held = heldAnswers;
+        if (held != null) {
+            List<Runnable> now = new ArrayList<>(held);
+            held.clear();
+            now.forEach(Runnable::run);
+        }
+    }
+
+    /** Pays {@code pieces} into a player's bank (refunds); works while they are offline. */
+    public static void credit(MinecraftServer server, UUID player, long pieces, String reason, Consumer<Boolean> then) {
+        if (pieces <= 0) {
+            then.accept(true);
+            return;
+        }
+        BspBank.credit(server, player, pieces, BANK_PARTY, reason, then);
+    }
+
+    /** An amount as players read it, for example {@code 12,500 pieces}. */
+    public static String money(long pieces) {
+        return BspBank.format(pieces);
     }
 
     /** Replaces BSP Core's admin name list for the rest of the server run; returns the previous list. For tests. */
@@ -61,12 +113,37 @@ public final class BspCore {
         return previous;
     }
 
+    // ------------------------------------------------------------------ Anti Totem zones (owner decision D32)
+
+    /** BSP-Core's rule keys for its Anti Totem zones. */
+    public static final String ZONE_TOTEM_PLACE = BspZones.TOTEM_PLACE, ZONE_TOTEM_DROP = BspZones.TOTEM_DROP,
+            ZONE_TELEPORT_IN = BspZones.TELEPORT_IN, ZONE_TELEPORT_OUT = BspZones.TELEPORT_OUT, ZONE_SET_HOME = BspZones.SET_HOME;
+
+    /** True when one of BSP-Core's Anti Totem zones covering {@code pos} blocks the rule {@code key}. */
+    public static boolean zoneBlocks(ServerLevel level, BlockPos pos, String key) {
+        try {
+            return BspZones.isBlocked(level, pos, key);
+        } catch (RuntimeException e) {
+            return false; // no overworld yet (very early or very late in the server's life)
+        }
+    }
+
+    /** For tests: puts an Anti Totem zone reaching {@code reach} blocks in every direction around {@code centre}. */
+    public static void putZone(ServerLevel level, BlockPos centre, int reach, Set<String> blocked) {
+        com.mrgregles.bsp_core.zone.ZoneLedger.get(level.getServer()).put(GlobalPos.of(level.dimension(), centre),
+                new int[]{reach, reach, reach, reach, reach, reach}, blocked);
+    }
+
+    public static void removeZone(ServerLevel level, BlockPos centre) {
+        com.mrgregles.bsp_core.zone.ZoneLedger.get(level.getServer()).remove(GlobalPos.of(level.dimension(), centre));
+    }
+
     // ------------------------------------------------------------------ totems
 
     /** A world where Shatter Totems may be placed: the raiding (PvP) worlds. */
     public static boolean isTotemWorld(ResourceKey<Level> dimension) {
         try {
-            return BSPConfig.isDimensionAllowed(dimension.location());
+            return BspPlayers.isDimensionAllowed(dimension.location());
         } catch (RuntimeException e) {
             return false; // config not loaded yet
         }

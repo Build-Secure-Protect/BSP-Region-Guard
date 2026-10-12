@@ -450,7 +450,7 @@ public final class RegionSync {
                     store.touch(r);
                     return unknown.isEmpty() ? null : "Not flags, ignored: " + String.join(", ", unknown);
                 }
-                int value = a.isEmpty() ? 0 : Integer.parseInt(b.isEmpty() ? "0" : b);
+                long value = a.isEmpty() ? 0 : Long.parseLong(b.isEmpty() ? "0" : b);
                 boolean sale = key.equals(com.mrgregles.bsp_region_guard.claim.ClaimData.PRICE);
                 boolean open = key.equals(com.mrgregles.bsp_region_guard.claim.ClaimData.COST_PER_BLOCK);
                 if ((sale || open) && !TotemRule.claimsAllowedIn(level)) {

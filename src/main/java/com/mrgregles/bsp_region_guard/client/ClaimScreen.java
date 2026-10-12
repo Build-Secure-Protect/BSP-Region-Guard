@@ -290,7 +290,7 @@ public class ClaimScreen extends Screen {
         }
         text(g, s.id(), x + 70 + (mine.size() > 1 ? 16 : 0), y + 8, TEXT, 1f);
         String meta = (s.parent() == null ? "" : "in " + s.parent() + " - ") + (s.bounds() == null ? "" : s.bounds().sizeX() + " x " + s.bounds().sizeZ())
-                + (d == null ? "" : " - bought for " + d.data().getOrDefault("boughtFor", "?") + " coins") + " - " + (idx + 1) + " of " + mine.size();
+                + (d == null ? "" : " - bought for " + d.data().getOrDefault("boughtFor", "?") + " pieces") + " - " + (idx + 1) + " of " + mine.size();
         text(g, meta, x + W - 10 - (int) (font.width(meta) * 0.6f), y + 10, MUTED, 0.6f);
 
         // map
@@ -408,7 +408,7 @@ public class ClaimScreen extends Screen {
             input.setVisible(false);
         }
 
-        String refund = d == null ? "" : "give up returns half of " + d.data().getOrDefault("boughtFor", "?") + " coins";
+        String refund = d == null ? "" : "give up returns half of " + d.data().getOrDefault("boughtFor", "?") + " pieces to your bank";
         text(g, refund, rx, y + H - 28, HINT, 0.5f);
         chip(g, x + W - 10 - 96, y + H - 20, 96, 12, confirmGiveUp ? "REALLY GIVE UP?" : "GIVE UP THIS CLAIM", true, BAD, 0.75f, () -> {
             if (confirmGiveUp) {

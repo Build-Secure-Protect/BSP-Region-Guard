@@ -8,14 +8,14 @@ import org.jetbrains.annotations.Nullable;
  * @param ok       whether the action went ahead (or, for a quote, whether it could)
  * @param message  a plain sentence for the player
  * @param claimId  the claim concerned, when there is one
- * @param price    the price in coin value (copper-coin units), 0 when not relevant
+ * @param price    the amount in Shatter Pieces (BSP-Core's bank unit): the price, or for an abandon the refund; 0 when not relevant
  */
-public record ClaimResult(boolean ok, String message, @Nullable String claimId, int price) {
+public record ClaimResult(boolean ok, String message, @Nullable String claimId, long price) {
     public static ClaimResult fail(String message) {
         return new ClaimResult(false, message, null, 0);
     }
 
-    public static ClaimResult ok(String message, @Nullable String claimId, int price) {
+    public static ClaimResult ok(String message, @Nullable String claimId, long price) {
         return new ClaimResult(true, message, claimId, price);
     }
 }

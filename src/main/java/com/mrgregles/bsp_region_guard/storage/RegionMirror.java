@@ -33,6 +33,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public final class RegionMirror {
     private static final int MESSAGE_BATCH = 100;
+    /** How long a stopping server waits for queued writes (publishes, region pushes) to reach the database. */
+    private static final long FLUSH_MS = 5000;
+    /** Queued last by {@link #shutdown()}: the worker stops once everything before it has run. */
+    private static final Runnable STOP = () -> {
+    };
     public static final String KIND_MINE_RESET = "mine-reset", KIND_REGION_CHANGED = "region-changed";
 
     @Nullable
@@ -92,6 +97,16 @@ public final class RegionMirror {
         });
     }
 
+    /** For tests: a mirror with its own worker thread, as on a real server. */
+    public static RegionMirror startThreaded(MinecraftServer server, MirrorBackend backend, String serverId) {
+        RegionMirror m = new RegionMirror(server, backend, serverId, 1, true);
+        m.submit(() -> {
+            backend.init();
+            m.lastMessageId = backend.latestMessageId();
+        });
+        return m;
+    }
+
     /** For tests: a mirror on a given backend whose work runs when {@link #drain()} is called. */
     public static RegionMirror startWith(MinecraftServer server, MirrorBackend backend, String serverId) {
         RegionMirror m = new RegionMirror(server, backend, serverId, 1, false);
@@ -123,14 +138,28 @@ public final class RegionMirror {
         return active != null;
     }
 
+    /**
+     * Sends everything still queued, then closes. Messages published while the server stops (a SHUTDOWN trigger's
+     * landing announcement from BSP-Teleport, request TR2) are queued before this runs, so they still go out.
+     */
     private void shutdown() {
         running.set(false);
         if (worker != null) {
-            worker.interrupt();
+            work.add(STOP);
             try {
-                worker.join(3000);
+                worker.join(FLUSH_MS);
+                if (worker.isAlive()) {
+                    BSPRegionGuard.LOGGER.warn("Region storage: {} queued writes not sent after {} ms; giving up", work.size(), FLUSH_MS);
+                    worker.interrupt();
+                    worker.join(1000);
+                }
             } catch (InterruptedException ignored) {
                 Thread.currentThread().interrupt();
+            }
+        } else {
+            Runnable r;
+            while ((r = work.poll()) != null) {
+                r.run();
             }
         }
         try {
@@ -159,13 +188,16 @@ public final class RegionMirror {
     }
 
     private void loop() {
-        while (running.get()) {
+        while (true) {
             try {
                 Runnable r = work.poll(1, java.util.concurrent.TimeUnit.SECONDS);
+                if (r == STOP) {
+                    return;
+                }
                 if (r != null) {
                     r.run();
                 }
-                if (System.currentTimeMillis() - lastPollMs >= pollSeconds * 1000L) {
+                if (running.get() && System.currentTimeMillis() - lastPollMs >= pollSeconds * 1000L) {
                     lastPollMs = System.currentTimeMillis();
                     pollMessages();
                 }

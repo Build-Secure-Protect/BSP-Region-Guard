@@ -78,7 +78,7 @@ Enforcement column: **event** = a Forge event, works now. **mixin** = a small pa
 | `teleport` | none | the point `/rg teleport <region>` goes to; `here` uses your position | event |
 | `spawn` | none | where players respawn after dying inside | tick |
 | `teleport-message` | none | shown after `/rg teleport` | event |
-| `teleport-in`, `teleport-out`, `set-home` | allow | BSP Teleport asks these before a teleport or setting a home | API (later) |
+| `teleport-in`, `teleport-out`, `set-home` | allow | BSP Teleport asks these before a teleport or setting a home; also denied inside a BSP Core Anti Totem zone that blocks the same rule | API (`regions().allows`) |
 
 ## Map making
 
@@ -107,7 +107,7 @@ Enforcement column: **event** = a Forge event, works now. **mixin** = a small pa
 | `dispenser-use` | allow | dispensers and droppers firing into the region | mixin |
 | `falling-blocks` | allow | sand, gravel and anvils landing in the region from outside | mixin |
 | `allowed-ranks` | none | LuckPerms groups that may enter, on top of `entry` | tick |
-| `totem-place`, `totem-drop` | allow | BSP Core asks these for Shatter Totems (replaces Anti Totem zones) | API (later) |
+| `totem-place`, `totem-drop` | allow | For BSP Core to ask about Shatter Totems; also denied inside a BSP Core Anti Totem zone that blocks the same rule (until the two zone systems merge) | API (`regions().allows`) |
 | `mine-only-break` | deny | inside a mine's shell only the mine's own blocks may be broken | later (mines) |
 
 ## Mixin groups

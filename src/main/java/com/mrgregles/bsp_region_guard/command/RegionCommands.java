@@ -3,6 +3,7 @@ package com.mrgregles.bsp_region_guard.command;
 import com.mojang.authlib.GameProfile;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
+import com.mojang.brigadier.arguments.LongArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
@@ -118,12 +119,12 @@ public final class RegionCommands {
                 .executes(ctx -> rename(ctx.getSource(), id(ctx), StringArgumentType.getString(ctx, "name"))))));
         rg.then(Commands.literal("teleport").then(id().executes(ctx -> teleport(ctx.getSource(), id(ctx)))));
         rg.then(Commands.literal("bypass").executes(ctx -> bypass(ctx.getSource())));
-        rg.then(Commands.literal("sale").then(id().then(Commands.argument("price", IntegerArgumentType.integer(0))
-                .executes(ctx -> sale(ctx.getSource(), id(ctx), IntegerArgumentType.getInteger(ctx, "price"))))));
-        rg.then(Commands.literal("open").then(id().then(Commands.argument("costPerBlock", IntegerArgumentType.integer(0))
-                .executes(ctx -> open(ctx.getSource(), id(ctx), IntegerArgumentType.getInteger(ctx, "costPerBlock"), 0, 0))
+        rg.then(Commands.literal("sale").then(id().then(Commands.argument("price", LongArgumentType.longArg(0))
+                .executes(ctx -> sale(ctx.getSource(), id(ctx), LongArgumentType.getLong(ctx, "price"))))));
+        rg.then(Commands.literal("open").then(id().then(Commands.argument("costPerBlock", LongArgumentType.longArg(0))
+                .executes(ctx -> open(ctx.getSource(), id(ctx), LongArgumentType.getLong(ctx, "costPerBlock"), 0, 0))
                 .then(Commands.argument("minSize", IntegerArgumentType.integer(1)).then(Commands.argument("maxSize", IntegerArgumentType.integer(1))
-                        .executes(ctx -> open(ctx.getSource(), id(ctx), IntegerArgumentType.getInteger(ctx, "costPerBlock"),
+                        .executes(ctx -> open(ctx.getSource(), id(ctx), LongArgumentType.getLong(ctx, "costPerBlock"),
                                 IntegerArgumentType.getInteger(ctx, "minSize"), IntegerArgumentType.getInteger(ctx, "maxSize"))))))));
         rg.then(Commands.literal("plotflags").then(id().then(Commands.argument("flags", StringArgumentType.greedyString())
                 .executes(ctx -> plotFlags(ctx.getSource(), id(ctx), StringArgumentType.getString(ctx, "flags"))))));
@@ -419,7 +420,7 @@ public final class RegionCommands {
 
     // ------------------------------------------------------------------ claims
 
-    private static int sale(CommandSourceStack src, String id, int price) throws CommandSyntaxException {
+    private static int sale(CommandSourceStack src, String id, long price) throws CommandSyntaxException {
         Region r = region(src, id);
         if (r.isGlobal()) {
             return fail(src, "The world default cannot be sold.");
@@ -433,10 +434,10 @@ public final class RegionCommands {
         r.setType(RegionType.PLOT_FOR_SALE);
         com.mrgregles.bsp_region_guard.claim.ClaimData.set(r, com.mrgregles.bsp_region_guard.claim.ClaimData.PRICE, price);
         RegionStore.get(src.getLevel()).touch(r);
-        return ok(src, r.id() + " is for sale at " + price + " coins.");
+        return ok(src, r.id() + " is for sale at " + BspCore.money(price) + ".");
     }
 
-    private static int open(CommandSourceStack src, String id, int cost, int min, int max) throws CommandSyntaxException {
+    private static int open(CommandSourceStack src, String id, long cost, int min, int max) throws CommandSyntaxException {
         Region r = region(src, id);
         if (r.isGlobal()) {
             return fail(src, "The world default cannot be an open area.");
@@ -449,7 +450,7 @@ public final class RegionCommands {
         com.mrgregles.bsp_region_guard.claim.ClaimData.set(r, com.mrgregles.bsp_region_guard.claim.ClaimData.MIN_SIZE, min);
         com.mrgregles.bsp_region_guard.claim.ClaimData.set(r, com.mrgregles.bsp_region_guard.claim.ClaimData.MAX_SIZE, max);
         RegionStore.get(src.getLevel()).touch(r);
-        return ok(src, r.id() + " is open for buying at " + cost + " coins per block" + (min > 0 || max > 0 ? ", plots " + min + " to " + max + " blocks a side." : "."));
+        return ok(src, r.id() + " is open for buying at " + BspCore.money(cost) + " per block" + (min > 0 || max > 0 ? ", plots " + min + " to " + max + " blocks a side." : "."));
     }
 
     private static int plotFlags(CommandSourceStack src, String id, String flags) throws CommandSyntaxException {
@@ -585,7 +586,7 @@ public final class RegionCommands {
         }
         MutableComponent out = Component.literal("Claims in " + src.getLevel().dimension().location() + " (" + claims.size() + "):");
         for (Region r : claims) {
-            out.append("\n  " + r.id() + "  " + names(src, r.owners()) + "  " + com.mrgregles.bsp_region_guard.claim.ClaimData.boughtFor(r) + " coins");
+            out.append("\n  " + r.id() + "  " + names(src, r.owners()) + "  " + BspCore.money(com.mrgregles.bsp_region_guard.claim.ClaimData.boughtFor(r)));
         }
         src.sendSuccess(() -> out, false);
         return 1;

@@ -754,7 +754,7 @@ public class RegionScreen extends Screen {
         }
         if (type.equals("claim")) {
             text(g, "OWNED CLAIM", px + 6, cy + 5, VIO, 0.6f);
-            text(g, "bought for " + data.getOrDefault("boughtFor", "?") + " coins, origin: " + data.getOrDefault("origin", "?"), px + 6, cy + 13, TEXT, 0.75f);
+            text(g, "bought for " + data.getOrDefault("boughtFor", "?") + " pieces, origin: " + data.getOrDefault("origin", "?"), px + 6, cy + 13, TEXT, 0.75f);
             text(g, "The owner gives it up with /claim abandon; an admin can too. An admin plot then goes back on sale.", px + 6, cy + 24, 0xFF6F7788, 0.5f);
             text(g, "BUYER MAY SET: " + data.getOrDefault("playerFlags", "the config list"), px + 6, cy + 36, GOLD, 0.6f);
             return;
@@ -762,14 +762,14 @@ public class RegionScreen extends Screen {
         text(g, "PLOT FOR SALE", px + 6, cy + 5, GOLD, 0.6f);
         text(g, "a fixed price for this whole region; the buyer becomes its owner", px + 6, cy + 12, 0xFF6F7788, 0.5f);
         String price = data.getOrDefault("price", "0");
-        text(g, type.equals("plot_for_sale") ? "for sale at " + price + " coins" : "not for sale", px + 6, cy + 20, type.equals("plot_for_sale") ? TEXT : MUTED, 0.75f);
-        button(g, px + 6, cy + 31, 70, 12, "SET PRICE", GOLD, () -> data("price", price, "price in coins; 0 takes it off sale"));
+        text(g, type.equals("plot_for_sale") ? "for sale at " + price + " pieces" : "not for sale", px + 6, cy + 20, type.equals("plot_for_sale") ? TEXT : MUTED, 0.75f);
+        button(g, px + 6, cy + 31, 70, 12, "SET PRICE", GOLD, () -> data("price", price, "price in Shatter Pieces; 0 takes it off sale"));
         text(g, "OPEN AREA", px + 6, cy + 52, GOLD, 0.6f);
         text(g, "players outline their own plot inside and pay per block of ground", px + 6, cy + 59, 0xFF6F7788, 0.5f);
         String cost = data.getOrDefault("costPerBlock", "0");
-        text(g, type.equals("open_for_buying") ? cost + " coins per block, plots " + data.getOrDefault("minSize", "config") + " to " + data.getOrDefault("maxSize", "config") + " blocks a side" : "not open",
+        text(g, type.equals("open_for_buying") ? cost + " pieces per block, plots " + data.getOrDefault("minSize", "config") + " to " + data.getOrDefault("maxSize", "config") + " blocks a side" : "not open",
                 px + 6, cy + 67, type.equals("open_for_buying") ? TEXT : MUTED, 0.75f);
-        button(g, px + 6, cy + 78, 70, 12, "SET COST", GOLD, () -> data("costPerBlock", cost, "coins per block of ground; 0 closes the area"));
+        button(g, px + 6, cy + 78, 70, 12, "SET COST", GOLD, () -> data("costPerBlock", cost, "Shatter Pieces per block of ground; 0 closes the area"));
         button(g, px + 80, cy + 78, 56, 12, "MIN SIZE", MUTED, () -> data("minSize", data.getOrDefault("minSize", ""), "smallest side in blocks; empty uses the config"));
         button(g, px + 140, cy + 78, 56, 12, "MAX SIZE", MUTED, () -> data("maxSize", data.getOrDefault("maxSize", ""), "largest side in blocks; empty uses the config"));
         text(g, "BUYER MAY SET: " + data.getOrDefault("playerFlags", "the config list"), px + 6, cy + 96, GOLD, 0.6f);

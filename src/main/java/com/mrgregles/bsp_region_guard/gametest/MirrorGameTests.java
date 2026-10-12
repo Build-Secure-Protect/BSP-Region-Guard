@@ -156,4 +156,21 @@ public class MirrorGameTests {
         }
         h.succeed();
     }
+
+    /** Request TR2: messages queued while the server stops (a SHUTDOWN landing) reach the database before the mirror closes. */
+    @GameTest(template = EMPTY)
+    public void stopping_sends_queued_messages_first(GameTestHelper h) {
+        MemoryBackend backend = new MemoryBackend(40);
+        RegionMirror mirror = RegionMirror.startThreaded(h.getLevel().getServer(), backend, "alpha");
+        RegionMirror.setActive(mirror);
+        try {
+            for (int i = 0; i < 5; i++) {
+                mirror.publish("landing", "", "", "player " + i);
+            }
+        } finally {
+            RegionMirror.stop();
+        }
+        h.assertTrue(backend.messages() == 5, "all 5 queued messages are sent before the mirror stops, got " + backend.messages());
+        h.succeed();
+    }
 }

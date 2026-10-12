@@ -4,6 +4,17 @@ All notable changes to BSP Region Guard. Format follows Keep a Changelog; versio
 
 ## [Unreleased]
 
+### Changed (2026-10-12)
+- **Claims are paid from the BSP Core bank** in Shatter Pieces, no longer with coins from the inventory (owner decision D31). Prices, costs per block and refunds are in pieces and are now `long`s. `ClaimService.purchasePlot`, `purchaseOpen` and `enlarge` answer through a callback, because on a network the bank answers after a database round trip: meanwhile the plot or outline is held for the buyer and the buyer cannot start a second purchase; if the plot changed before the money arrived, the money is paid straight back. `abandon` pays the refund into the owner's bank, also when an admin removes the claim of an offline player. The screens and commands say "pieces".
+- Built against **BSP Core 1.0.1**; the BSP Core adapter now goes through BSP Core's `api` package (admins, coins, dimensions, bank, Anti Totem zones). A few calls still use BSP Core internals where the api has no equivalent yet (every placed totem, steal radius, the totem block, test helpers). `tools/setup_test_server.sh` copies the slim jar of the version in `gradle.properties`.
+- BSP Core's Anti Totem zones count as well (owner decision D32): `teleport-in`, `teleport-out`, `set-home`, `totem-place` and `totem-drop` answer no where either a region or a BSP Core zone blocks them, so BSP Teleport and BSP Core need only ask Region Guard.
+
+### Fixed (2026-10-12)
+- A stopping server now sends everything the storage worker still has queued (up to 5 seconds) before closing the database, instead of interrupting it. Landing messages published during shutdown (BSP Teleport's SHUTDOWN trigger moves, its request TR2) used to be lost, so players reached the holding server at its default spot.
+
+### Added (2026-10-12)
+- Three GameTests (51 in all): queued messages are sent on stop; a BSP Core zone denies the matching flags; a charge in flight holds the plot, refuses a second purchase and pays back when the price changed.
+
 ### Added
 - The TELEPORT tab now lists a region's triggers with a remove button and adds new ones (pick ENTER, EXIT, TIMER or SHUTDOWN, type the destination). The MAP tab's OTHER SERVERS button overlays other servers' regions from the shared storage in grey (read-only, prefixed with the server name).
 - Region triggers: `/rg trigger add <region> <enter|exit|timer|shutdown> [<seconds>] <here | world x y z | server/world x y z> [message]`, `/rg trigger list|remove`. A trigger fires `RegionTriggerEvent` for the player; same-server destinations are carried out by Region Guard, cross-server ones are left to BSP Teleport (which cancels the event to take over) and are also published through the shared storage as kind `trigger`. Shutdown triggers fire for everyone inside when the server stops.

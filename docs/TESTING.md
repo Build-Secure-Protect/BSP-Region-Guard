@@ -126,13 +126,13 @@ As an operator or BSP Core admin, with a few regions defined (use the Phase 1 co
 
 ## Phase 4a: claims (build 0.1.0, 2026-10-11)
 
-Claims need a world that is not a PvP world: either a second dimension not in BSP Core's `restrictions.allowedDimensions`, or `claims.allowInPvpWorlds = true` in `world/serverconfig/bsp_region_guard-server.toml` for testing. Give the test player coins with BSP Core (`/bsp` admin tools or the creative tab).
+Claims need a world that is not a PvP world: either a second dimension not in BSP Core's `restrictions.allowedDimensions`, or `claims.allowInPvpWorlds = true` in `world/serverconfig/bsp_region_guard-server.toml` for testing. Claims are paid from the BSP Core bank in Shatter Pieces (D31, from 2026-10-12). Set the test player's balance with `/bsp bank set <player> 0` and `/bsp bank give <player> <pieces>`; `/bank` shows it (new accounts start with BSP Core's starting pieces, 500 by default).
 
 - [ ] Admin: define a region and `/rg sale shop1 100`: `/rg info shop1` says plot for sale; every player sees its gold box in the world and `/claim list` lists it with the price. The SALE tab shows the price; SET PRICE 0 takes it off sale.
-- [ ] Player without coins: `/claim quote shop1` names the price and says you cannot afford it. With 150 coins: `/claim buy shop1` takes 100, the box turns violet (a claim), `/claim here` says it is yours, you can build inside while another player cannot, and the admin screen lists it as a claim with you as owner.
+- [ ] Player with 0 pieces: `/claim quote shop1` names the price and says what the bank holds. With 150 pieces: `/claim buy shop1` takes 100 (the bank log shows it, paid to Region Guard), the box turns violet (a claim), `/claim here` says it is yours, you can build inside while another player cannot, and the admin screen lists it as a claim with you as owner.
 - [ ] `/claim add shop1 <friend>`: the friend can build; `/claim remove` stops that. `/claim flag shop1 pvp deny` works; `/claim flag shop1 tnt deny` is refused with the list of allowed flags.
-- [ ] `/claim abandon shop1`: 50 coins back, the region is for sale again at 100, the box is gold again.
-- [ ] Admin: a big region and `/rg open field 2` (2 coins per block). Player: `/claim tool`, outline 3 x 3: `/claim buy field` refuses (too small); outline partly outside: refused; outline 6 x 6: `/claim quote field` says 72 coins; `/claim buy field` creates `field-<name>-1` as a violet box from bedrock to sky, 72 coins taken. A second outline overlapping it: refused. With `claims.maxPerPlayer = 1`, a second plot elsewhere: refused with the limit.
+- [ ] `/claim abandon shop1`: 50 pieces back into the bank, the region is for sale again at 100, the box is gold again.
+- [ ] Admin: a big region and `/rg open field 2` (2 pieces per block). Player: `/claim tool`, outline 3 x 3: `/claim buy field` refuses (too small); outline partly outside: refused; outline 6 x 6: `/claim quote field` says 72 pieces; `/claim buy field` creates `field-<name>-1` as a violet box from bedrock to sky, 72 pieces taken from the bank. A second outline overlapping it: refused. With `claims.maxPerPlayer = 1`, a second plot elsewhere: refused with the limit.
 - [ ] `/claim enlarge field-<name>-1` with a bigger outline containing the plot: pays for the added blocks only; a smaller or shifted outline is refused.
 - [ ] `/claim abandon field-<name>-1`: refund, the box disappears.
 - [ ] Wipe: as a BSP Core admin (in the config list, or op when the list is empty), `/rg claims wipe` prints the count, the world and a four-digit code; `/rg claims wipe 0000` (wrong) wipes nothing; the right code within a minute removes every claim of that world, keeps plots for sale and protected regions, names the backup file, and other admins online see a notice; `/rg claims backups` lists it; `/rg claims restore <file>` brings the claims back with their owners. A non-admin op is refused when the admin list is set.
@@ -187,3 +187,14 @@ Needs a MySQL database reachable from two test servers (two copies of `server/` 
 - [ ] Admin screen, MAP tab with shared storage on and a second server's regions in the database: OTHER SERVERS draws them in grey with "server/id" labels; clicking one does nothing; HIDE OTHERS removes them.
 
 Not yet in this build: BSP Core's shop screen (RG-C3), BSP Teleport's side of cross-server triggers (see the BSP-Teleport handoff in the vault), Redis.
+
+## 2026-10-12: bank payments, BSP-Core 1.0.1, Anti Totem zones, shutdown flush (build 0.1.0)
+
+Needs BSP-Core 1.0.1 (its `api` package and bank). On the Mohist test server, `tools/setup_test_server.sh` now copies the slim jar of the version in `gradle.properties`.
+
+- [ ] Bank payments: repeat Phase 4a with the bank. Also: with 100 pieces, `/claim buy` a plot priced 150 is refused with what the bank holds, and nothing changes. The bank log (`/bank`) names Region Guard as the other side of each purchase and refund.
+- [ ] An admin gives up someone else's claim while that player is offline: the owner's bank gets the refund (check `/bank` when they log in).
+- [ ] On a network (BSP Core with shared storage): two players try to buy the same plot at the same moment; one gets it, the other is told someone else is buying it (or, if their charge went through first, gets the money back).
+- [ ] Anti Totem zones (D32): put a BSP Core Anti Totem zone with "teleport in" blocked somewhere without any region; BSP Teleport refuses a teleport into it (Region Guard answers no for `teleport-in` there). Same for "totem place" if BSP Core asks Region Guard.
+- [ ] Shutdown landings (TR2): with storage on and a shutdown trigger to another server, stop the server; the player lands at the trigger's position on the holding server, not its spawn. The log shows no "queued writes not sent" warning.
+

@@ -5,14 +5,14 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.Level;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 
-/** Fired on the Forge bus after a player bought or enlarged a claim and the wallet was charged. Not cancellable. */
+/** Fired on the Forge bus after a player bought or enlarged a claim and their bank was charged. Not cancellable. */
 public class ClaimPurchasedEvent extends PlayerEvent {
     private final String claimId;
     private final ResourceKey<Level> dimension;
-    private final int price;
+    private final long price;
     private final boolean enlarged;
 
-    public ClaimPurchasedEvent(ServerPlayer player, String claimId, ResourceKey<Level> dimension, int price, boolean enlarged) {
+    public ClaimPurchasedEvent(ServerPlayer player, String claimId, ResourceKey<Level> dimension, long price, boolean enlarged) {
         super(player);
         this.claimId = claimId;
         this.dimension = dimension;
@@ -28,8 +28,8 @@ public class ClaimPurchasedEvent extends PlayerEvent {
         return dimension;
     }
 
-    /** What was charged, in coin value. */
-    public int price() {
+    /** What was charged, in Shatter Pieces. */
+    public long price() {
         return price;
     }
 

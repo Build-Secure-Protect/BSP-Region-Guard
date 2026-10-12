@@ -106,7 +106,12 @@ public final class ClaimSync {
                 if (ground == null || !level.dimension().equals(sel.dimension())) {
                     return "Outline the larger plot with the plot tool first.";
                 }
-                result = Claims.INSTANCE.enlarge(player, claim.id(), ground);
+                String id = claim.id();
+                Claims.INSTANCE.enlarge(player, id, ground, r -> {
+                    player.displayClientMessage(Component.literal(r.message()), true);
+                    refresh(player, store, id);
+                });
+                return null; // answered when the bank has
             }
             case ClaimActionPacket.TELEPORT -> {
                 return RegionSync.teleport(player, level, store, claim);
@@ -115,11 +120,15 @@ public final class ClaimSync {
                 return "Unknown action " + msg.action();
             }
         }
-        Region after = store.get(claim.id());
+        refresh(player, store, claim.id());
+        return result.message();
+    }
+
+    private static void refresh(ServerPlayer player, RegionStore store, String claimId) {
+        Region after = store.get(claimId);
         if (after != null) {
             RegionSync.sendDetail(player, after);
         }
         RegionSync.sendList(player, null, false);
-        return result.message();
     }
 }
