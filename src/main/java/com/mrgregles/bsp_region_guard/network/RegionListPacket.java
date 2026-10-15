@@ -1,6 +1,6 @@
 package com.mrgregles.bsp_region_guard.network;
 
-import com.mrgregles.bsp_region_guard.region.Cuboid;
+import com.mrgregles.bsp_region_guard.api.Cuboid;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.api.distmarker.Dist;
@@ -14,9 +14,19 @@ import java.util.function.Supplier;
 /**
  * Server to client: every region of the player's world in one line each, for the list and the map. Sent when the
  * screen opens and after any change to a region's identity, bounds or people. {@code select} names the region the
- * screen should show; {@code open} asks the client to open the screen.
+ * screen should show; {@code open} asks the client to open the screen. {@code viewing} is the other server whose
+ * regions these are (owner decision D44, read-only), or empty for this server; {@code servers} lists the servers the
+ * admin may switch between, this one first (empty without shared storage).
  */
-public record RegionListPacket(ResourceLocation dimension, List<Summary> regions, @Nullable String select, boolean open) {
+public record RegionListPacket(ResourceLocation dimension, List<Summary> regions, @Nullable String select, boolean open, String viewing, List<String> servers) {
+
+    public RegionListPacket(ResourceLocation dimension, List<Summary> regions, @Nullable String select, boolean open) {
+        this(dimension, regions, select, open, "", List.of());
+    }
+
+    public boolean remote() {
+        return !viewing.isEmpty();
+    }
 
     /** One region as the list shows it. {@code bounds} is null for the world default. */
     public record Summary(String id, String name, String type, int priority, @Nullable String parent, @Nullable Cuboid bounds,
@@ -58,10 +68,13 @@ public record RegionListPacket(ResourceLocation dimension, List<Summary> regions
         buf.writeCollection(msg.regions, (b, s) -> s.write(b));
         buf.writeNullable(msg.select, (b, s) -> b.writeUtf(s, 64));
         buf.writeBoolean(msg.open);
+        buf.writeUtf(msg.viewing, 64);
+        buf.writeCollection(msg.servers, (b, s) -> b.writeUtf(s, 64));
     }
 
     public static RegionListPacket decode(FriendlyByteBuf buf) {
-        return new RegionListPacket(buf.readResourceLocation(), buf.readList(Summary::read), buf.readNullable(b -> b.readUtf(64)), buf.readBoolean());
+        return new RegionListPacket(buf.readResourceLocation(), buf.readList(Summary::read), buf.readNullable(b -> b.readUtf(64)), buf.readBoolean(),
+                buf.readUtf(64), buf.readList(b -> b.readUtf(64)));
     }
 
     public static void handle(RegionListPacket msg, Supplier<NetworkEvent.Context> ctx) {

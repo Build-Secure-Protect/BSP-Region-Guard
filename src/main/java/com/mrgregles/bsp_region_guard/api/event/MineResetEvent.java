@@ -11,20 +11,24 @@ public class MineResetEvent extends Event {
     private final String mineId;
     private final long blocks;
 
+    /** Fired by Region Guard; other mods only listen. */
     public MineResetEvent(ServerLevel level, String mineId, long blocks) {
         this.level = level;
         this.mineId = mineId;
         this.blocks = blocks;
     }
 
+    /** The world of the mine. */
     public ServerLevel level() {
         return level;
     }
 
+    /** The world it happened in. */
     public ResourceKey<Level> dimension() {
         return level.dimension();
     }
 
+    /** The mine's region id. */
     public String mineId() {
         return mineId;
     }

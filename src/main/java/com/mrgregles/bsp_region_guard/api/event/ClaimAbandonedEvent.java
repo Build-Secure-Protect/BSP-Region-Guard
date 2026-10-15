@@ -11,22 +11,36 @@ public class ClaimAbandonedEvent extends PlayerEvent {
     private final ResourceKey<Level> dimension;
     private final long refund;
 
-    public ClaimAbandonedEvent(ServerPlayer player, String claimId, ResourceKey<Level> dimension, long refund) {
+    /** Fired by Region Guard; other mods only listen. */
+    public ClaimAbandonedEvent(ServerPlayer player, String claimId, ResourceKey<Level> dimension, long refund, @org.jetbrains.annotations.Nullable com.mrgregles.bsp_region_guard.api.Cuboid bounds) {
         super(player);
         this.claimId = claimId;
         this.dimension = dimension;
         this.refund = refund;
+        this.bounds = bounds;
     }
 
+    /** The claim's region id. */
     public String claimId() {
         return claimId;
     }
 
+    /** The world it happened in. */
     public ResourceKey<Level> dimension() {
         return dimension;
     }
 
+    /** What went back into the owner's bank, in Shatter Pieces (0 when nothing). */
     public long refund() {
         return refund;
+    }
+
+    @org.jetbrains.annotations.Nullable
+    private final com.mrgregles.bsp_region_guard.api.Cuboid bounds;
+
+    /** The claim's box (for an enlargement, the new one; for an abandon, the one it had), for a shop map to redraw (CR-4). */
+    @org.jetbrains.annotations.Nullable
+    public com.mrgregles.bsp_region_guard.api.Cuboid bounds() {
+        return bounds;
     }
 }

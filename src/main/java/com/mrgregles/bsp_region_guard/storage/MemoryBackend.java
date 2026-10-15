@@ -52,6 +52,17 @@ public final class MemoryBackend implements MirrorBackend {
     }
 
     @Override
+    public synchronized List<RegionRow> fetchGlobals() {
+        List<RegionRow> out = new ArrayList<>();
+        for (RegionRow r : regions.values()) {
+            if (!r.deleted() && r.id().equals(com.mrgregles.bsp_region_guard.region.Region.GLOBAL_ID)) {
+                out.add(r);
+            }
+        }
+        return out;
+    }
+
+    @Override
     public synchronized Map<String, Integer> countByServer() {
         Map<String, Integer> out = new TreeMap<>();
         for (RegionRow r : regions.values()) {
@@ -76,7 +87,7 @@ public final class MemoryBackend implements MirrorBackend {
 
     private synchronized long store(Message message) {
         long id = messages.size() + 1;
-        messages.add(new Message(id, message.createdAt(), message.source(), message.kind(), message.dimension(), message.regionId(), message.payload()));
+        messages.add(new Message(id, message.uid(), message.createdAt(), message.source(), message.kind(), message.dimension(), message.regionId(), message.payload()));
         return id;
     }
 

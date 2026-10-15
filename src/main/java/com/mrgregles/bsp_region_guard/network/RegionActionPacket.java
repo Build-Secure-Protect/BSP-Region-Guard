@@ -16,7 +16,9 @@ public record RegionActionPacket(String action, String regionId, String a, Strin
             PRIORITY = "priority", PARENT = "parent", TYPE = "type", RENAME = "rename", DELETE = "delete", CREATE = "create",
             REDEFINE = "redefine", TELEPORT = "teleport", WAND = "wand", SELECT_BOUNDS = "select-bounds", SET_DATA = "set-data",
             MINE_CREATE = "mine-create", MINE_ADD = "mine-add", MINE_INTERVAL = "mine-interval", MINE_SPAWN = "mine-spawn", MINE_SHELL = "mine-shell", MINE_RESET = "mine-reset",
-            TRIGGER_ADD = "trigger-add", TRIGGER_REMOVE = "trigger-remove", LIST_REMOTE = "list-remote";
+            TRIGGER_ADD = "trigger-add", TRIGGER_REMOVE = "trigger-remove", LIST_REMOTE = "list-remote",
+            BORDER_SET = "border-set", BORDER_OFF = "border-off", EDGE_LINK = "edge-link", EDGE_UNLINK = "edge-unlink", EDGE_REFRESH = "edge-refresh",
+            VIEW_SERVER = "view-server", WIPE_REQUEST = "wipe-request", WIPE_CONFIRM = "wipe-confirm", WIPE_RESTORE = "wipe-restore";
 
     public static RegionActionPacket of(String action, String regionId) {
         return new RegionActionPacket(action, regionId, "", "");

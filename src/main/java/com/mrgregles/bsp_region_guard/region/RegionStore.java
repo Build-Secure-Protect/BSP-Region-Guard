@@ -1,6 +1,7 @@
 package com.mrgregles.bsp_region_guard.region;
 
 import com.mrgregles.bsp_region_guard.BSPRegionGuard;
+import com.mrgregles.bsp_region_guard.api.Cuboid;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;

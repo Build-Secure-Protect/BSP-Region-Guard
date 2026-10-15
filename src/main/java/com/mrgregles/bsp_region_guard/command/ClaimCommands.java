@@ -9,11 +9,11 @@ import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
 import com.mrgregles.bsp_region_guard.api.ClaimResult;
 import com.mrgregles.bsp_region_guard.api.ClaimService;
+import com.mrgregles.bsp_region_guard.api.Cuboid;
 import com.mrgregles.bsp_region_guard.claim.ClaimData;
 import com.mrgregles.bsp_region_guard.claim.Claims;
 import com.mrgregles.bsp_region_guard.compat.BspCore;
 import com.mrgregles.bsp_region_guard.flag.FlagRegistry;
-import com.mrgregles.bsp_region_guard.region.Cuboid;
 import com.mrgregles.bsp_region_guard.region.Region;
 import com.mrgregles.bsp_region_guard.region.RegionStore;
 import com.mrgregles.bsp_region_guard.region.RegionType;
@@ -142,12 +142,16 @@ public final class ClaimCommands {
         if (!p.getInventory().add(wand)) {
             p.drop(wand, false);
         }
-        src.sendSuccess(() -> Component.literal("Plot tool given. Left-click one corner, right-click the other, then /claim buy <open area>."), false);
+        src.sendSuccess(() -> Component.literal("Plot tool given. Left-click one corner, right-click the other: the Land Office opens with the price."), false);
         return 1;
     }
 
     private static int buy(CommandSourceStack src, String id, boolean buy) throws CommandSyntaxException {
         ServerPlayer p = player(src);
+        if (buy && !Claims.buysByCommand(p)) {
+            src.sendFailure(Component.literal("Buy at a Land Office: outline your plot with the plot tool and the office opens, or use a Land Office block."));
+            return 0;
+        }
         Region r = RegionStore.get(p.serverLevel()).get(id);
         ClaimService claims = Claims.INSTANCE;
         if (r != null && r.type() == RegionType.OPEN_FOR_BUYING) {
@@ -172,6 +176,10 @@ public final class ClaimCommands {
 
     private static int enlarge(CommandSourceStack src, String id) throws CommandSyntaxException {
         ServerPlayer p = player(src);
+        if (!Claims.buysByCommand(p)) {
+            src.sendFailure(Component.literal("Enlarge at a Land Office: outline the bigger plot with the plot tool and the office opens."));
+            return 0;
+        }
         Selection sel = Selections.of(p);
         Cuboid ground = sel.cuboid();
         if (ground == null || !p.serverLevel().dimension().equals(sel.dimension())) {

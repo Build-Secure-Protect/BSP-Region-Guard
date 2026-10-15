@@ -1,11 +1,11 @@
 package com.mrgregles.bsp_region_guard.gametest;
 
 import com.mrgregles.bsp_region_guard.BSPRegionGuard;
+import com.mrgregles.bsp_region_guard.api.Cuboid;
 import com.mrgregles.bsp_region_guard.api.RegionGuardApi;
 import com.mrgregles.bsp_region_guard.api.event.RegionTriggerEvent;
 import com.mrgregles.bsp_region_guard.flag.Flags;
 import com.mrgregles.bsp_region_guard.protection.MovementTracker;
-import com.mrgregles.bsp_region_guard.region.Cuboid;
 import com.mrgregles.bsp_region_guard.region.Region;
 import com.mrgregles.bsp_region_guard.region.RegionStore;
 import com.mrgregles.bsp_region_guard.region.RegionType;
@@ -81,6 +81,33 @@ public class TriggerGameTests {
             RegionStore.get(level).remove("tg_enter");
             p.discard();
         }
+        h.succeed();
+    }
+
+    /** Tab completion of a trigger's destination, word by word. */
+    @GameTest(template = EMPTY)
+    public void trigger_destinations_are_suggested_word_by_word(GameTestHelper h) {
+        java.util.List<String> worlds = java.util.List.of("minecraft:overworld", "minecraft:the_nether");
+        java.util.List<String> remote = java.util.List.of("survival-2/minecraft:overworld");
+        int[] at = {120, 64, -40};
+        var first = com.mrgregles.bsp_region_guard.command.TriggerSuggestions.suggest("enter", "", at, worlds, remote);
+        h.assertTrue(first.start() == 0 && first.suggestions().containsAll(java.util.List.of("here", "minecraft:overworld", "overworld", "survival-2/minecraft:overworld")),
+                "first word: here, this server's worlds (short too) and other servers' worlds: " + first.suggestions());
+        var partial = com.mrgregles.bsp_region_guard.command.TriggerSuggestions.suggest("enter", "surv", at, worlds, remote);
+        h.assertTrue(partial.suggestions().equals(java.util.List.of("survival-2/minecraft:overworld")), "narrowed by what is typed: " + partial.suggestions());
+        var x = com.mrgregles.bsp_region_guard.command.TriggerSuggestions.suggest("enter", "survival-2/minecraft:overworld ", at, worlds, remote);
+        h.assertTrue(x.start() == "survival-2/minecraft:overworld ".length() && x.suggestions().contains("120 64 -40") && x.suggestions().contains("120"),
+                "then the admin's own position: " + x.suggestions());
+        var z = com.mrgregles.bsp_region_guard.command.TriggerSuggestions.suggest("enter", "nether 120 64 ", at, worlds, remote);
+        h.assertTrue(z.suggestions().equals(java.util.List.of("-40")), "the last coordinate: " + z.suggestions());
+        var message = com.mrgregles.bsp_region_guard.command.TriggerSuggestions.suggest("enter", "here Welc", at, worlds, remote);
+        h.assertTrue(message.suggestions().isEmpty(), "nothing after here: the rest is a free message");
+        var timer = com.mrgregles.bsp_region_guard.command.TriggerSuggestions.suggest("timer", "", at, worlds, remote);
+        h.assertTrue(timer.suggestions().contains("60") && !timer.suggestions().contains("here"), "a timer asks for seconds first: " + timer.suggestions());
+        var afterSeconds = com.mrgregles.bsp_region_guard.command.TriggerSuggestions.suggest("timer", "60 ", at, worlds, remote);
+        h.assertTrue(afterSeconds.suggestions().contains("here"), "then the destination");
+        var console = com.mrgregles.bsp_region_guard.command.TriggerSuggestions.suggest("enter", "overworld ", null, worlds, remote);
+        h.assertTrue(console.suggestions().isEmpty(), "no position to offer from the console");
         h.succeed();
     }
 }

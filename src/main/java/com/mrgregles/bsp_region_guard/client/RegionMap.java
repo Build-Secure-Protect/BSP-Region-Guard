@@ -2,8 +2,8 @@ package com.mrgregles.bsp_region_guard.client;
 
 import com.mojang.blaze3d.platform.NativeImage;
 import com.mrgregles.bsp_region_guard.BSPRegionGuard;
+import com.mrgregles.bsp_region_guard.api.Cuboid;
 import com.mrgregles.bsp_region_guard.network.RegionListPacket;
-import com.mrgregles.bsp_region_guard.region.Cuboid;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;

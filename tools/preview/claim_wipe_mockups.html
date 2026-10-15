@@ -1,0 +1,204 @@
+<title>Region Guard Claim Wipe</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=VT323&family=IBM+Plex+Sans:wght@400;600&display=swap">
+<style>
+/* Layout: three options, each the admin screen (GUI scale 2, 856 x 480) at the confirmation step of a claim wipe, with a short brief. Single dark look: this is a game HUD. */
+:root {
+  color-scheme: dark;
+  --bg: #0b0e13;
+  --panel: #10151c;
+  --inset: #0c0e12;
+  --line: #2a2f3a;
+  --accent: #19d3b0;
+  --violet: #b58cff;     /* claims */
+  --gold: #ffd23a;
+  --bad: #ff6b5c;        /* the wipe */
+  --text: #e6eaf2;
+  --muted: #9aa3b5;
+  --mc: 'VT323', 'Courier New', monospace;
+  --ui: 'IBM Plex Sans', system-ui, sans-serif;
+}
+body { background: var(--bg); color: var(--text); font-family: var(--ui); padding-block: 32px; padding-inline: 16px; line-height: 1.5; }
+.wrap { max-width: 920px; margin: 0 auto; display: grid; gap: 44px; }
+h1 { font-family: var(--mc); font-size: 40px; font-weight: 400; letter-spacing: 1px; color: var(--accent); margin: 0; text-wrap: balance; }
+h2 { font-family: var(--mc); font-size: 32px; font-weight: 400; margin: 0; text-wrap: balance; }
+h2 small { color: var(--muted); font-size: 24px; margin-left: 8px; }
+p { max-width: 68ch; margin: 0; }
+.lead { color: var(--muted); }
+.lead b { color: var(--text); font-weight: 600; }
+.option { display: grid; gap: 14px; }
+.brief { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 32px; }
+.brief p { font-size: 15px; }
+.brief b { color: var(--accent); font-weight: 600; }
+.brief .con b { color: var(--gold); }
+.frame { overflow-x: auto; border: 1px solid var(--line); background: #06080c; padding: 12px; }
+.screen { position: relative; width: 856px; height: 480px; font-family: var(--mc); font-size: 20px; line-height: 1; color: var(--text);
+  background: radial-gradient(ellipse at 30% 20%, #16331f 0, transparent 50%), radial-gradient(ellipse at 70% 80%, #2a2316 0, transparent 50%), #1a2230; }
+.panel { position: absolute; left: 12px; top: 12px; width: 832px; height: 456px; background: rgba(16,21,28,.94); border: 2px solid var(--accent); box-sizing: border-box; }
+.title { position: absolute; left: 20px; top: 16px; color: var(--accent); letter-spacing: 2px; }
+.help { position: absolute; color: var(--muted); font-size: 15px; white-space: nowrap; }
+.inset { position: absolute; background: var(--inset); border: 2px solid var(--line); box-sizing: border-box; }
+.row { position: absolute; left: 0; right: 0; height: 26px; padding: 3px 8px; box-sizing: border-box; display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 18px; }
+.row.sel { background: rgba(25,211,176,.14); box-shadow: inset 2px 0 0 var(--accent); }
+.row span.m { color: var(--muted); font-size: 15px; }
+.pill { font-size: 14px; padding: 1px 5px; border: 2px solid var(--line); color: var(--muted); line-height: 1; }
+.pill.p { border-color: var(--accent); color: var(--accent); }
+.pill.c { border-color: var(--violet); color: var(--violet); }
+.pill.g { border-color: var(--gold); color: var(--gold); }
+.chips { position: absolute; display: flex; gap: 4px; }
+.chip { font-size: 15px; padding: 3px 7px; border: 2px solid var(--line); color: var(--muted); background: var(--inset); white-space: nowrap; }
+.chip.on { color: var(--accent); border-color: var(--accent); background: rgba(25,211,176,.1); }
+.chip.violet { color: var(--violet); border-color: var(--violet); background: rgba(181,140,255,.1); }
+.tabs { position: absolute; display: flex; gap: 4px; }
+.tab { padding: 5px 10px; border: 2px solid var(--line); border-bottom: none; color: var(--muted); background: var(--inset); font-size: 17px; }
+.tab.on { color: var(--accent); border-color: var(--accent); background: rgba(25,211,176,.1); }
+.tab.red { color: var(--bad); border-color: var(--bad); background: rgba(255,107,92,.1); }
+.btn { position: absolute; padding: 5px 12px; border: 2px solid var(--accent); color: var(--accent); background: rgba(25,211,176,.08); font-size: 17px; white-space: nowrap; }
+.btn.bad { border-color: var(--bad); color: var(--bad); background: rgba(255,107,92,.1); }
+.btn.dim { border-color: var(--line); color: var(--muted); background: transparent; }
+.danger { position: absolute; border: 2px solid var(--bad); background: rgba(255,107,92,.06); box-sizing: border-box; }
+.code { color: var(--gold); font-size: 30px; letter-spacing: 6px; }
+.input { position: absolute; border: 2px solid var(--gold); background: var(--inset); color: var(--text); font-size: 22px; padding: 3px 8px; letter-spacing: 4px; box-sizing: border-box; }
+.input i { display: inline-block; width: 2px; height: 18px; background: var(--text); vertical-align: middle; margin-left: 2px; }
+.t { position: absolute; font-size: 18px; line-height: 1.2; }
+.t b { font-weight: 400; color: var(--bad); }
+.t em { font-style: normal; color: var(--gold); }
+.dimmer { position: absolute; inset: 0; background: rgba(6,8,12,.6); }
+@media (max-width: 700px) { .brief { grid-template-columns: 1fr; } h1 { font-size: 32px; } }
+</style>
+
+<div class="wrap">
+  <header style="display:grid;gap:10px">
+    <h1>Wiping claims from the admin screen: three options</h1>
+    <p class="lead">Today a world's claims are wiped with <b>/rg claims wipe</b> (owner decision D23): it shows how many claims would go and a one-time four-digit code; <b>/rg claims wipe &lt;code&gt;</b> within a minute writes a backup file, removes every claim in that world (plots for sale go back on sale, outlined plots disappear) and tells every admin online. <b>/rg claims backups</b> and <b>/rg claims restore &lt;file&gt;</b> undo it. Only BSP Core admins may. Each option puts the same steps on screen, keeps the typed code, and shows the backups next to the button. Shown at the moment that matters: the code has been given and is waiting to be typed. Example: the Overworld, 12 claims by 9 players.</p>
+  </header>
+
+  <!-- ============================================================ A -->
+  <section class="option" id="a">
+    <h2>A. CLAIMS tab <small>on the world default, the claims listed above the button</small></h2>
+    <div class="brief">
+      <p>The world default gets a CLAIMS tab (ACCESS goes from the world default instead: owners and members of the whole world mean nothing). It lists every claim in this world with owner and price, then WIPE ALL CLAIMS IN THIS WORLD. Pressing it turns the bottom of the tab into the confirmation: the code in large figures, a box to type it, the seconds left, CANCEL. Backups sit at the foot with RESTORE.</p>
+      <p><b>Good at:</b> the admin sees exactly what goes before pressing; everything about claims in one place; no extra screen. <span class="con"><b>Weak at:</b></span> a red button on a tab admins open for other reasons; a long claim list pushes the backups down (scroll).</p>
+    </div>
+    <div class="frame">
+      <div class="screen">
+        <div class="panel">
+          <div class="title">REGIONS - OVERWORLD</div>
+          <div class="help" style="right:20px;top:18px">21 regions</div>
+          <div class="inset" style="left:16px;top:72px;width:212px;height:330px">
+            <div class="row sel" style="top:2px"><span>World default</span><span class="pill">W</span></div>
+            <div class="row" style="top:28px"><span>spawn</span><span class="pill p">P</span></div>
+            <div class="row" style="top:54px"><span>field</span><span class="pill g">S</span></div>
+            <div class="row" style="top:80px"><span>field-kai-1</span><span class="pill c">C</span></div>
+            <div class="row" style="top:106px"><span>shop3</span><span class="pill c">C</span></div>
+          </div>
+          <div style="position:absolute;left:244px;top:44px;font-size:24px">World default <span style="color:var(--muted);font-size:17px">the whole Overworld</span></div>
+          <div class="tabs" style="left:244px;top:70px"><span class="tab">MAP</span><span class="tab">FLAGS</span><span class="tab">RANKS</span><span class="tab">TELEPORT</span><span class="tab">INFO</span><span class="tab">BORDER</span><span class="tab on">CLAIMS</span></div>
+          <div class="inset" style="left:244px;top:100px;width:572px;height:336px">
+            <div class="help" style="left:8px;top:6px;color:var(--violet)">12 CLAIMS IN THIS WORLD - 9 OWNERS</div>
+            <div class="row" style="top:22px"><span>field-kai-1 <span class="m">Kai</span></span><span class="m">128 pieces</span></div>
+            <div class="row" style="top:44px"><span>shop3 <span class="m">Priya</span></span><span class="m">300 pieces</span></div>
+            <div class="row" style="top:66px"><span>field-mo-1 <span class="m">Mo</span></span><span class="m">96 pieces</span></div>
+            <div class="help" style="left:8px;top:94px">+ 9 more (scroll)</div>
+            <div class="danger" style="left:6px;top:114px;width:556px;height:130px">
+              <div class="t" style="left:10px;top:8px"><b>WIPE ALL 12 CLAIMS IN THE OVERWORLD?</b></div>
+              <div class="t" style="left:10px;top:30px;color:var(--muted);font-size:15px">A backup is written first. Plots for sale go back on sale; outlined plots disappear.<br>Every admin online is told.</div>
+              <div class="t" style="left:10px;top:74px;font-size:15px;color:var(--muted)">Type this code:</div>
+              <div class="code" style="position:absolute;left:110px;top:66px">4821</div>
+              <div class="input" style="left:210px;top:66px;width:110px;height:32px">48<i></i></div>
+              <div class="btn bad" style="left:330px;top:66px">WIPE</div>
+              <div class="btn dim" style="left:404px;top:66px">CANCEL</div>
+              <div class="help" style="left:10px;top:106px;color:var(--gold)">code valid for 52 more seconds</div>
+            </div>
+            <div class="help" style="left:8px;top:254px;color:var(--accent)">BACKUPS</div>
+            <div class="row" style="top:270px"><span style="font-size:15px">claims-overworld-2026-10-14-2210 <span class="m">12 claims</span></span><span class="chip">RESTORE</span></div>
+            <div class="row" style="top:296px"><span style="font-size:15px">claims-overworld-2026-09-30-1800 <span class="m">9 claims</span></span><span class="chip">RESTORE</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ B -->
+  <section class="option" id="b">
+    <h2>B. Danger box and its own window <small>a small red box on INFO opens a separate confirmation</small></h2>
+    <div class="brief">
+      <p>The world default's INFO tab ends with a small red box: "Claims in this world: 12. WIPE..." Pressing it opens its own red-framed window over the screen (shown here): what will happen, the code to type, the countdown, WIPE and CANCEL, and the backups with RESTORE underneath. Nothing about wiping is visible until asked for.</p>
+      <p><b>Good at:</b> hard to press by accident (two windows deep, red all the way); the confirmation has the whole screen's attention. <span class="con"><b>Weak at:</b></span> the claims themselves are not listed (only their number); restoring needs going through the wipe window.</p>
+    </div>
+    <div class="frame">
+      <div class="screen">
+        <div class="panel">
+          <div class="title">REGIONS - OVERWORLD</div>
+          <div class="inset" style="left:16px;top:72px;width:212px;height:330px">
+            <div class="row sel" style="top:2px"><span>World default</span><span class="pill">W</span></div>
+            <div class="row" style="top:28px"><span>spawn</span><span class="pill p">P</span></div>
+          </div>
+          <div style="position:absolute;left:244px;top:44px;font-size:24px">World default</div>
+          <div class="tabs" style="left:244px;top:70px"><span class="tab">MAP</span><span class="tab">FLAGS</span><span class="tab">RANKS</span><span class="tab">TELEPORT</span><span class="tab on">INFO</span><span class="tab">BORDER</span></div>
+          <div class="inset" style="left:244px;top:100px;width:572px;height:336px">
+            <div class="danger" style="left:8px;top:270px;width:300px;height:50px">
+              <div class="t" style="left:8px;top:6px;font-size:16px">Claims in this world: <span style="color:var(--violet)">12</span></div>
+              <div class="btn bad" style="left:190px;top:10px;padding:3px 10px;font-size:15px">WIPE...</div>
+            </div>
+          </div>
+        </div>
+        <div class="dimmer"></div>
+        <div class="panel" style="left:178px;top:70px;width:500px;height:340px;border-color:var(--bad)">
+          <div class="title" style="color:var(--bad)">WIPE CLAIMS - OVERWORLD</div>
+          <div class="t" style="left:20px;top:50px">This removes <b>all 12 claims</b> of <b>9 players</b> in this world.</div>
+          <div class="t" style="left:20px;top:76px;font-size:15px;color:var(--muted)">A backup is written first and can be restored below. Plots for sale go back on<br>sale; outlined plots disappear. Every admin online is told. Other worlds and<br>other servers are not touched.</div>
+          <div class="t" style="left:20px;top:146px;font-size:16px;color:var(--muted)">Type</div>
+          <div class="code" style="position:absolute;left:62px;top:138px">4821</div>
+          <div class="t" style="left:150px;top:146px;font-size:16px;color:var(--muted)">to confirm:</div>
+          <div class="input" style="left:250px;top:138px;width:110px;height:32px">48<i></i></div>
+          <div class="help" style="left:370px;top:146px;color:var(--gold)">52 s left</div>
+          <div class="btn bad" style="left:20px;top:186px">WIPE 12 CLAIMS</div>
+          <div class="btn dim" style="left:170px;top:186px">CANCEL</div>
+          <div class="help" style="left:20px;top:232px;color:var(--accent)">BACKUPS</div>
+          <div class="row" style="top:248px;left:14px;right:14px"><span style="font-size:15px">claims-overworld-2026-10-14-2210 <span class="m" style="color:var(--muted)">12</span></span><span class="chip">RESTORE</span></div>
+          <div class="row" style="top:274px;left:14px;right:14px"><span style="font-size:15px">claims-overworld-2026-09-30-1800 <span class="m" style="color:var(--muted)">9</span></span><span class="chip">RESTORE</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ C -->
+  <section class="option" id="c">
+    <h2>C. From the list <small>the CLAIM filter shows the claims and a wipe button under them</small></h2>
+    <div class="brief">
+      <p>Picking the CLAIM filter above the region list shows only claims; a red "WIPE THESE 12" appears where + NEW and WAND usually are. Pressing it turns the right pane into the confirmation (code, box, countdown, CANCEL) with the backups below. The wipe sits right next to the list of what it removes.</p>
+      <p><b>Good at:</b> what goes is the list on the left, so there is no doubt; no new tab. <span class="con"><b>Weak at:</b></span> it reads as "wipe what the filter shows", but the wipe always takes every claim in the world, even ones a search hides; the button moves around with the filter.</p>
+    </div>
+    <div class="frame">
+      <div class="screen">
+        <div class="panel">
+          <div class="title">REGIONS - OVERWORLD</div>
+          <div class="help" style="right:20px;top:18px">12 claims shown</div>
+          <div class="chips" style="left:16px;top:44px"><span class="chip">ALL</span><span class="chip">PROT</span><span class="chip violet">CLAIM</span><span class="chip">MINE</span><span class="chip">SALE</span></div>
+          <div class="inset" style="left:16px;top:72px;width:212px;height:330px">
+            <div class="row" style="top:2px"><span>field-kai-1</span><span class="pill c">C</span></div>
+            <div class="row" style="top:28px"><span>field-mo-1</span><span class="pill c">C</span></div>
+            <div class="row" style="top:54px"><span>shop3</span><span class="pill c">C</span></div>
+            <div class="row" style="top:80px"><span>shop7</span><span class="pill c">C</span></div>
+            <div class="row" style="top:106px"><span>... 8 more</span><span></span></div>
+          </div>
+          <div class="btn bad" style="left:16px;top:410px">WIPE THESE 12</div>
+          <div style="position:absolute;left:244px;top:44px;font-size:24px;color:var(--bad)">Wipe every claim in the Overworld</div>
+          <div class="inset" style="left:244px;top:100px;width:572px;height:336px;border-color:var(--bad)">
+            <div class="t" style="left:12px;top:12px">This removes <b>all 12 claims</b> (9 players) in this world.</div>
+            <div class="t" style="left:12px;top:38px;font-size:15px;color:var(--muted)">Backup first; plots for sale go back on sale, outlined plots disappear; admins are told.</div>
+            <div class="t" style="left:12px;top:78px;font-size:16px;color:var(--muted)">Type</div>
+            <div class="code" style="position:absolute;left:54px;top:70px">4821</div>
+            <div class="input" style="left:150px;top:70px;width:110px;height:32px">48<i></i></div>
+            <div class="btn bad" style="left:272px;top:70px">WIPE</div>
+            <div class="btn dim" style="left:346px;top:70px">CANCEL</div>
+            <div class="help" style="left:12px;top:112px;color:var(--gold)">52 s left</div>
+            <div class="help" style="left:12px;top:150px;color:var(--accent)">BACKUPS</div>
+            <div class="row" style="top:168px"><span style="font-size:15px">claims-overworld-2026-10-14-2210 <span style="color:var(--muted);font-size:14px">12 claims</span></span><span class="chip">RESTORE</span></div>
+            <div class="row" style="top:194px"><span style="font-size:15px">claims-overworld-2026-09-30-1800 <span style="color:var(--muted);font-size:14px">9 claims</span></span><span class="chip">RESTORE</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>

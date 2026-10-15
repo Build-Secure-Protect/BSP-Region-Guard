@@ -48,8 +48,16 @@ public final class JdbcBackend implements MirrorBackend {
                     + "version INT NOT NULL, updated_at BIGINT NOT NULL, data MEDIUMBLOB, deleted TINYINT NOT NULL DEFAULT 0, "
                     + "PRIMARY KEY (server_id, dimension, region_id))");
             st.executeUpdate("CREATE TABLE IF NOT EXISTS " + prefix + "messages ("
-                    + "id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY, created_at BIGINT NOT NULL, source VARCHAR(64) NOT NULL, "
+                    + "id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY, uid VARCHAR(36) NOT NULL DEFAULT '', created_at BIGINT NOT NULL, source VARCHAR(64) NOT NULL, "
                     + "kind VARCHAR(32) NOT NULL, dimension VARCHAR(128) NOT NULL, region_id VARCHAR(64) NOT NULL, payload TEXT)");
+            // tables made before message ids existed (2026-10-14) get the column
+            boolean hasUid;
+            try (ResultSet rs = st.executeQuery("SHOW COLUMNS FROM " + prefix + "messages LIKE 'uid'")) {
+                hasUid = rs.next();
+            }
+            if (!hasUid) {
+                st.executeUpdate("ALTER TABLE " + prefix + "messages ADD COLUMN uid VARCHAR(36) NOT NULL DEFAULT '' AFTER id");
+            }
         }
     }
 
@@ -96,6 +104,21 @@ public final class JdbcBackend implements MirrorBackend {
     }
 
     @Override
+    public List<RegionRow> fetchGlobals() throws SQLException {
+        List<RegionRow> out = new ArrayList<>();
+        try (PreparedStatement ps = conn().prepareStatement("SELECT server_id, dimension, region_id, version, updated_at, data FROM " + prefix + "regions WHERE region_id = ? AND deleted = 0")) {
+            ps.setString(1, com.mrgregles.bsp_region_guard.region.Region.GLOBAL_ID);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    byte[] data = rs.getBytes(6);
+                    out.add(new RegionRow(rs.getString(1), rs.getString(2), rs.getString(3), rs.getInt(4), rs.getLong(5), data == null ? new byte[0] : data, false));
+                }
+            }
+        }
+        return out;
+    }
+
+    @Override
     public Map<String, Integer> countByServer() throws SQLException {
         Map<String, Integer> out = new TreeMap<>();
         try (Statement st = conn().createStatement(); ResultSet rs = st.executeQuery("SELECT server_id, COUNT(*) FROM " + prefix + "regions WHERE deleted = 0 GROUP BY server_id")) {
@@ -108,14 +131,15 @@ public final class JdbcBackend implements MirrorBackend {
 
     @Override
     public long publish(Message m) throws SQLException {
-        try (PreparedStatement ps = conn().prepareStatement("INSERT INTO " + prefix + "messages (created_at, source, kind, dimension, region_id, payload) VALUES (?, ?, ?, ?, ?, ?)",
+        try (PreparedStatement ps = conn().prepareStatement("INSERT INTO " + prefix + "messages (uid, created_at, source, kind, dimension, region_id, payload) VALUES (?, ?, ?, ?, ?, ?, ?)",
                 Statement.RETURN_GENERATED_KEYS)) {
-            ps.setLong(1, m.createdAt());
-            ps.setString(2, m.source());
-            ps.setString(3, m.kind());
-            ps.setString(4, m.dimension());
-            ps.setString(5, m.regionId());
-            ps.setString(6, m.payload());
+            ps.setString(1, m.uid());
+            ps.setLong(2, m.createdAt());
+            ps.setString(3, m.source());
+            ps.setString(4, m.kind());
+            ps.setString(5, m.dimension());
+            ps.setString(6, m.regionId());
+            ps.setString(7, m.payload());
             ps.executeUpdate();
             try (ResultSet keys = ps.getGeneratedKeys()) {
                 return keys.next() ? keys.getLong(1) : 0;
@@ -126,12 +150,12 @@ public final class JdbcBackend implements MirrorBackend {
     @Override
     public List<Message> fetchMessagesAfter(long id, int limit) throws SQLException {
         List<Message> out = new ArrayList<>();
-        try (PreparedStatement ps = conn().prepareStatement("SELECT id, created_at, source, kind, dimension, region_id, payload FROM " + prefix + "messages WHERE id > ? ORDER BY id LIMIT ?")) {
+        try (PreparedStatement ps = conn().prepareStatement("SELECT id, uid, created_at, source, kind, dimension, region_id, payload FROM " + prefix + "messages WHERE id > ? ORDER BY id LIMIT ?")) {
             ps.setLong(1, id);
             ps.setInt(2, limit);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    out.add(new Message(rs.getLong(1), rs.getLong(2), rs.getString(3), rs.getString(4), rs.getString(5), rs.getString(6), rs.getString(7)));
+                    out.add(new Message(rs.getLong(1), rs.getString(2), rs.getLong(3), rs.getString(4), rs.getString(5), rs.getString(6), rs.getString(7), rs.getString(8)));
                 }
             }
         }

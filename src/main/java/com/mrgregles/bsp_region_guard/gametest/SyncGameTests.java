@@ -1,6 +1,7 @@
 package com.mrgregles.bsp_region_guard.gametest;
 
 import com.mrgregles.bsp_region_guard.BSPRegionGuard;
+import com.mrgregles.bsp_region_guard.api.Cuboid;
 import com.mrgregles.bsp_region_guard.flag.FlagLocation;
 import com.mrgregles.bsp_region_guard.flag.Flags;
 import com.mrgregles.bsp_region_guard.flag.State;
@@ -8,7 +9,6 @@ import com.mrgregles.bsp_region_guard.network.RegionActionPacket;
 import com.mrgregles.bsp_region_guard.network.RegionDetailPacket;
 import com.mrgregles.bsp_region_guard.network.RegionListPacket;
 import com.mrgregles.bsp_region_guard.network.RegionSync;
-import com.mrgregles.bsp_region_guard.region.Cuboid;
 import com.mrgregles.bsp_region_guard.region.Region;
 import com.mrgregles.bsp_region_guard.region.RegionStore;
 import com.mrgregles.bsp_region_guard.region.RegionType;
@@ -57,6 +57,11 @@ public class SyncGameTests {
         RegionDetailPacket.encode(detail, buf);
         RegionDetailPacket back2 = RegionDetailPacket.decode(buf);
         h.assertTrue(back2.equals(detail), "detail packet round trip");
+
+        RegionListPacket remote = new RegionListPacket(ResourceLocation.parse("minecraft:overworld"), List.of(), "hub", false, "survival-2", List.of("survival-1", "survival-2"));
+        buf = new FriendlyByteBuf(Unpooled.buffer());
+        RegionListPacket.encode(remote, buf);
+        h.assertTrue(RegionListPacket.decode(buf).equals(remote), "list packet with the server switcher's fields");
 
         RegionActionPacket action = new RegionActionPacket(RegionActionPacket.FLAG, "spawn", "greeting", "Hello there, with spaces");
         buf = new FriendlyByteBuf(Unpooled.buffer());
@@ -183,6 +188,120 @@ public class SyncGameTests {
             h.assertTrue(triggers.size() == 1 && "lobby".equals(triggers.get(0).server()), "removing the first leaves the timer");
         } finally {
             store(h).remove("sync_trig");
+            admin.discard();
+        }
+        h.succeed();
+    }
+
+    /** T9.3: the screen and the commands go through {@code RegionEdits}, so they follow the same rules. */
+    @GameTest(template = EMPTY)
+    public void screen_and_commands_share_the_edit_rules(GameTestHelper h) {
+        ServerLevel level = h.getLevel();
+        ServerPlayer admin = TestPlayers.mockServerPlayer(h);
+        RegionStore store = store(h);
+        com.mrgregles.bsp_region_guard.RegionGuardConfig.CLAIMS_IN_PVP_WORLDS.set(true);
+        Region plot = new Region("edit_plot", level.dimension(), Cuboid.of(h.absolutePos(new BlockPos(1, 1, 1)), h.absolutePos(new BlockPos(4, 4, 4))), RegionType.PROTECTED);
+        Region mine = new Region("edit_mine", level.dimension(), Cuboid.of(h.absolutePos(new BlockPos(6, 1, 6)), h.absolutePos(new BlockPos(9, 4, 9))), RegionType.PROTECTED);
+        store.add(plot);
+        store.add(mine);
+        try {
+            RegionSync.apply(admin, new RegionActionPacket(RegionActionPacket.SET_DATA, "edit_plot", "price", "100"));
+            h.assertTrue(plot.type() == RegionType.PLOT_FOR_SALE, "a price puts it up for sale");
+            var offSale = com.mrgregles.bsp_region_guard.command.RegionEdits.sale(level, store, plot, 0);
+            h.assertTrue(offSale.ok() && plot.type() == RegionType.PROTECTED, "price 0 takes it off sale (the command used to leave it for sale without a price)");
+
+            com.mrgregles.bsp_region_guard.command.RegionEdits.makeMine(store, mine);
+            RegionSync.apply(admin, new RegionActionPacket(RegionActionPacket.SET_DATA, "edit_mine", "price", "0"));
+            h.assertTrue(mine.type() == RegionType.MINE, "price 0 on something not for sale leaves its type alone (the screen used to make it protected)");
+
+            plot.setType(RegionType.CLAIM);
+            var open = com.mrgregles.bsp_region_guard.command.RegionEdits.open(level, store, plot, 5);
+            h.assertTrue(!open.ok() && plot.type() == RegionType.CLAIM, "an owned claim cannot be opened for buying (the command used to allow it): " + open.message());
+
+            String refused = RegionSync.apply(admin, new RegionActionPacket(RegionActionPacket.PRIORITY, Region.GLOBAL_ID, "5", ""));
+            h.assertTrue(refused != null && store.global().priority() != 5, "the world default's priority stays the lowest (the screen used to change it)");
+
+            String notMine = RegionSync.apply(admin, new RegionActionPacket(RegionActionPacket.MINE_INTERVAL, "edit_plot", "60", ""));
+            h.assertTrue(notMine != null && notMine.contains("not a mine"), "mine settings need a mine, from the screen too: " + notMine);
+        } finally {
+            com.mrgregles.bsp_region_guard.RegionGuardConfig.CLAIMS_IN_PVP_WORLDS.set(false);
+            store.remove("edit_plot");
+            store.remove("edit_mine");
+            admin.discard();
+        }
+        h.succeed();
+    }
+
+    /** D44: the server switcher shows another server's regions from the shared storage, read-only. */
+    @GameTest(template = EMPTY, timeoutTicks = 100)
+    public void another_servers_regions_are_shown_read_only(GameTestHelper h) throws java.io.IOException {
+        ServerLevel level = h.getLevel();
+        String dim = level.dimension().location().toString();
+        ServerPlayer admin = TestPlayers.mockServerPlayer(h);
+        var backend = new com.mrgregles.bsp_region_guard.storage.MemoryBackend();
+        var alpha = com.mrgregles.bsp_region_guard.storage.RegionMirror.startWith(level.getServer(), backend, "alpha");
+        com.mrgregles.bsp_region_guard.storage.RegionMirror.setActive(alpha);
+        // a region "rv_hub" here, and beta's own "rv_hub" with other flags, as beta stored it
+        Region local = new Region("rv_hub", level.dimension(), Cuboid.of(h.absolutePos(new BlockPos(1, 1, 1)), h.absolutePos(new BlockPos(4, 4, 4))), RegionType.PROTECTED);
+        store(h).add(local);
+        Region theirs = new Region("rv_hub", level.dimension(), Cuboid.of(h.absolutePos(new BlockPos(2, 1, 2)), h.absolutePos(new BlockPos(9, 4, 9))), RegionType.PROTECTED);
+        theirs.setFlag(Flags.PVP, State.DENY);
+        backend.upsertRegion(new com.mrgregles.bsp_region_guard.storage.MirrorBackend.RegionRow("beta", dim, "rv_hub", 1, 1,
+                com.mrgregles.bsp_region_guard.storage.RegionMirror.serialize(theirs), false));
+        com.mrgregles.bsp_region_guard.protection.EdgeLinks.setNetwork(List.of(new com.mrgregles.bsp_region_guard.protection.EdgeLinks.World("beta", dim, null, Map.of())));
+        alpha.drain();
+        h.assertTrue(com.mrgregles.bsp_region_guard.network.RemoteViews.servers().equals(List.of("alpha", "beta")), "the picker offers this server first, then beta");
+        RegionSync.apply(admin, new RegionActionPacket(RegionActionPacket.VIEW_SERVER, "", "beta", ""));
+        alpha.drain(); // the read happens on the storage worker; the answer comes back on the next tick
+        h.startSequence()
+                .thenWaitUntil(() -> h.assertTrue(com.mrgregles.bsp_region_guard.network.RemoteViews.of(admin) != null, "now looking at beta"))
+                .thenExecute(() -> {
+                    var view = com.mrgregles.bsp_region_guard.network.RemoteViews.of(admin);
+                    h.assertTrue(view.server().equals("beta") && view.regions().get("rv_hub").flag(Flags.PVP) == State.DENY, "beta's own region, with beta's flags");
+                    h.assertTrue(RegionSync.apply(admin, new RegionActionPacket(RegionActionPacket.SELECT, "rv_hub", "", "")) == null, "selecting reads it");
+                    String refused = RegionSync.apply(admin, new RegionActionPacket(RegionActionPacket.FLAG, "rv_hub", "pvp", "allow"));
+                    h.assertTrue(refused != null && refused.contains("Read-only"), "every edit is refused while looking: " + refused);
+                    h.assertTrue(local.flag(Flags.PVP) == null && !theirs.flags().isEmpty(), "and this server's own rv_hub was not touched");
+                    RegionSync.apply(admin, new RegionActionPacket(RegionActionPacket.VIEW_SERVER, "", "", ""));
+                    h.assertTrue(com.mrgregles.bsp_region_guard.network.RemoteViews.of(admin) == null, "BACK returns to this server");
+                    h.assertTrue(RegionSync.apply(admin, new RegionActionPacket(RegionActionPacket.FLAG, "rv_hub", "pvp", "deny")) == null
+                            && local.flag(Flags.PVP) == State.DENY, "and editing works again");
+                })
+                .thenExecute(() -> {
+                    store(h).remove("rv_hub");
+                    com.mrgregles.bsp_region_guard.network.RemoteViews.clearAll();
+                    com.mrgregles.bsp_region_guard.protection.EdgeLinks.clearAll();
+                    com.mrgregles.bsp_region_guard.storage.RegionMirror.setActive(null);
+                    admin.discard();
+                })
+                .thenSucceed();
+    }
+
+    /** D45: the screen's wipe goes through ClaimWipe's two steps, code and all, and RESTORE puts the claims back. */
+    @GameTest(template = EMPTY, batch = "wipe-screen") // a wipe removes every claim in the world: never beside other tests
+    public void the_screen_wipes_claims_with_the_code_and_restores_them(GameTestHelper h) {
+        ServerLevel level = h.getLevel();
+        ServerPlayer admin = TestPlayers.mockServerPlayer(h);
+        var previousAdmins = com.mrgregles.bsp_region_guard.compat.BspCore.setAdminNames(List.of(admin.getGameProfile().getName()));
+        Region claim = new Region("sw_claim", level.dimension(), Cuboid.of(h.absolutePos(new BlockPos(1, 1, 1)), h.absolutePos(new BlockPos(3, 3, 3))), RegionType.CLAIM);
+        claim.addOwner(admin.getUUID());
+        store(h).add(claim);
+        try {
+            RegionSync.apply(admin, new RegionActionPacket(RegionActionPacket.WIPE_REQUEST, "", "", ""));
+            var st = com.mrgregles.bsp_region_guard.claim.ClaimWipe.state(admin, level);
+            h.assertTrue(st.code().length() == 4 && st.secondsLeft() > 50 && st.claims() >= 1, "asking gives a code for a minute: " + st);
+            String wrong = st.code().equals("0000") ? "1111" : "0000";
+            RegionSync.apply(admin, new RegionActionPacket(RegionActionPacket.WIPE_CONFIRM, "", wrong, ""));
+            h.assertTrue(store(h).has("sw_claim"), "a wrong code wipes nothing");
+            RegionSync.apply(admin, new RegionActionPacket(RegionActionPacket.WIPE_CONFIRM, "", st.code(), ""));
+            h.assertTrue(!store(h).has("sw_claim"), "the right code wipes the claims");
+            var after = com.mrgregles.bsp_region_guard.claim.ClaimWipe.state(admin, level);
+            h.assertTrue(after.code().isEmpty() && !after.backups().isEmpty(), "the code is used up and a backup exists");
+            RegionSync.apply(admin, new RegionActionPacket(RegionActionPacket.WIPE_RESTORE, "", after.backups().get(0), ""));
+            h.assertTrue(store(h).has("sw_claim") && store(h).get("sw_claim").isOwner(admin.getUUID()), "RESTORE brings the claim back with its owner");
+        } finally {
+            store(h).remove("sw_claim");
+            com.mrgregles.bsp_region_guard.compat.BspCore.setAdminNames(new java.util.ArrayList<>(previousAdmins));
             admin.discard();
         }
         h.succeed();

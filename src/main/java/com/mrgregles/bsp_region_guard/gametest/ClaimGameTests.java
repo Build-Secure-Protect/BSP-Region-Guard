@@ -3,11 +3,12 @@ package com.mrgregles.bsp_region_guard.gametest;
 import com.mrgregles.bsp_region_guard.BSPRegionGuard;
 import com.mrgregles.bsp_region_guard.RegionGuardConfig;
 import com.mrgregles.bsp_region_guard.api.ClaimResult;
+import com.mrgregles.bsp_region_guard.api.ClaimService;
+import com.mrgregles.bsp_region_guard.api.Cuboid;
 import com.mrgregles.bsp_region_guard.claim.ClaimData;
 import com.mrgregles.bsp_region_guard.claim.ClaimWipe;
 import com.mrgregles.bsp_region_guard.claim.Claims;
 import com.mrgregles.bsp_region_guard.compat.BspCore;
-import com.mrgregles.bsp_region_guard.region.Cuboid;
 import com.mrgregles.bsp_region_guard.region.Region;
 import com.mrgregles.bsp_region_guard.region.RegionStore;
 import com.mrgregles.bsp_region_guard.region.RegionType;
@@ -145,7 +146,7 @@ public class ClaimGameTests {
         h.succeed();
     }
 
-    @GameTest(template = EMPTY)
+    @GameTest(template = EMPTY, batch = "wipe") // a wipe removes every claim in the world: never beside other tests
     public void wiping_claims_needs_the_code_and_leaves_a_backup(GameTestHelper h) {
         ServerLevel level = h.getLevel();
         ServerPlayer admin = TestPlayers.mockServerPlayer(h);
@@ -314,6 +315,62 @@ public class ClaimGameTests {
             store(h).remove("cl_held");
             first.discard();
             second.discard();
+        }
+        h.succeed();
+    }
+
+    /** BSP Core's Land Office (CR-1 to CR-4, D46, D47): the selection, claims near some ground, who the wand sends there, event bounds. */
+    @GameTest(template = EMPTY)
+    public void the_land_office_reads_outlines_and_nearby_claims(GameTestHelper h) {
+        ServerLevel level = h.getLevel();
+        ServerPlayer player = TestPlayers.mockServerPlayer(h);
+        ServerPlayer admin = TestPlayers.mockServerPlayer(h);
+        var previousAdmins = BspCore.setAdminNames(java.util.List.of(admin.getGameProfile().getName()));
+        allowClaims(true);
+        Region claim = new Region("lo_claim", level.dimension(), Cuboid.of(h.absolutePos(new BlockPos(1, 1, 1)), h.absolutePos(new BlockPos(4, 4, 4))), RegionType.CLAIM);
+        claim.addOwner(player.getUUID());
+        Region plot = new Region("lo_plot", level.dimension(), Cuboid.of(h.absolutePos(new BlockPos(6, 1, 1)), h.absolutePos(new BlockPos(9, 4, 4))), RegionType.PLOT_FOR_SALE);
+        ClaimData.set(plot, ClaimData.PRICE, 10);
+        Region other = new Region("lo_prot", level.dimension(), Cuboid.of(h.absolutePos(new BlockPos(1, 1, 1)), h.absolutePos(new BlockPos(9, 4, 9))), RegionType.PROTECTED);
+        store(h).add(claim);
+        store(h).add(plot);
+        store(h).add(other);
+        AtomicReference<com.mrgregles.bsp_region_guard.api.event.ClaimPurchasedEvent> bought = new AtomicReference<>();
+        Consumer<com.mrgregles.bsp_region_guard.api.event.ClaimPurchasedEvent> listener = bought::set;
+        net.minecraftforge.common.MinecraftForge.EVENT_BUS.addListener(net.minecraftforge.eventbus.api.EventPriority.NORMAL, false,
+                com.mrgregles.bsp_region_guard.api.event.ClaimPurchasedEvent.class, listener);
+        try {
+            h.assertTrue(Claims.INSTANCE.selection(player) == null, "no outline yet");
+            com.mrgregles.bsp_region_guard.selection.Selections.of(player).setPos1(level.dimension(), h.absolutePos(new BlockPos(2, 1, 2)));
+            com.mrgregles.bsp_region_guard.selection.Selections.of(player).setPos2(level.dimension(), h.absolutePos(new BlockPos(7, 1, 3)));
+            Cuboid sel = Claims.INSTANCE.selection(player);
+            h.assertTrue(sel != null && sel.sizeX() == 6 && sel.sizeZ() == 2, "the outline: " + sel);
+
+            var near = Claims.INSTANCE.claimsNear(level, sel);
+            var ids = near.stream().map(ClaimService.Nearby::id).sorted().toList();
+            h.assertTrue(ids.equals(java.util.List.of("lo_claim", "lo_plot")), "claims and plots under the outline, not protected regions: " + ids);
+            var mine = near.stream().filter(n -> n.id().equals("lo_claim")).findFirst().orElseThrow();
+            h.assertTrue(player.getUUID().equals(mine.owner()) && !mine.ownerName().isEmpty() && mine.bounds().equals(claim.bounds()), "with owner and bounds");
+
+            h.assertTrue(Claims.landOfficeOnOutline(player), "a player's finished outline opens the Land Office");
+            h.assertFalse(Claims.landOfficeOnOutline(admin), "an admin with bypass on drawing regions is left alone");
+            h.assertTrue(!Claims.buysByCommand(player) && Claims.buysByCommand(admin), "players buy at the office; admins keep the commands");
+            allowClaims(false);
+            h.assertFalse(Claims.landOfficeOnOutline(player), "not where claims are not allowed");
+            allowClaims(true);
+
+            fund(player, 10);
+            h.assertTrue(answer(h, then -> Claims.INSTANCE.purchasePlot(player, "lo_plot", then)).ok(), "bought");
+            h.assertTrue(bought.get() != null && plot.bounds().equals(bought.get().bounds()), "the purchase event carries the claim's bounds");
+        } finally {
+            net.minecraftforge.common.MinecraftForge.EVENT_BUS.unregister(listener);
+            allowClaims(false);
+            store(h).remove("lo_claim");
+            store(h).remove("lo_plot");
+            store(h).remove("lo_prot");
+            BspCore.setAdminNames(new java.util.ArrayList<>(previousAdmins));
+            player.discard();
+            admin.discard();
         }
         h.succeed();
     }

@@ -1,5 +1,6 @@
 package com.mrgregles.bsp_region_guard.region;
 
+import com.mrgregles.bsp_region_guard.api.Exemption;
 import com.mrgregles.bsp_region_guard.compat.BspCore;
 import com.mrgregles.bsp_region_guard.flag.Flag;
 import com.mrgregles.bsp_region_guard.flag.Flags;
@@ -103,12 +104,6 @@ public final class RegionQuery {
 
     // ------------------------------------------------------------------ state flags
 
-    /** Something that lifts a region's rule for a player in a spot: the Shatter Totem rule, or another mod's. */
-    @FunctionalInterface
-    public interface Exemption {
-        boolean exempts(ServerLevel level, BlockPos pos, StateFlag flag, Player player);
-    }
-
     private static final List<Exemption> EXEMPTIONS = new java.util.concurrent.CopyOnWriteArrayList<>();
 
     public static void addExemption(Exemption exemption) {
@@ -141,7 +136,8 @@ public final class RegionQuery {
     public static boolean allows(ServerLevel level, BlockPos pos, StateFlag flag, @Nullable Player player) {
         RegionStore store = RegionStore.get(level);
         List<Region> applicable = store.at(pos);
-        if (resolve(store, applicable, flag, player) == State.ALLOW && !blockedByBspCoreZone(level, pos, flag)) {
+        if (resolve(store, applicable, flag, player) == State.ALLOW && !blockedByBspCoreZone(level, pos, flag)
+                && !((flag == Flags.TELEPORT_IN || flag == Flags.SET_HOME) && com.mrgregles.bsp_region_guard.protection.WorldBorders.keepsOut(level, pos, player))) {
             return true;
         }
         return isExempt(level, pos, flag, player);

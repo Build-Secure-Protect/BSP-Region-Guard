@@ -56,6 +56,18 @@ public final class ClaimWipe {
         return out;
     }
 
+    /** What the admin screen shows about a wipe (D45): claims and owners in the world, the code waiting for this admin, the backups. */
+    public record State(int claims, int owners, String code, long secondsLeft, List<String> backups) {
+    }
+
+    public static State state(ServerPlayer admin, ServerLevel level) {
+        List<Region> claims = claimsIn(level);
+        int owners = (int) claims.stream().flatMap(r -> r.owners().stream()).distinct().count();
+        Pending p = PENDING.get(admin.getUUID());
+        boolean live = p != null && p.dimension().equals(level.dimension().location().toString()) && System.currentTimeMillis() < p.expires();
+        return new State(claims.size(), owners, live ? p.code() : "", live ? (p.expires() - System.currentTimeMillis() + 999) / 1000 : 0, backups(level.getServer()));
+    }
+
     /** Step one: the summary and a code. Returns the message to show. */
     public static String request(ServerPlayer admin, ServerLevel level) {
         if (!BspCore.isAdmin(admin)) {

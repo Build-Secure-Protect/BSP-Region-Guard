@@ -26,6 +26,10 @@ public final class RegionGuardConfig {
     public static final ForgeConfigSpec.ConfigValue<String> STORAGE_MODE, STORAGE_HOST, STORAGE_DATABASE, STORAGE_USER, STORAGE_PASSWORD, STORAGE_TABLE_PREFIX, STORAGE_SERVER_ID;
     public static final ForgeConfigSpec.IntValue STORAGE_PORT, STORAGE_POLL_SECONDS;
     public static final ForgeConfigSpec.BooleanValue STORAGE_SYNC_MINE_RESETS;
+    public static final ForgeConfigSpec.BooleanValue REDIS_ENABLED, BORDER_VANILLA_WALL;
+    public static final ForgeConfigSpec.IntValue BORDER_WARN_DISTANCE;
+    public static final ForgeConfigSpec.ConfigValue<String> REDIS_HOST, REDIS_USERNAME, REDIS_PASSWORD, REDIS_CHANNEL;
+    public static final ForgeConfigSpec.IntValue REDIS_PORT, REDIS_SAFETY_POLL_SECONDS;
 
     public static final ForgeConfigSpec.IntValue MINE_BLOCKS_PER_TICK;
     public static final ForgeConfigSpec.ConfigValue<List<? extends Integer>> MINE_WARN_SECONDS;
@@ -85,6 +89,23 @@ public final class RegionGuardConfig {
         STORAGE_SERVER_ID = b.comment("This server's name in the shared tables. Unique per server.").define("serverId", "server-1");
         STORAGE_POLL_SECONDS = b.comment("How often messages from other servers are fetched.").defineInRange("pollSeconds", 5, 1, 300);
         STORAGE_SYNC_MINE_RESETS = b.comment("When another server resets a mine, reset the mine with the same id in the same world here too.").define("syncMineResets", true);
+        b.comment("Redis carries messages between servers within milliseconds (needs mode = mysql). Every message is also",
+                "written to the MySQL table, which is then read only every safetyPollSeconds to catch anything Redis missed.",
+                "Region Guard has its own small Redis client; nothing is bundled. Plain connection: keep Redis on the local network.").push("redis");
+        REDIS_ENABLED = b.define("enabled", false);
+        REDIS_HOST = b.define("host", "localhost");
+        REDIS_PORT = b.defineInRange("port", 6379, 1, 65535);
+        REDIS_USERNAME = b.comment("Leave empty unless Redis uses ACL users; the password alone is the usual requirepass.").define("username", "");
+        REDIS_PASSWORD = b.comment("Plain text; keep the config file private.").define("password", "");
+        REDIS_CHANNEL = b.comment("Servers that share messages use the same channel. Region Guard adds the prefix bsp_rg: to it.").define("channel", "messages");
+        REDIS_SAFETY_POLL_SECONDS = b.comment("How often the MySQL message table is still read while Redis is connected.").defineInRange("safetyPollSeconds", 30, 5, 600);
+        b.pop();
+        b.pop();
+
+        b.comment("The world border: set per world with /rg border; it belongs to the world's global region.").push("border");
+        BORDER_WARN_DISTANCE = b.comment("Players are warned this many blocks before the edge.").defineInRange("warnDistance", 10, 0, 1000);
+        BORDER_VANILLA_WALL = b.comment("Also set Minecraft's own border in the Overworld so the wall shows (the other worlds' Minecraft border is then",
+                "lifted, since Minecraft would copy the Overworld's size into them). Off: Region Guard leaves Minecraft's border alone.").define("vanillaWall", true);
         b.pop();
 
         b.comment("Automated mines.").push("mines");

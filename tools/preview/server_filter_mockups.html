@@ -1,0 +1,228 @@
+<title>Region Guard Server Filter</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=VT323&family=IBM+Plex+Sans:wght@400;600&display=swap">
+<style>
+/* Layout: three options, each the admin screen's MAP tab (GUI scale 2, 856 x 480) with a short brief. Single dark look: this is a game HUD. */
+:root {
+  color-scheme: dark;
+  --bg: #0b0e13;
+  --panel: #10151c;
+  --inset: #0c0e12;
+  --line: #2a2f3a;
+  --accent: #19d3b0;     /* this server's protected regions */
+  --violet: #b58cff;     /* claims */
+  --gold: #ffd23a;       /* sale, mines */
+  --bad: #ff6b5c;
+  --text: #e6eaf2;
+  --muted: #9aa3b5;
+  /* other servers: soft tints, so they never compete with this server's colours */
+  --s2: #7f9bc2;         /* survival-2: slate blue */
+  --res: #9bb58a;        /* resource: sage */
+  --cre: #c29a9a;        /* creative: dusty rose */
+  --lob: #b3a77f;        /* lobby: khaki */
+  --mc: 'VT323', 'Courier New', monospace;
+  --ui: 'IBM Plex Sans', system-ui, sans-serif;
+}
+body { background: var(--bg); color: var(--text); font-family: var(--ui); padding-block: 32px; padding-inline: 16px; line-height: 1.5; }
+.wrap { max-width: 920px; margin: 0 auto; display: grid; gap: 44px; }
+h1 { font-family: var(--mc); font-size: 40px; font-weight: 400; letter-spacing: 1px; color: var(--accent); margin: 0; text-wrap: balance; }
+h2 { font-family: var(--mc); font-size: 32px; font-weight: 400; margin: 0; text-wrap: balance; }
+h2 small { color: var(--muted); font-size: 24px; margin-left: 8px; }
+p { max-width: 68ch; margin: 0; }
+.lead { color: var(--muted); }
+.lead b { color: var(--text); font-weight: 600; }
+.option { display: grid; gap: 14px; }
+.brief { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 32px; }
+.brief p { font-size: 15px; }
+.brief b { color: var(--accent); font-weight: 600; }
+.brief .con b { color: var(--gold); }
+.frame { overflow-x: auto; border: 1px solid var(--line); background: #06080c; padding: 12px; }
+.screen { position: relative; width: 856px; height: 480px; font-family: var(--mc); font-size: 20px; line-height: 1; color: var(--text);
+  background: radial-gradient(ellipse at 30% 20%, #16331f 0, transparent 50%), radial-gradient(ellipse at 70% 80%, #2a2316 0, transparent 50%), #1a2230; }
+.panel { position: absolute; left: 12px; top: 12px; width: 832px; height: 456px; background: rgba(16,21,28,.94); border: 2px solid var(--accent); box-sizing: border-box; }
+.title { position: absolute; left: 20px; top: 16px; color: var(--accent); letter-spacing: 2px; }
+.help { position: absolute; color: var(--muted); font-size: 15px; white-space: nowrap; }
+.inset { position: absolute; background: var(--inset); border: 2px solid var(--line); box-sizing: border-box; }
+.row { position: absolute; left: 0; right: 0; height: 26px; padding: 3px 8px; box-sizing: border-box; display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 18px; }
+.row.sel { background: rgba(25,211,176,.14); box-shadow: inset 2px 0 0 var(--accent); }
+.row.dim { color: var(--muted); }
+.pill { font-size: 14px; padding: 1px 5px; border: 2px solid var(--line); color: var(--muted); line-height: 1; }
+.pill.p { border-color: var(--accent); color: var(--accent); }
+.pill.c { border-color: var(--violet); color: var(--violet); }
+.pill.g { border-color: var(--gold); color: var(--gold); }
+.chips { position: absolute; display: flex; gap: 4px; flex-wrap: wrap; }
+.chip { font-size: 15px; padding: 3px 7px; border: 2px solid var(--line); color: var(--muted); background: var(--inset); white-space: nowrap; display: inline-flex; align-items: center; gap: 5px; }
+.chip.on { color: var(--accent); border-color: var(--accent); background: rgba(25,211,176,.1); }
+.chip i { width: 9px; height: 9px; display: inline-block; }
+.tabs { position: absolute; display: flex; gap: 4px; }
+.tab { padding: 5px 10px; border: 2px solid var(--line); border-bottom: none; color: var(--muted); background: var(--inset); font-size: 17px; }
+.tab.on { color: var(--accent); border-color: var(--accent); background: rgba(25,211,176,.1); }
+.map { position: absolute; background:
+    repeating-linear-gradient(0deg, rgba(255,255,255,.03) 0 1px, transparent 1px 24px),
+    repeating-linear-gradient(90deg, rgba(255,255,255,.03) 0 1px, transparent 1px 24px), #13201a; border: 2px solid var(--line); box-sizing: border-box; }
+.rg { position: absolute; box-sizing: border-box; border: 2px solid; font-size: 14px; padding: 1px 3px; white-space: nowrap; overflow: hidden; }
+.rg.p { border-color: var(--accent); background: rgba(25,211,176,.22); color: var(--accent); }
+.rg.c { border-color: var(--violet); background: rgba(181,140,255,.22); color: var(--violet); }
+.rg.g { border-color: var(--gold); background: rgba(255,210,58,.18); color: var(--gold); }
+.rg.sel { box-shadow: 0 0 0 2px var(--text); }
+.rg.grey { border-color: #6b7384; background: rgba(154,163,181,.12); color: #8a93a5; border-style: dashed; }
+.rg.s2 { border-color: var(--s2); background: color-mix(in srgb, var(--s2) 16%, transparent); color: var(--s2); border-style: dashed; }
+.rg.res { border-color: var(--res); background: color-mix(in srgb, var(--res) 16%, transparent); color: var(--res); border-style: dashed; }
+.rg.cre { border-color: var(--cre); background: color-mix(in srgb, var(--cre) 16%, transparent); color: var(--cre); border-style: dashed; }
+.rg.lob { border-color: var(--lob); background: color-mix(in srgb, var(--lob) 16%, transparent); color: var(--lob); border-style: dashed; }
+.drop { position: absolute; background: var(--panel); border: 2px solid var(--muted); box-sizing: border-box; font-size: 17px; }
+.drop div { padding: 5px 10px; border-bottom: 2px solid var(--line); display: flex; align-items: center; gap: 8px; }
+.drop div:last-child { border-bottom: none; }
+.drop span { color: var(--muted); font-size: 14px; margin-left: auto; }
+.box { width: 11px; height: 11px; border: 2px solid var(--muted); display: inline-block; box-sizing: border-box; }
+.box.on { background: var(--accent); border-color: var(--accent); }
+.sw { width: 10px; height: 10px; display: inline-block; }
+.btn { position: absolute; padding: 5px 12px; border: 2px solid var(--accent); color: var(--accent); background: rgba(25,211,176,.08); font-size: 17px; }
+.btn.dim { border-color: var(--line); color: var(--muted); background: transparent; }
+.ro { position: absolute; font-size: 15px; color: var(--gold); border: 2px solid var(--gold); padding: 2px 8px; background: rgba(255,210,58,.08); }
+@media (max-width: 700px) { .brief { grid-template-columns: 1fr; } h1 { font-size: 32px; } }
+</style>
+
+<div class="wrap">
+  <header style="display:grid;gap:10px">
+    <h1>Other servers on the map: three options</h1>
+    <p class="lead">Today the MAP tab's <b>OTHER SERVERS</b> button is all or nothing: every other server's regions in this world appear at once, grey, read-only, labelled "server/id", in the map and in the region list. With four other servers that is a lot of grey. Each option below lets the admin pick which servers show. Example network, all in the Overworld: this server <b>survival-1</b>, and <b>survival-2</b> (14 regions), <b>resource</b> (6), <b>creative</b> (31), <b>lobby</b> (3). Other servers' regions stay read-only in every option.</p>
+  </header>
+
+  <!-- ============================================================ A -->
+  <section class="option" id="a">
+    <h2>A. Server chips <small>one toggle per server, each in its own soft colour</small></h2>
+    <div class="brief">
+      <p>OTHER SERVERS opens a row of chips under the map, one per server with its region count and a colour swatch; click to show or hide that server. ALL and NONE at the end. Each server's regions get their own muted tint (always dashed, so they never look like this server's), and the list on the left follows the same choice.</p>
+      <p><b>Good at:</b> comparing two or three servers at a glance; one click per server; the colours tie the map to the chips. <span class="con"><b>Weak at:</b></span> the chip row grows with the network (two lines at about eight servers); four extra colours on an already colourful map.</p>
+    </div>
+    <div class="frame">
+      <div class="screen">
+        <div class="panel">
+          <div class="title">REGIONS - OVERWORLD</div>
+          <div class="help" style="right:20px;top:18px">4 + 20 shown</div>
+          <div class="chips" style="left:16px;top:44px"><span class="chip on">ALL</span><span class="chip">PROT</span><span class="chip">CLAIM</span><span class="chip">MINE</span><span class="chip">SALE</span></div>
+          <div class="inset" style="left:16px;top:72px;width:212px;height:364px">
+            <div class="row sel" style="top:2px"><span>spawn</span><span class="pill p">P</span></div>
+            <div class="row" style="top:28px"><span>market</span><span class="pill g">S</span></div>
+            <div class="row" style="top:54px"><span>quarry</span><span class="pill g">M</span></div>
+            <div class="row" style="top:80px"><span>field-kai-1</span><span class="pill c">C</span></div>
+            <div class="row" style="top:110px;color:var(--s2)"><span>survival-2/hub</span><span class="pill">R</span></div>
+            <div class="row" style="top:136px;color:var(--s2)"><span>survival-2/arena</span><span class="pill">R</span></div>
+            <div class="row" style="top:162px;color:var(--s2)"><span>survival-2/...</span><span class="pill">+12</span></div>
+            <div class="row" style="top:188px;color:var(--res)"><span>resource/mine_a</span><span class="pill">R</span></div>
+            <div class="row" style="top:214px;color:var(--res)"><span>resource/...</span><span class="pill">+5</span></div>
+          </div>
+          <div style="position:absolute;left:244px;top:44px;font-size:24px">spawn <span style="color:var(--muted);font-size:17px">protected - priority 10</span></div>
+          <div class="tabs" style="left:244px;top:70px"><span class="tab on">MAP</span><span class="tab">FLAGS</span><span class="tab">ACCESS</span><span class="tab">RANKS</span><span class="tab">SALE</span><span class="tab">MINE</span><span class="tab">TELEPORT</span><span class="tab">INFO</span></div>
+          <div class="map" style="left:244px;top:100px;width:572px;height:256px">
+            <div class="rg s2" style="left:30px;top:20px;width:150px;height:90px">survival-2/hub</div>
+            <div class="rg s2" style="left:390px;top:150px;width:120px;height:80px">survival-2/arena</div>
+            <div class="rg res" style="left:420px;top:16px;width:110px;height:70px">resource/mine_a</div>
+            <div class="rg p sel" style="left:200px;top:80px;width:150px;height:110px">spawn</div>
+            <div class="rg g" style="left:216px;top:120px;width:60px;height:44px">market</div>
+            <div class="rg g" style="left:100px;top:150px;width:70px;height:60px">quarry</div>
+            <div class="rg c" style="left:290px;top:200px;width:56px;height:40px">field-kai-1</div>
+            <span class="chip on" style="position:absolute;right:4px;top:4px;font-size:13px">HIDE OTHERS</span>
+          </div>
+          <div class="help" style="left:244px;top:362px">OTHER SERVERS - click to show or hide</div>
+          <div class="chips" style="left:244px;top:380px;width:572px">
+            <span class="chip on" style="color:var(--s2);border-color:var(--s2);background:transparent"><i style="background:var(--s2)"></i>survival-2 14</span>
+            <span class="chip on" style="color:var(--res);border-color:var(--res);background:transparent"><i style="background:var(--res)"></i>resource 6</span>
+            <span class="chip"><i style="background:var(--cre)"></i>creative 31</span>
+            <span class="chip"><i style="background:var(--lob)"></i>lobby 3</span>
+            <span class="chip">ALL</span><span class="chip">NONE</span>
+          </div>
+          <div class="help" style="left:244px;top:418px">1 px = 4 blocks - wheel zooms - click a region - double-click opens FLAGS</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ B -->
+  <section class="option" id="b">
+    <h2>B. Drop-down <small>a checklist behind the OTHER SERVERS button</small></h2>
+    <div class="brief">
+      <p>OTHER SERVERS becomes "OTHER SERVERS: 2 of 4 v". Clicking it drops a checklist over the map: each server with its region count and when Region Guard last read it, plus ALL and NONE. The regions stay grey and dashed as today; only which servers appear changes. The choice is remembered until the screen closes.</p>
+      <p><b>Good at:</b> the map stays calm (one grey for everyone else); scales to many servers; shows how fresh each server's data is. <span class="con"><b>Weak at:</b></span> two clicks to change anything; with two servers shown you cannot tell them apart on the map without hovering (the label says the server).</p>
+    </div>
+    <div class="frame">
+      <div class="screen">
+        <div class="panel">
+          <div class="title">REGIONS - OVERWORLD</div>
+          <div class="help" style="right:20px;top:18px">4 + 20 shown</div>
+          <div class="chips" style="left:16px;top:44px"><span class="chip on">ALL</span><span class="chip">PROT</span><span class="chip">CLAIM</span><span class="chip">MINE</span><span class="chip">SALE</span></div>
+          <div class="inset" style="left:16px;top:72px;width:212px;height:364px">
+            <div class="row sel" style="top:2px"><span>spawn</span><span class="pill p">P</span></div>
+            <div class="row" style="top:28px"><span>market</span><span class="pill g">S</span></div>
+            <div class="row" style="top:54px"><span>quarry</span><span class="pill g">M</span></div>
+            <div class="row" style="top:80px"><span>field-kai-1</span><span class="pill c">C</span></div>
+            <div class="row dim" style="top:110px"><span>survival-2/hub</span><span class="pill">R</span></div>
+            <div class="row dim" style="top:136px"><span>survival-2/arena</span><span class="pill">R</span></div>
+            <div class="row dim" style="top:162px"><span>survival-2/...</span><span class="pill">+12</span></div>
+            <div class="row dim" style="top:188px"><span>resource/mine_a</span><span class="pill">R</span></div>
+            <div class="row dim" style="top:214px"><span>resource/...</span><span class="pill">+5</span></div>
+          </div>
+          <div style="position:absolute;left:244px;top:44px;font-size:24px">spawn <span style="color:var(--muted);font-size:17px">protected - priority 10</span></div>
+          <div class="tabs" style="left:244px;top:70px"><span class="tab on">MAP</span><span class="tab">FLAGS</span><span class="tab">ACCESS</span><span class="tab">RANKS</span><span class="tab">SALE</span><span class="tab">MINE</span><span class="tab">TELEPORT</span><span class="tab">INFO</span></div>
+          <div class="map" style="left:244px;top:100px;width:572px;height:300px">
+            <div class="rg grey" style="left:30px;top:20px;width:150px;height:90px">survival-2/hub</div>
+            <div class="rg grey" style="left:390px;top:170px;width:120px;height:80px">survival-2/arena</div>
+            <div class="rg grey" style="left:30px;top:200px;width:110px;height:70px">resource/mine_a</div>
+            <div class="rg p sel" style="left:200px;top:90px;width:150px;height:110px">spawn</div>
+            <div class="rg g" style="left:216px;top:130px;width:60px;height:44px">market</div>
+            <div class="rg c" style="left:290px;top:210px;width:56px;height:40px">field-kai-1</div>
+            <span class="chip on" style="position:absolute;right:4px;top:4px;font-size:13px">OTHER SERVERS: 2 of 4 v</span>
+          </div>
+          <div class="drop" style="left:578px;top:130px;width:232px">
+            <div><i class="box on"></i>survival-2<span>14 - read 1 min ago</span></div>
+            <div><i class="box on"></i>resource<span>6 - read 1 min ago</span></div>
+            <div><i class="box"></i>creative<span>31 - read 1 min ago</span></div>
+            <div><i class="box"></i>lobby<span>3 - read 6 min ago</span></div>
+            <div style="color:var(--accent)">ALL<span style="color:var(--accent);margin-left:16px">NONE</span><span>REFRESH</span></div>
+          </div>
+          <div class="help" style="left:244px;top:410px">1 px = 4 blocks - wheel zooms - click a region - double-click opens FLAGS</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ C -->
+  <section class="option" id="c">
+    <h2>C. Server switcher <small>look at one server at a time, in place of this one</small></h2>
+    <div class="brief">
+      <p>The header gains a server picker with arrows: "SERVER &lt; survival-2 &gt;". Choosing another server swaps the region list and the map to that server's regions in this world, drawn in their normal colours but marked READ-ONLY (no tabs that edit, a gold banner). A small "+ this server" toggle overlays this server's regions in grey for comparison. Back to survival-1 for normal editing.</p>
+      <p><b>Good at:</b> reading another server's layout properly (real colours, real list, the INFO tab works); nothing ever crowds. <span class="con"><b>Weak at:</b></span> one server at a time, so no side-by-side view of three; a mode the admin must remember to leave.</p>
+    </div>
+    <div class="frame">
+      <div class="screen">
+        <div class="panel" style="border-color:var(--gold)">
+          <div class="title" style="color:var(--gold)">REGIONS - OVERWORLD</div>
+          <div style="position:absolute;left:270px;top:12px;display:flex;align-items:center;gap:8px;font-size:20px"><span style="color:var(--muted);font-size:16px">SERVER</span><span class="chip">&lt;</span><span style="color:var(--gold)">survival-2</span><span class="chip">&gt;</span><span class="help" style="position:static">2 of 5</span></div>
+          <div class="ro" style="right:20px;top:12px">READ-ONLY: another server's regions</div>
+          <div class="chips" style="left:16px;top:44px"><span class="chip on">ALL</span><span class="chip">PROT</span><span class="chip">CLAIM</span><span class="chip">MINE</span><span class="chip">SALE</span></div>
+          <div class="inset" style="left:16px;top:72px;width:212px;height:364px">
+            <div class="row sel" style="top:2px"><span>hub</span><span class="pill p">P</span></div>
+            <div class="row" style="top:28px"><span>arena</span><span class="pill p">P</span></div>
+            <div class="row" style="top:54px"><span>shops</span><span class="pill g">S</span></div>
+            <div class="row" style="top:80px"><span>deepmine</span><span class="pill g">M</span></div>
+            <div class="row" style="top:106px"><span>plot-ann-1</span><span class="pill c">C</span></div>
+            <div class="row dim" style="top:132px"><span>... 9 more</span><span></span></div>
+          </div>
+          <div style="position:absolute;left:244px;top:44px;font-size:24px">hub <span style="color:var(--muted);font-size:17px">on survival-2 - protected - priority 20</span></div>
+          <div class="tabs" style="left:244px;top:70px"><span class="tab on">MAP</span><span class="tab">FLAGS</span><span class="tab">INFO</span></div>
+          <div class="map" style="left:244px;top:100px;width:572px;height:300px">
+            <div class="rg grey" style="left:200px;top:90px;width:150px;height:110px;border-style:dotted">spawn (here)</div>
+            <div class="rg p sel" style="left:30px;top:20px;width:150px;height:90px">hub</div>
+            <div class="rg p" style="left:390px;top:170px;width:120px;height:80px">arena</div>
+            <div class="rg g" style="left:60px;top:150px;width:80px;height:50px">shops</div>
+            <div class="rg g" style="left:430px;top:30px;width:90px;height:70px">deepmine</div>
+            <div class="rg c" style="left:300px;top:230px;width:50px;height:40px">plot-ann-1</div>
+            <span class="chip on" style="position:absolute;right:4px;top:4px;font-size:13px">+ THIS SERVER</span>
+          </div>
+          <div class="btn dim" style="left:244px;top:412px">BACK TO survival-1</div>
+          <div class="help" style="left:440px;top:418px">FLAGS and INFO show values; nothing can be changed here</div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>

@@ -10,7 +10,7 @@ import net.minecraftforge.network.simple.SimpleChannel;
 
 /** The mod's channel: {@code bsp_region_guard:main}. The server decides, the client displays. */
 public final class RegionNetwork {
-    private static final String PROTOCOL = "1";
+    private static final String PROTOCOL = "4"; // 2: edge-link travel pop-up; 3: server switcher; 4: claim wipe in the screen
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             ResourceLocation.fromNamespaceAndPath(BSPRegionGuard.MODID, "main"), () -> PROTOCOL, PROTOCOL::equals, PROTOCOL::equals);
 
@@ -37,6 +37,15 @@ public final class RegionNetwork {
         CHANNEL.messageBuilder(RegionActionPacket.class, id++, NetworkDirection.PLAY_TO_SERVER)
                 .encoder(RegionActionPacket::encode).decoder(RegionActionPacket::decode)
                 .consumerMainThread(RegionActionPacket::handle).add();
+        CHANNEL.messageBuilder(EdgePromptPacket.class, id++, NetworkDirection.PLAY_TO_CLIENT)
+                .encoder(EdgePromptPacket::encode).decoder(EdgePromptPacket::decode)
+                .consumerMainThread(EdgePromptPacket::handle).add();
+        CHANNEL.messageBuilder(EdgeAnswerPacket.class, id++, NetworkDirection.PLAY_TO_SERVER)
+                .encoder(EdgeAnswerPacket::encode).decoder(EdgeAnswerPacket::decode)
+                .consumerMainThread(EdgeAnswerPacket::handle).add();
+        CHANNEL.messageBuilder(ClaimWipePacket.class, id++, NetworkDirection.PLAY_TO_CLIENT)
+                .encoder(ClaimWipePacket::encode).decoder(ClaimWipePacket::decode)
+                .consumerMainThread(ClaimWipePacket::handle).add();
     }
 
     public static void sendTo(ServerPlayer player, Object packet) {

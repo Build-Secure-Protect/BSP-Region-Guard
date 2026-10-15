@@ -1,6 +1,6 @@
 package com.mrgregles.bsp_region_guard.selection;
 
-import com.mrgregles.bsp_region_guard.region.Cuboid;
+import com.mrgregles.bsp_region_guard.api.Cuboid;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.world.level.Level;

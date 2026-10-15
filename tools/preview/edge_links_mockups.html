@@ -1,0 +1,310 @@
+<title>Region Guard Edge Links</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=VT323&family=IBM+Plex+Sans:wght@400;600&display=swap">
+<style>
+/* Layout: three options, each an admin screen (GUI scale 2, 856 x 480) and the player's travel pop-up, with a short brief. Single dark look: this is a game HUD. */
+:root {
+  color-scheme: dark;
+  --bg: #0b0e13;          /* page ground */
+  --panel: #10151c;       /* Holo HUD panel */
+  --inset: #0c0e12;       /* slots and insets */
+  --line: #2a2f3a;        /* dim lines */
+  --accent: #19d3b0;      /* turquoise: this server, links */
+  --violet: #b58cff;      /* other servers */
+  --gold: #ffd23a;        /* values */
+  --bad: #ff6b5c;         /* remove */
+  --text: #e6eaf2;
+  --muted: #9aa3b5;
+  --wall: #3d7bff;        /* Minecraft's border wall */
+  --mc: 'VT323', 'Courier New', monospace;
+  --ui: 'IBM Plex Sans', system-ui, sans-serif;
+}
+body { background: var(--bg); color: var(--text); font-family: var(--ui); padding-block: 32px; padding-inline: 16px; line-height: 1.5; }
+.wrap { max-width: 920px; margin: 0 auto; display: grid; gap: 44px; }
+h1 { font-family: var(--mc); font-size: 40px; font-weight: 400; letter-spacing: 1px; color: var(--accent); margin: 0; text-wrap: balance; }
+h2 { font-family: var(--mc); font-size: 32px; font-weight: 400; margin: 0; color: var(--text); text-wrap: balance; }
+h2 small { color: var(--muted); font-size: 24px; margin-left: 8px; }
+h3 { font-family: var(--mc); font-size: 24px; font-weight: 400; margin: 0; color: var(--muted); letter-spacing: 1px; }
+p { max-width: 68ch; margin: 0; }
+.lead { color: var(--muted); }
+.lead b { color: var(--text); font-weight: 600; }
+.option { display: grid; gap: 14px; }
+.brief { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 32px; }
+.brief p { font-size: 15px; }
+.brief b { color: var(--accent); font-weight: 600; }
+.brief .con b { color: var(--gold); }
+.frame { overflow-x: auto; border: 1px solid var(--line); background: #06080c; padding: 12px; }
+.screen { position: relative; width: 856px; height: 480px; font-family: var(--mc); font-size: 20px; line-height: 1; color: var(--text);
+  background: radial-gradient(ellipse at 30% 20%, #16331f 0, transparent 50%), radial-gradient(ellipse at 70% 80%, #2a2316 0, transparent 50%), #1a2230; }
+.panel { position: absolute; background: rgba(16,21,28,.94); border: 2px solid var(--accent); box-sizing: border-box; }
+.title { position: absolute; left: 20px; top: 16px; color: var(--accent); letter-spacing: 2px; }
+.help { position: absolute; color: var(--muted); font-size: 15px; }
+.inset { position: absolute; background: var(--inset); border: 2px solid var(--line); box-sizing: border-box; }
+.row { position: absolute; left: 0; right: 0; height: 28px; padding: 4px 10px; box-sizing: border-box; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.row.sel { background: rgba(25,211,176,.14); box-shadow: inset 2px 0 0 var(--accent); }
+.pill { font-size: 15px; padding: 2px 6px; border: 2px solid var(--line); color: var(--muted); line-height: 1; }
+.pill.protected { border-color: var(--accent); color: var(--accent); }
+.pill.claim { border-color: var(--violet); color: var(--violet); }
+.pill.mine, .pill.gold { border-color: var(--gold); color: var(--gold); }
+.tabs { position: absolute; display: flex; gap: 4px; }
+.tab { padding: 6px 12px; border: 2px solid var(--line); border-bottom: none; color: var(--muted); background: var(--inset); }
+.tab.on { color: var(--accent); border-color: var(--accent); background: rgba(25,211,176,.1); }
+.btn { position: absolute; padding: 6px 14px; border: 2px solid var(--accent); color: var(--accent); background: rgba(25,211,176,.08); white-space: nowrap; }
+.btn.bad { border-color: var(--bad); color: var(--bad); background: rgba(255,107,92,.08); }
+.btn.dim { border-color: var(--line); color: var(--muted); background: transparent; }
+.btn.big { padding: 10px 26px; font-size: 24px; }
+.field { position: absolute; display: flex; align-items: center; gap: 6px; font-size: 17px; color: var(--muted); }
+.field b { font-weight: 400; color: var(--gold); border: 2px solid var(--line); background: var(--inset); padding: 3px 8px; min-width: 40px; text-align: right; font-variant-numeric: tabular-nums; }
+.ghead { position: absolute; color: var(--accent); font-size: 17px; letter-spacing: 2px; }
+.world { position: absolute; box-sizing: border-box; border: 2px solid var(--accent); background: rgba(25,211,176,.14); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-size: 17px; }
+.world.other { border-color: var(--violet); background: rgba(181,140,255,.14); color: var(--violet); }
+.world i { font-style: normal; color: var(--muted); font-size: 15px; }
+.edge { position: absolute; background: var(--accent); }
+.edge.free { background: transparent; border: 2px dashed var(--line); box-sizing: border-box; }
+.edge.pick { background: var(--gold); }
+.link { position: absolute; border-top: 2px dashed var(--accent); }
+.tag { position: absolute; font-size: 15px; color: var(--accent); white-space: nowrap; }
+.tag.violet { color: var(--violet); }
+.tag.gold { color: var(--gold); }
+table.edges { position: absolute; border-collapse: collapse; font-size: 17px; }
+table.edges th { text-align: left; color: var(--muted); font-weight: 400; font-size: 15px; padding: 4px 8px; border-bottom: 2px solid var(--line); }
+table.edges td { padding: 7px 8px; border-bottom: 2px solid var(--line); white-space: nowrap; font-variant-numeric: tabular-nums; }
+table.edges td.n { color: var(--accent); }
+.drop { position: absolute; background: var(--panel); border: 2px solid var(--gold); box-sizing: border-box; font-size: 17px; }
+.drop div { padding: 5px 10px; border-bottom: 2px solid var(--line); display: flex; justify-content: space-between; gap: 16px; }
+.drop div:last-child { border-bottom: none; }
+.drop div.hi { background: rgba(255,210,58,.12); }
+.drop span { color: var(--muted); font-size: 15px; }
+.slot { position: absolute; box-sizing: border-box; border: 2px solid var(--violet); background: rgba(181,140,255,.10); padding: 8px 10px; display: grid; gap: 3px; align-content: start; }
+.slot.free { border: 2px dashed var(--line); background: transparent; color: var(--muted); align-content: center; justify-items: center; }
+.slot.sel { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(255,210,58,.3); }
+.slot .k { color: var(--muted); font-size: 15px; letter-spacing: 2px; }
+.slot .v { color: var(--violet); }
+.slot .d { color: var(--muted); font-size: 15px; }
+/* the game view behind a pop-up */
+.game { background: linear-gradient(#5d8fd8 0, #9cc3ef 52%, #5f9e3c 52%, #3f7a29 70%, #6b4b2e 70%, #4e3520 100%); }
+.wallband { position: absolute; top: 0; bottom: 120px; width: 70px;
+  background: repeating-linear-gradient(135deg, rgba(61,123,255,.55) 0 8px, rgba(61,123,255,.15) 8px 16px); }
+.hotbar { position: absolute; left: 248px; bottom: 10px; width: 360px; height: 40px; background: rgba(0,0,0,.45); border: 2px solid rgba(255,255,255,.35); box-sizing: border-box; }
+.hotbar:before { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(90deg, transparent 0 38px, rgba(255,255,255,.25) 38px 40px); }
+.dim { position: absolute; inset: 0; background: rgba(6,8,12,.55); }
+.modal { position: absolute; background: rgba(16,21,28,.97); border: 2px solid var(--accent); box-sizing: border-box; }
+.modal .h { position: absolute; left: 20px; top: 16px; color: var(--accent); letter-spacing: 2px; font-size: 24px; }
+.modal .t { position: absolute; left: 20px; right: 20px; font-size: 20px; line-height: 1.15; }
+.modal .t b { font-weight: 400; color: var(--violet); }
+.modal .t em { font-style: normal; color: var(--gold); }
+.flow { display: grid; gap: 10px; }
+.flow ol { margin: 0; padding-left: 22px; display: grid; gap: 6px; max-width: 72ch; }
+.flow li { font-size: 15px; color: var(--muted); }
+.flow li b { color: var(--text); font-weight: 600; }
+@media (max-width: 700px) { .brief { grid-template-columns: 1fr; } h1 { font-size: 32px; } }
+</style>
+
+<div class="wrap">
+  <header style="display:grid;gap:10px">
+    <h1>Edge links between servers: three options</h1>
+    <p class="lead">The world border lives on the world default (the global region), so its controls get a new <b>BORDER</b> tab when the world default is selected in the admin screen. The same tab links each edge of this world to an edge of a world on another server (owner decisions D40 and D41): links are two-way, a player arrives at the same fraction along the other edge, 16 blocks inside it. At a linked edge the player gets a pop-up asking whether to travel. Example network: this server <b>survival-1</b> (Overworld, 10,000 wide around 0, 0) and the others Region Guard knows from the shared storage: <b>survival-2</b> (10,000), <b>resource</b> (8,000), <b>creative</b> (4,000) and <b>lobby</b> (1,000). East is already linked to survival-2's west edge, north to resource's south edge.</p>
+  </header>
+
+  <!-- ============================================================ OPTION A -->
+  <section class="option" id="a">
+    <h2>A. Map board <small>the worlds as squares; click an edge, then the edge it leads to</small></h2>
+    <div class="brief">
+      <p>This world sits in the middle of a board with the linked worlds docked against their edges, drawn to scale against each other. Worlds not yet linked wait in a tray underneath. To link, click a free edge of this world (it turns gold), then an edge of a world in the tray; to unlink, click a link and press UNLINK. The border's width and centre sit above the board.</p>
+      <p><b>Good at:</b> showing the shape of the whole network at a glance; sizes are obvious, so a 10,000 edge leading to a 4,000 edge reads as a squeeze. <span class="con"><b>Weak at:</b></span> exact numbers (where exactly you arrive) need a hover; a network of many servers gets crowded.</p>
+    </div>
+    <div class="frame">
+      <div class="screen">
+        <div class="panel" style="left:12px;top:12px;width:832px;height:456px">
+          <div class="title">REGIONS - OVERWORLD</div>
+          <div class="help" style="right:20px;top:18px">survival-1</div>
+          <div class="inset" style="left:16px;top:44px;width:212px;height:392px">
+            <div class="row sel" style="top:4px"><span>World default</span><span class="pill">global</span></div>
+            <div class="row" style="top:32px"><span>spawn</span><span class="pill protected">10</span></div>
+            <div class="row" style="top:60px"><span>market</span><span class="pill gold">sale</span></div>
+            <div class="row" style="top:88px"><span>quarry</span><span class="pill mine">mine</span></div>
+            <div class="row" style="top:116px"><span>field-kai-1</span><span class="pill claim">claim</span></div>
+          </div>
+          <div style="position:absolute;left:244px;top:44px;font-size:24px">World default <span style="color:var(--muted);font-size:17px">the whole Overworld</span></div>
+          <div class="tabs" style="left:244px;top:70px"><span class="tab">MAP</span><span class="tab">FLAGS</span><span class="tab on">BORDER</span><span class="tab">INFO</span></div>
+          <div class="inset" style="left:244px;top:102px;width:572px;height:334px">
+            <div class="field" style="left:10px;top:10px">WIDTH <b>10000</b></div>
+            <div class="field" style="left:150px;top:10px">CENTRE X <b>0</b> Z <b>0</b></div>
+            <div class="btn" style="left:350px;top:6px">SET</div>
+            <div class="btn bad" style="left:410px;top:6px">OFF</div>
+            <div class="help" style="left:10px;top:40px">x -5000 to 5000, z -5000 to 5000 - warned 10 blocks before</div>
+            <!-- board -->
+            <div style="position:absolute;left:10px;top:60px;width:548px;height:198px;border:2px solid var(--line);box-sizing:border-box"></div>
+            <!-- resource (8000) docked north: 8000/10000 of 120px wide = 96 -->
+            <div class="world other" style="left:236px;top:66px;width:96px;height:56px">resource<i>8000</i></div>
+            <div class="edge" style="left:224px;top:124px;width:120px;height:4px"></div>
+            <div class="tag" style="left:350px;top:116px">N - resource S</div>
+            <!-- this world -->
+            <div class="world" style="left:224px;top:128px;width:120px;height:120px">survival-1<i>10000</i><i>this server</i></div>
+            <!-- survival-2 docked east -->
+            <div class="edge" style="left:344px;top:128px;width:4px;height:120px"></div>
+            <div class="world other" style="left:348px;top:128px;width:120px;height:120px">survival-2<i>10000</i></div>
+            <div class="tag" style="left:474px;top:180px">E - W</div>
+            <!-- free edges -->
+            <div class="edge pick" style="left:224px;top:246px;width:120px;height:4px"></div>
+            <div class="tag gold" style="left:120px;top:236px">S - pick a world below</div>
+            <div class="edge free" style="left:218px;top:128px;width:6px;height:120px"></div>
+            <div class="tag" style="left:150px;top:180px;color:var(--muted)">W free</div>
+            <!-- tray -->
+            <div class="help" style="left:10px;top:266px">NOT LINKED - click one of their edges</div>
+            <div class="world other" style="left:10px;top:286px;width:120px;height:36px;flex-direction:row;gap:8px">creative<i>4000</i></div>
+            <div class="world other" style="left:140px;top:286px;width:120px;height:36px;flex-direction:row;gap:8px">lobby<i>1000</i></div>
+            <div class="btn dim" style="left:440px;top:288px">UNLINK</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="frame">
+      <div class="screen game">
+        <div class="wallband" style="right:0"></div>
+        <div class="hotbar"></div>
+        <div class="dim"></div>
+        <div class="modal" style="left:228px;top:110px;width:400px;height:220px">
+          <div class="h">THE EDGE OF THE WORLD</div>
+          <div class="t" style="top:54px">Beyond this edge is <b>survival-2</b>.</div>
+          <div class="t" style="top:84px;color:var(--muted);font-size:17px">You arrive in its Overworld near <em>x -4984, z 1520</em>. Your items and XP travel with you.</div>
+          <div class="btn big" style="left:20px;top:150px">TRAVEL</div>
+          <div class="btn big dim" style="left:190px;top:150px">STAY</div>
+        </div>
+        <div class="help" style="left:228px;top:340px;width:400px;text-align:center;color:var(--text)">Stay: you are not asked again until you walk away from the edge.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ OPTION B -->
+  <section class="option" id="b">
+    <h2>B. Edge table <small>one row per edge, picked from a list</small></h2>
+    <div class="brief">
+      <p>The four edges as rows: how long each is, where it leads and where a player crossing its middle arrives. LINK opens a list of every free edge on the other servers, with its length; picking one links both ways. Edges of different lengths show the stretch ("x 0.4") so the admin sees that the far side is shorter.</p>
+      <p><b>Good at:</b> precise; quick to scan; easy to build and to read on a small window. <span class="con"><b>Weak at:</b></span> no picture of how the worlds fit together; easier to link the wrong pair of edges by mistake.</p>
+    </div>
+    <div class="frame">
+      <div class="screen">
+        <div class="panel" style="left:12px;top:12px;width:832px;height:456px">
+          <div class="title">REGIONS - OVERWORLD</div>
+          <div class="help" style="right:20px;top:18px">survival-1</div>
+          <div class="inset" style="left:16px;top:44px;width:212px;height:392px">
+            <div class="row sel" style="top:4px"><span>World default</span><span class="pill">global</span></div>
+            <div class="row" style="top:32px"><span>spawn</span><span class="pill protected">10</span></div>
+            <div class="row" style="top:60px"><span>market</span><span class="pill gold">sale</span></div>
+            <div class="row" style="top:88px"><span>quarry</span><span class="pill mine">mine</span></div>
+          </div>
+          <div style="position:absolute;left:244px;top:44px;font-size:24px">World default <span style="color:var(--muted);font-size:17px">the whole Overworld</span></div>
+          <div class="tabs" style="left:244px;top:70px"><span class="tab">MAP</span><span class="tab">FLAGS</span><span class="tab on">BORDER</span><span class="tab">INFO</span></div>
+          <div class="inset" style="left:244px;top:102px;width:572px;height:334px">
+            <div class="ghead" style="left:10px;top:10px">BORDER</div>
+            <div class="field" style="left:90px;top:6px">WIDTH <b>10000</b></div>
+            <div class="field" style="left:230px;top:6px">CENTRE X <b>0</b> Z <b>0</b></div>
+            <div class="btn" style="left:430px;top:2px">SET</div>
+            <div class="btn bad" style="left:490px;top:2px">OFF</div>
+            <div class="ghead" style="left:10px;top:46px">EDGES</div>
+            <table class="edges" style="left:6px;top:64px;width:556px">
+              <tr><th>EDGE</th><th>LENGTH</th><th>LEADS TO</th><th>CROSS THE MIDDLE, ARRIVE AT</th><th></th></tr>
+              <tr><td class="n">north</td><td>10000</td><td style="color:var(--violet)">resource - south</td><td>0, 3984 <span style="color:var(--muted);font-size:15px">x 0.8</span></td><td style="color:var(--bad)">x</td></tr>
+              <tr><td class="n">east</td><td>10000</td><td style="color:var(--violet)">survival-2 - west</td><td>-4984, 0</td><td style="color:var(--bad)">x</td></tr>
+              <tr style="background:rgba(255,210,58,.08)"><td class="n">south</td><td>10000</td><td style="color:var(--gold)">LINK...</td><td style="color:var(--muted)">-</td><td></td></tr>
+              <tr><td class="n">west</td><td>10000</td><td style="color:var(--accent)">LINK...</td><td style="color:var(--muted)">-</td><td></td></tr>
+            </table>
+            <div class="drop" style="left:150px;top:206px;width:300px">
+              <div class="hi">creative - north <span>4000 - x 0.4</span></div>
+              <div>creative - west <span>4000 - x 0.4</span></div>
+              <div>lobby - north <span>1000 - x 0.1</span></div>
+              <div>survival-2 - south <span>10000</span></div>
+            </div>
+            <div class="help" style="left:10px;top:306px">a link works both ways; resource and survival-2 show it from their side too</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="frame">
+      <div class="screen game">
+        <div class="wallband" style="right:0"></div>
+        <div class="hotbar"></div>
+        <div class="modal" style="left:178px;top:296px;width:500px;height:120px">
+          <div class="h" style="font-size:20px;top:12px">EDGE OF THE WORLD</div>
+          <div class="t" style="top:40px;font-size:17px">Walk on into <b>survival-2</b>? You arrive near <em>x -4984, z 1520</em>.</div>
+          <div class="btn" style="left:20px;top:74px">TRAVEL</div>
+          <div class="btn dim" style="left:130px;top:74px">STAY</div>
+          <div class="help" style="right:16px;top:82px">Esc = stay</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================ OPTION C -->
+  <section class="option" id="c">
+    <h2>C. Compass <small>this world in the middle, one neighbour slot per side</small></h2>
+    <div class="brief">
+      <p>This world as a tile in the centre with a slot on each side, like a map of a continent split across servers. A filled slot names the server, its world, the edge you arrive on and its size; an empty slot says + LINK. Clicking a slot lists the worlds that still have a free edge on the matching side (for this world's south, their north edge first). The border's size sits in the centre tile.</p>
+      <p><b>Good at:</b> reads like a map; the right edge pairs are suggested (south goes to north), so the usual mistakes are hard to make. <span class="con"><b>Weak at:</b></span> exact arrival points need the slot's detail; sizes are written, not drawn to scale.</p>
+    </div>
+    <div class="frame">
+      <div class="screen">
+        <div class="panel" style="left:12px;top:12px;width:832px;height:456px">
+          <div class="title">REGIONS - OVERWORLD</div>
+          <div class="help" style="right:20px;top:18px">survival-1</div>
+          <div class="inset" style="left:16px;top:44px;width:212px;height:392px">
+            <div class="row sel" style="top:4px"><span>World default</span><span class="pill">global</span></div>
+            <div class="row" style="top:32px"><span>spawn</span><span class="pill protected">10</span></div>
+            <div class="row" style="top:60px"><span>market</span><span class="pill gold">sale</span></div>
+            <div class="row" style="top:88px"><span>quarry</span><span class="pill mine">mine</span></div>
+          </div>
+          <div style="position:absolute;left:244px;top:44px;font-size:24px">World default <span style="color:var(--muted);font-size:17px">the whole Overworld</span></div>
+          <div class="tabs" style="left:244px;top:70px"><span class="tab">MAP</span><span class="tab">FLAGS</span><span class="tab on">BORDER</span><span class="tab">INFO</span></div>
+          <div class="inset" style="left:244px;top:102px;width:572px;height:334px">
+            <!-- north -->
+            <div class="slot" style="left:196px;top:8px;width:180px;height:70px"><span class="k">NORTH</span><span class="v">resource</span><span class="d">its south edge - 8000</span></div>
+            <!-- west -->
+            <div class="slot free" style="left:8px;top:94px;width:180px;height:116px"><span>+ LINK</span><span style="font-size:15px">WEST</span></div>
+            <!-- centre -->
+            <div class="world" style="left:196px;top:86px;width:180px;height:132px;gap:4px">survival-1
+              <i>BORDER 10000 wide</i><i>around 0, 0</i>
+              <span class="pill protected" style="margin-top:4px">CHANGE</span></div>
+            <!-- east -->
+            <div class="slot" style="left:384px;top:94px;width:180px;height:116px"><span class="k">EAST</span><span class="v">survival-2</span><span class="d">its west edge - 10000</span><span class="d" style="margin-top:6px">arrive 16 blocks in</span><span class="d" style="color:var(--bad)">x unlink</span></div>
+            <!-- south: selected -->
+            <div class="slot free sel" style="left:196px;top:226px;width:180px;height:70px;color:var(--gold)"><span>+ LINK</span><span style="font-size:15px">SOUTH</span></div>
+            <div class="drop" style="left:384px;top:222px;width:180px">
+              <div class="hi">creative <span>north 4000</span></div>
+              <div>lobby <span>north 1000</span></div>
+              <div>survival-2 <span>north 10000</span></div>
+            </div>
+            <div class="help" style="left:8px;top:306px">pick a world for the south edge: their north edge is offered first</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="frame">
+      <div class="screen game">
+        <div class="wallband" style="right:0"></div>
+        <div class="hotbar"></div>
+        <div class="dim"></div>
+        <div class="modal" style="left:118px;top:80px;width:620px;height:300px">
+          <div class="h">CROSS INTO ANOTHER SERVER?</div>
+          <div class="world" style="left:30px;top:66px;width:200px;height:120px">survival-1<i>you are here</i><i>x 4999, z 3800</i></div>
+          <div style="position:absolute;left:250px;top:116px;color:var(--gold);font-size:28px">--&gt;</div>
+          <div class="world other" style="left:300px;top:66px;width:290px;height:120px">survival-2<i>Overworld</i><i>arrive near x -4984, z 1520</i></div>
+          <div class="help" style="left:30px;top:200px;width:560px;color:var(--text)">Your items, XP and effects come with you. Your homes stay on this server.</div>
+          <div class="btn big" style="left:30px;top:236px">TRAVEL</div>
+          <div class="btn big dim" style="left:200px;top:236px">STAY HERE</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="flow">
+    <h3>WHAT HAPPENS AT A LINKED EDGE (the same in every option)</h3>
+    <ol>
+      <li><b>10 blocks before the edge</b> the player sees the warning on the action bar, as now.</li>
+      <li><b>At the edge</b> they are stopped and the pop-up opens. The wall in the Overworld is Minecraft's; elsewhere the edge is invisible.</li>
+      <li><b>TRAVEL:</b> Region Guard works out the arrival point (same fraction along the other edge, 16 blocks inside, on standing ground) and hands the move to BSP Teleport, which sends the player through the proxy.</li>
+      <li><b>STAY</b> (or Esc): the pop-up closes, the player is pushed back a little and is not asked again until they have walked out of the 10-block warning band and come back.</li>
+      <li><b>Arriving</b> on the other server: they land inside its warning band, so its edge does not ask them to go straight back.</li>
+      <li>An <b>unlinked edge</b> behaves as today: pushed back with the edge message, no pop-up.</li>
+    </ol>
+  </section>
+</div>

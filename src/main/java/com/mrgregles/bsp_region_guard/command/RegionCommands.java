@@ -2,6 +2,7 @@ package com.mrgregles.bsp_region_guard.command;
 
 import com.mojang.authlib.GameProfile;
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.arguments.DoubleArgumentType;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.LongArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -10,14 +11,12 @@ import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
+import com.mrgregles.bsp_region_guard.api.Cuboid;
 import com.mrgregles.bsp_region_guard.compat.BspCore;
 import com.mrgregles.bsp_region_guard.flag.Flag;
 import com.mrgregles.bsp_region_guard.flag.FlagContext;
-import com.mrgregles.bsp_region_guard.flag.FlagLocation;
 import com.mrgregles.bsp_region_guard.flag.FlagRegistry;
 import com.mrgregles.bsp_region_guard.flag.Flags;
-import com.mrgregles.bsp_region_guard.flag.StateFlag;
-import com.mrgregles.bsp_region_guard.region.Cuboid;
 import com.mrgregles.bsp_region_guard.region.Region;
 import com.mrgregles.bsp_region_guard.region.RegionQuery;
 import com.mrgregles.bsp_region_guard.region.RegionStore;
@@ -33,11 +32,9 @@ import net.minecraft.commands.arguments.GameProfileArgument;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.event.RegisterCommandsEvent;
-import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -53,7 +50,6 @@ import java.util.UUID;
  */
 public final class RegionCommands {
     private static final SimpleCommandExceptionType NOT_A_PLAYER = new SimpleCommandExceptionType(Component.literal("Only a player can do that."));
-    private static final SimpleCommandExceptionType NO_SELECTION = new SimpleCommandExceptionType(Component.literal("Select two corners first (wand, or /rg pos1 and /rg pos2)."));
 
     private static final SuggestionProvider<CommandSourceStack> REGION_IDS = (ctx, b) ->
             SharedSuggestionProvider.suggest(RegionStore.get(ctx.getSource().getLevel()).ids(), b);
@@ -119,6 +115,22 @@ public final class RegionCommands {
                 .executes(ctx -> rename(ctx.getSource(), id(ctx), StringArgumentType.getString(ctx, "name"))))));
         rg.then(Commands.literal("teleport").then(id().executes(ctx -> teleport(ctx.getSource(), id(ctx)))));
         rg.then(Commands.literal("bypass").executes(ctx -> bypass(ctx.getSource())));
+        rg.then(Commands.literal("border")
+                .executes(ctx -> border(ctx.getSource()))
+                .then(Commands.literal("off").executes(ctx -> answer(ctx.getSource(), RegionEdits.borderOff(ctx.getSource().getLevel()))))
+                .then(Commands.literal("links").executes(ctx -> borderLinks(ctx.getSource())))
+                .then(Commands.literal("unlink").then(Commands.argument("side", StringArgumentType.word()).suggests(SIDES)
+                        .executes(ctx -> answer(ctx.getSource(), RegionEdits.edgeUnlink(ctx.getSource().getLevel(), StringArgumentType.getString(ctx, "side"))))))
+                .then(Commands.literal("link").then(Commands.argument("side", StringArgumentType.word()).suggests(SIDES)
+                        .then(Commands.argument("server", StringArgumentType.word()).suggests(NETWORK_SERVERS)
+                                .then(Commands.argument("world", StringArgumentType.string()).then(Commands.argument("theirSide", StringArgumentType.word()).suggests(SIDES)
+                                        .executes(ctx -> answer(ctx.getSource(), RegionEdits.edgeLink(ctx.getSource().getLevel(), StringArgumentType.getString(ctx, "side"),
+                                                StringArgumentType.getString(ctx, "server"), StringArgumentType.getString(ctx, "world"), StringArgumentType.getString(ctx, "theirSide")))))))))
+                .then(Commands.literal("set").then(Commands.argument("width", IntegerArgumentType.integer(16, 59_999_968))
+                        .executes(ctx -> answer(ctx.getSource(), RegionEdits.border(ctx.getSource().getLevel(), IntegerArgumentType.getInteger(ctx, "width"), 0, 0)))
+                        .then(Commands.argument("centerX", DoubleArgumentType.doubleArg()).then(Commands.argument("centerZ", DoubleArgumentType.doubleArg())
+                                .executes(ctx -> answer(ctx.getSource(), RegionEdits.border(ctx.getSource().getLevel(), IntegerArgumentType.getInteger(ctx, "width"),
+                                        DoubleArgumentType.getDouble(ctx, "centerX"), DoubleArgumentType.getDouble(ctx, "centerZ")))))))));
         rg.then(Commands.literal("sale").then(id().then(Commands.argument("price", LongArgumentType.longArg(0))
                 .executes(ctx -> sale(ctx.getSource(), id(ctx), LongArgumentType.getLong(ctx, "price"))))));
         rg.then(Commands.literal("open").then(id().then(Commands.argument("costPerBlock", LongArgumentType.longArg(0))
@@ -149,7 +161,7 @@ public final class RegionCommands {
                         .executes(ctx -> triggerRemove(ctx.getSource(), id(ctx), IntegerArgumentType.getInteger(ctx, "index"))))))
                 .then(Commands.literal("add").then(id().then(Commands.argument("cause", StringArgumentType.word())
                         .suggests((c, b) -> SharedSuggestionProvider.suggest(List.of("enter", "exit", "timer", "shutdown"), b))
-                        .then(Commands.argument("destination", StringArgumentType.greedyString())
+                        .then(Commands.argument("destination", StringArgumentType.greedyString()).suggests(RegionCommands::suggestDestination)
                                 .executes(ctx -> triggerAdd(ctx.getSource(), id(ctx), StringArgumentType.getString(ctx, "cause"), StringArgumentType.getString(ctx, "destination"))))))));
         rg.then(Commands.literal("storage")
                 .then(Commands.literal("status").executes(ctx -> {
@@ -254,9 +266,54 @@ public final class RegionCommands {
         return 0;
     }
 
+    private static int answer(CommandSourceStack src, RegionEdits.Result result) {
+        return result.ok() ? ok(src, result.message()) : fail(src, result.message());
+    }
+
     private static String name(CommandSourceStack src, UUID uuid) {
         Optional<GameProfile> profile = src.getServer().getProfileCache() == null ? Optional.empty() : src.getServer().getProfileCache().get(uuid);
         return profile.map(GameProfile::getName).orElse(uuid.toString().substring(0, 8));
+    }
+
+    private static final SuggestionProvider<CommandSourceStack> SIDES = (ctx, b) -> SharedSuggestionProvider.suggest(List.of("north", "east", "south", "west"), b);
+    private static final SuggestionProvider<CommandSourceStack> NETWORK_SERVERS = (ctx, b) -> SharedSuggestionProvider.suggest(
+            com.mrgregles.bsp_region_guard.protection.EdgeLinks.network().stream().map(w -> w.server()).distinct().toList(), b);
+
+    /** Completes a trigger's destination word by word (see {@link TriggerSuggestions}). */
+    private static java.util.concurrent.CompletableFuture<com.mojang.brigadier.suggestion.Suggestions> suggestDestination(
+            CommandContext<CommandSourceStack> ctx, com.mojang.brigadier.suggestion.SuggestionsBuilder builder) {
+        CommandSourceStack src = ctx.getSource();
+        BlockPos at = src.getEntity() == null ? null : src.getEntity().blockPosition();
+        List<String> worlds = src.getServer().levelKeys().stream().map(k -> k.location().toString()).sorted().toList();
+        List<String> remote = com.mrgregles.bsp_region_guard.protection.EdgeLinks.network().stream().map(w -> w.server() + "/" + w.dimension()).sorted().toList();
+        var result = TriggerSuggestions.suggest(StringArgumentType.getString(ctx, "cause"), builder.getRemaining(),
+                at == null ? null : new int[]{at.getX(), at.getY(), at.getZ()}, worlds, remote);
+        var next = builder.createOffset(builder.getStart() + result.start());
+        result.suggestions().forEach(next::suggest);
+        return next.buildFuture();
+    }
+
+    private static int borderLinks(CommandSourceStack src) {
+        var level = src.getLevel();
+        MutableComponent out = Component.literal("Edges of " + level.dimension().location() + ":");
+        var links = com.mrgregles.bsp_region_guard.protection.EdgeLinks.effective(level);
+        for (var side : com.mrgregles.bsp_region_guard.protection.EdgeLinks.Side.values()) {
+            var p = links.get(side);
+            out.append("\n  " + side.key() + ": " + (p == null ? "not linked" : p.server() + " " + p.dimension() + ", its " + p.side().key() + " edge"));
+        }
+        var network = com.mrgregles.bsp_region_guard.protection.EdgeLinks.network();
+        out.append("\nOther servers' worlds" + (network.isEmpty() ? ": none known (shared storage off, or not read yet)" : ":"));
+        for (var w : network) {
+            out.append("\n  " + w.server() + " " + w.dimension() + ": " + (w.border() == null ? "no border" : w.border().size() + " wide"));
+        }
+        src.sendSuccess(() -> out, false);
+        return 1;
+    }
+
+    private static int border(CommandSourceStack src) {
+        var b = com.mrgregles.bsp_region_guard.protection.WorldBorders.of(src.getLevel());
+        return ok(src, b == null ? src.getLevel().dimension().location() + " has no world border. Set one: /rg border set <width> [<centerX> <centerZ>]."
+                : "World border of " + src.getLevel().dimension().location() + ": " + b + ".");
     }
 
     private static int bypass(CommandSourceStack src) throws CommandSyntaxException {
@@ -296,169 +353,76 @@ public final class RegionCommands {
     }
 
     private static int select(CommandSourceStack src, String id) throws CommandSyntaxException {
-        ServerPlayer p = player(src);
-        Region r = region(src, id);
-        if (r.bounds() == null) {
-            return fail(src, "The global region has no corners to select.");
-        }
-        Selections.of(p).set(p.serverLevel().dimension(), r.bounds());
-        Selections.sync(p);
-        return ok(src, "Selection set to " + r.id() + ": " + r.bounds() + ".");
+        return answer(src, RegionEdits.selectBounds(player(src), region(src, id)));
     }
 
     // ------------------------------------------------------------------ create, change, remove
 
     private static int define(CommandSourceStack src, String id, int priority) throws CommandSyntaxException {
-        ServerPlayer p = player(src);
-        Cuboid box = Selections.of(p).cuboid();
-        if (box == null || !p.serverLevel().dimension().equals(Selections.of(p).dimension())) {
-            throw NO_SELECTION.create();
-        }
-        RegionStore store = RegionStore.get(src.getLevel());
-        try {
-            Region r = new Region(Region.validateId(id), src.getLevel().dimension(), box, RegionType.PROTECTED);
-            r.setPriority(priority);
-            store.add(r);
-            return ok(src, "Region " + r.id() + " created: " + box + ", " + box.volume() + " blocks, priority " + priority + ".");
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            return fail(src, e.getMessage());
-        }
+        return answer(src, RegionEdits.create(src.getLevel(), id, RegionEdits.selectionIn(player(src)), priority));
     }
 
     private static int redefine(CommandSourceStack src, String id) throws CommandSyntaxException {
-        ServerPlayer p = player(src);
         Region r = region(src, id);
-        if (r.isGlobal()) {
-            return fail(src, "The global region has no bounds.");
-        }
-        Cuboid box = Selections.of(p).cuboid();
-        if (box == null || !p.serverLevel().dimension().equals(Selections.of(p).dimension())) {
-            throw NO_SELECTION.create();
-        }
-        r.setBounds(box);
-        RegionStore.get(src.getLevel()).touch(r);
-        return ok(src, "Region " + r.id() + " now covers " + box + ".");
+        return answer(src, RegionEdits.redefine(RegionStore.get(src.getLevel()), r, RegionEdits.selectionIn(player(src))));
     }
 
     private static int remove(CommandSourceStack src, String id) throws CommandSyntaxException {
-        Region r = region(src, id);
-        RegionStore.get(src.getLevel()).remove(r.id());
-        return ok(src, "Region " + r.id() + " removed.");
+        return answer(src, RegionEdits.remove(RegionStore.get(src.getLevel()), region(src, id)));
     }
 
     private static int priority(CommandSourceStack src, String id, int priority) throws CommandSyntaxException {
-        Region r = region(src, id);
-        if (r.isGlobal()) {
-            return fail(src, "The global region always has the lowest priority.");
-        }
-        r.setPriority(priority);
-        RegionStore.get(src.getLevel()).touch(r);
-        return ok(src, "Region " + r.id() + " priority is now " + priority + ".");
+        return answer(src, RegionEdits.priority(RegionStore.get(src.getLevel()), region(src, id), priority));
     }
 
     private static int parent(CommandSourceStack src, String id, String parentId) throws CommandSyntaxException {
-        Region r = region(src, id);
-        RegionStore store = RegionStore.get(src.getLevel());
-        if (parentId.equalsIgnoreCase("none") || parentId.equals("-")) {
-            r.setParentId(null);
-            store.touch(r);
-            return ok(src, "Region " + r.id() + " has no parent now.");
-        }
-        Region parent = region(src, parentId);
-        if (parent == r || store.isAncestor(r, parent)) {
-            return fail(src, "That would make a loop of parents.");
-        }
-        r.setParentId(parent.id());
-        store.touch(r);
-        return ok(src, "Region " + r.id() + " now inherits from " + parent.id() + ".");
+        return answer(src, RegionEdits.parent(RegionStore.get(src.getLevel()), region(src, id), parentId));
     }
 
     private static int type(CommandSourceStack src, String id, String typeKey) throws CommandSyntaxException {
-        Region r = region(src, id);
-        RegionType type = RegionType.byKey(typeKey.toLowerCase());
-        if (type == null || type == RegionType.GLOBAL || r.isGlobal()) {
-            return fail(src, "Types: protected, plot_for_sale, open_for_buying, claim, mine.");
-        }
-        if ((type == RegionType.CLAIM || type == RegionType.PLOT_FOR_SALE || type == RegionType.OPEN_FOR_BUYING)
-                && !com.mrgregles.bsp_region_guard.protection.TotemRule.claimsAllowedIn(src.getLevel())) {
-            return fail(src, "Claims are not allowed in a PvP world (where Shatter Totems can be placed). See the claims section of the config.");
-        }
-        r.setType(type);
-        RegionStore.get(src.getLevel()).touch(r);
-        return ok(src, "Region " + r.id() + " is now a " + type.key().replace('_', ' ') + " region.");
+        return answer(src, RegionEdits.type(src.getLevel(), RegionStore.get(src.getLevel()), region(src, id), typeKey));
     }
 
     private static int rename(CommandSourceStack src, String id, String name) throws CommandSyntaxException {
-        Region r = region(src, id);
-        r.setName(name.trim());
-        RegionStore.get(src.getLevel()).touch(r);
-        return ok(src, "Region " + r.id() + " is now called \"" + r.name() + "\".");
+        return answer(src, RegionEdits.rename(RegionStore.get(src.getLevel()), region(src, id), name));
     }
 
     private static int people(CommandSourceStack src, String id, Collection<GameProfile> profiles, boolean owners, boolean add) throws CommandSyntaxException {
         Region r = region(src, id);
+        RegionStore store = RegionStore.get(src.getLevel());
         int changed = 0;
         for (GameProfile gp : profiles) {
-            boolean did = owners ? (add ? r.addOwner(gp.getId()) : r.removeOwner(gp.getId()))
-                    : (add ? r.addMember(gp.getId()) : r.removeMember(gp.getId()));
-            if (did) {
+            if (RegionEdits.person(store, r, gp.getId(), owners, add)) {
                 changed++;
             }
         }
-        RegionStore.get(src.getLevel()).touch(r);
         String who = owners ? "owner" : "member";
         return ok(src, changed + " " + who + (changed == 1 ? "" : "s") + (add ? " added to " : " removed from ") + r.id() + ".");
     }
 
     private static int rank(CommandSourceStack src, String id, String rank, boolean add) throws CommandSyntaxException {
-        Region r = region(src, id);
-        boolean did = add ? r.addRank(rank) : r.removeRank(rank);
-        RegionStore.get(src.getLevel()).touch(r);
-        return ok(src, did ? "Rank " + rank.toLowerCase() + (add ? " may now enter " : " removed from ") + r.id() + "."
-                : "Nothing changed.");
+        return answer(src, RegionEdits.rank(RegionStore.get(src.getLevel()), region(src, id), rank, add));
     }
 
     // ------------------------------------------------------------------ claims
 
     private static int sale(CommandSourceStack src, String id, long price) throws CommandSyntaxException {
-        Region r = region(src, id);
-        if (r.isGlobal()) {
-            return fail(src, "The world default cannot be sold.");
-        }
-        if (!com.mrgregles.bsp_region_guard.protection.TotemRule.claimsAllowedIn(src.getLevel())) {
-            return fail(src, "Claims are not allowed in a PvP world.");
-        }
-        if (r.type() == RegionType.CLAIM) {
-            return fail(src, r.id() + " is already owned; the owner can abandon it, or an admin can with /claim abandon.");
-        }
-        r.setType(RegionType.PLOT_FOR_SALE);
-        com.mrgregles.bsp_region_guard.claim.ClaimData.set(r, com.mrgregles.bsp_region_guard.claim.ClaimData.PRICE, price);
-        RegionStore.get(src.getLevel()).touch(r);
-        return ok(src, r.id() + " is for sale at " + BspCore.money(price) + ".");
+        return answer(src, RegionEdits.sale(src.getLevel(), RegionStore.get(src.getLevel()), region(src, id), price));
     }
 
     private static int open(CommandSourceStack src, String id, long cost, int min, int max) throws CommandSyntaxException {
         Region r = region(src, id);
-        if (r.isGlobal()) {
-            return fail(src, "The world default cannot be an open area.");
+        RegionStore store = RegionStore.get(src.getLevel());
+        RegionEdits.Result opened = RegionEdits.open(src.getLevel(), store, r, cost);
+        if (!opened.ok() || cost <= 0) {
+            return answer(src, opened);
         }
-        if (!com.mrgregles.bsp_region_guard.protection.TotemRule.claimsAllowedIn(src.getLevel())) {
-            return fail(src, "Claims are not allowed in a PvP world.");
-        }
-        r.setType(RegionType.OPEN_FOR_BUYING);
-        com.mrgregles.bsp_region_guard.claim.ClaimData.set(r, com.mrgregles.bsp_region_guard.claim.ClaimData.COST_PER_BLOCK, cost);
-        com.mrgregles.bsp_region_guard.claim.ClaimData.set(r, com.mrgregles.bsp_region_guard.claim.ClaimData.MIN_SIZE, min);
-        com.mrgregles.bsp_region_guard.claim.ClaimData.set(r, com.mrgregles.bsp_region_guard.claim.ClaimData.MAX_SIZE, max);
-        RegionStore.get(src.getLevel()).touch(r);
-        return ok(src, r.id() + " is open for buying at " + BspCore.money(cost) + " per block" + (min > 0 || max > 0 ? ", plots " + min + " to " + max + " blocks a side." : "."));
+        RegionEdits.Result sizes = RegionEdits.plotSizes(store, r, min, max);
+        return ok(src, opened.message() + " " + sizes.message());
     }
 
     private static int plotFlags(CommandSourceStack src, String id, String flags) throws CommandSyntaxException {
-        Region r = region(src, id);
-        var unknown = com.mrgregles.bsp_region_guard.claim.ClaimFlags.setAllowed(r, flags);
-        RegionStore.get(src.getLevel()).touch(r);
-        String now = String.join(", ", com.mrgregles.bsp_region_guard.claim.ClaimFlags.allowedFor(RegionStore.get(src.getLevel()), r));
-        return ok(src, "Buyers of " + r.id() + " may set: " + now + (unknown.isEmpty() ? "" : " (not flags, ignored: " + String.join(", ", unknown) + ")"));
+        return answer(src, RegionEdits.plotFlags(RegionStore.get(src.getLevel()), region(src, id), flags));
     }
 
     // ------------------------------------------------------------------ triggers
@@ -478,36 +442,12 @@ public final class RegionCommands {
     }
 
     private static int triggerRemove(CommandSourceStack src, String id, int index) throws CommandSyntaxException {
-        Region r = region(src, id);
-        var triggers = com.mrgregles.bsp_region_guard.trigger.Trigger.of(r.typeData());
-        if (index > triggers.size()) {
-            return fail(src, r.id() + " has only " + triggers.size() + " trigger" + (triggers.size() == 1 ? "" : "s") + ".");
-        }
-        triggers.remove(index - 1);
-        com.mrgregles.bsp_region_guard.trigger.Trigger.store(r.typeData(), triggers);
-        RegionStore.get(src.getLevel()).touch(r);
-        return ok(src, "Trigger " + index + " removed from " + r.id() + ".");
+        return answer(src, RegionEdits.removeTrigger(RegionStore.get(src.getLevel()), region(src, id), index));
     }
 
     private static int triggerAdd(CommandSourceStack src, String id, String causeName, String destination) throws CommandSyntaxException {
         ServerPlayer p = player(src);
-        Region r = region(src, id);
-        com.mrgregles.bsp_region_guard.api.event.RegionTriggerEvent.Cause cause;
-        try {
-            cause = com.mrgregles.bsp_region_guard.api.event.RegionTriggerEvent.Cause.valueOf(causeName.toUpperCase(java.util.Locale.ROOT));
-        } catch (IllegalArgumentException e) {
-            return fail(src, "Causes: enter, exit, timer, shutdown.");
-        }
-        try {
-            var trigger = com.mrgregles.bsp_region_guard.trigger.Triggers.parse(p, cause, destination);
-            var triggers = com.mrgregles.bsp_region_guard.trigger.Trigger.of(r.typeData());
-            triggers.add(trigger);
-            com.mrgregles.bsp_region_guard.trigger.Trigger.store(r.typeData(), triggers);
-            RegionStore.get(src.getLevel()).touch(r);
-            return ok(src, "Trigger added to " + r.id() + ": " + trigger.describe() + (trigger.server().isEmpty() ? "" : " (cross-server: BSP Teleport carries it out)"));
-        } catch (IllegalArgumentException e) {
-            return fail(src, e.getMessage());
-        }
+        return answer(src, RegionEdits.addTrigger(p, RegionStore.get(src.getLevel()), region(src, id), causeName, destination));
     }
 
     // ------------------------------------------------------------------ mines
@@ -521,47 +461,28 @@ public final class RegionCommands {
     }
 
     private static int mineCreate(CommandSourceStack src, String id) throws CommandSyntaxException {
-        Region r = region(src, id);
-        if (r.isGlobal()) {
-            return fail(src, "The world default cannot be a mine.");
-        }
-        com.mrgregles.bsp_region_guard.mine.Mines.makeMine(RegionStore.get(src.getLevel()), r);
-        return ok(src, r.id() + " is now a mine: breaking is allowed inside, placing is not. Add blocks with /rg mine add " + r.id() + " <block> <weight>.");
+        return answer(src, RegionEdits.makeMine(RegionStore.get(src.getLevel()), region(src, id)));
     }
 
     private static int mineAdd(CommandSourceStack src, String id, net.minecraft.resources.ResourceLocation block, int weight) throws CommandSyntaxException {
-        Region r = mine(src, id);
-        if (weight > 0 && !net.minecraftforge.registries.ForgeRegistries.BLOCKS.containsKey(block)) {
-            return fail(src, "No block called " + block + ".");
-        }
-        com.mrgregles.bsp_region_guard.mine.MineData.put(r, block, weight);
-        RegionStore.get(src.getLevel()).touch(r);
-        return ok(src, weight > 0 ? block + " added to " + r.id() + " with weight " + weight + "." : block + " removed from " + r.id() + ".");
+        return answer(src, RegionEdits.mineBlock(RegionStore.get(src.getLevel()), region(src, id), block, weight));
     }
 
     private static int mineInterval(CommandSourceStack src, String id, int seconds) throws CommandSyntaxException {
-        Region r = mine(src, id);
-        com.mrgregles.bsp_region_guard.mine.Mines.schedule(RegionStore.get(src.getLevel()), r, seconds);
-        return ok(src, seconds > 0 ? r.id() + " resets every " + seconds + " seconds; the first reset is in " + seconds + " seconds." : r.id() + " no longer resets on its own.");
+        return answer(src, RegionEdits.mineInterval(RegionStore.get(src.getLevel()), region(src, id), seconds));
     }
 
     private static int mineSpawn(CommandSourceStack src, String id) throws CommandSyntaxException {
         ServerPlayer p = player(src);
-        Region r = mine(src, id);
-        com.mrgregles.bsp_region_guard.mine.MineData.setSpawn(r, FlagLocation.of(p.serverLevel(), p.getX(), p.getY(), p.getZ(), p.getYRot(), p.getXRot()));
-        RegionStore.get(src.getLevel()).touch(r);
-        return ok(src, "Players in " + r.id() + " are moved here when it resets.");
+        return answer(src, RegionEdits.mineSpawn(p, RegionStore.get(src.getLevel()), region(src, id), false));
     }
 
     private static int mineShell(CommandSourceStack src, String id, int radius) throws CommandSyntaxException {
-        Region r = mine(src, id);
-        Region shell = com.mrgregles.bsp_region_guard.mine.Mines.makeShell(src.getLevel(), RegionStore.get(src.getLevel()), r, radius);
-        return ok(src, shell.id() + " surrounds " + r.id() + " by " + radius + " blocks: only the mine can be dug there, nothing can be placed.");
+        return answer(src, RegionEdits.mineShell(src.getLevel(), RegionStore.get(src.getLevel()), region(src, id), radius));
     }
 
     private static int mineReset(CommandSourceStack src, String id) throws CommandSyntaxException {
-        Region r = mine(src, id);
-        return ok(src, com.mrgregles.bsp_region_guard.mine.Mines.reset(src.getLevel(), RegionStore.get(src.getLevel()), r));
+        return answer(src, RegionEdits.mineReset(src.getLevel(), RegionStore.get(src.getLevel()), region(src, id)));
     }
 
     private static int mineInfo(CommandSourceStack src, String id) throws CommandSyntaxException {
@@ -623,29 +544,15 @@ public final class RegionCommands {
         if (flag == null) {
             return fail(src, "No flag named '" + flagName + "'. See /rg flags.");
         }
-        RegionStore store = RegionStore.get(src.getLevel());
-        if (value.trim().equalsIgnoreCase("clear") || value.trim().equals("-")) {
-            r.setFlag(flag, null);
-            store.touch(r);
-            return ok(src, r.id() + " " + flag.name() + " cleared.");
-        }
-        try {
-            FlagContext context = new FlagContext(src.getLevel(), src.getEntity() instanceof ServerPlayer p ? p : null);
-            setParsed(r, flag, value.trim(), context);
-            store.touch(r);
-            return ok(src, r.id() + " " + flag.name() + " set to " + formatAny(flag, r.flag(flag)) + ".");
-        } catch (IllegalArgumentException e) {
-            return fail(src, flag.name() + ": " + e.getMessage());
-        }
+        String v = value.trim();
+        FlagContext context = new FlagContext(src.getLevel(), src.getEntity() instanceof ServerPlayer p ? p : null);
+        return answer(src, RegionEdits.flag(RegionStore.get(src.getLevel()), r, flag, v.equalsIgnoreCase("clear") || v.equals("-") ? null : v, context));
     }
 
-    private static <T> void setParsed(Region r, Flag<T> flag, String value, FlagContext context) {
-        r.setFlag(flag, flag.parse(value, context));
-    }
 
-    @SuppressWarnings("unchecked")
+
     private static <T> String formatAny(Flag<T> flag, Object value) {
-        return flag.format((T) value);
+        return RegionEdits.formatAny(flag, value);
     }
 
     // ------------------------------------------------------------------ reading
@@ -721,25 +628,6 @@ public final class RegionCommands {
 
     private static int teleport(CommandSourceStack src, String id) throws CommandSyntaxException {
         ServerPlayer p = player(src);
-        Region r = region(src, id);
-        FlagLocation target = r.flag(Flags.TELEPORT);
-        ServerLevel level = src.getLevel();
-        if (target != null) {
-            ServerLevel dest = src.getServer().getLevel(target.dimension());
-            if (dest == null) {
-                return fail(src, "The teleport point is in a world that does not exist: " + target.dimension().location());
-            }
-            p.teleportTo(dest, target.x(), target.y(), target.z(), target.yaw(), target.pitch());
-        } else if (r.bounds() != null) {
-            Cuboid b = r.bounds();
-            double x = (b.minX() + b.maxX() + 1) / 2.0, z = (b.minZ() + b.maxZ() + 1) / 2.0;
-            int y = level.getHeight(net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING, (int) Math.floor(x), (int) Math.floor(z));
-            y = Math.max(b.minY(), Math.min(b.maxY() + 1, y));
-            p.teleportTo(level, x, y, z, p.getYRot(), p.getXRot());
-        } else {
-            return fail(src, "The global region has nowhere to teleport to; set its teleport flag.");
-        }
-        String message = RegionQuery.effective(RegionStore.get(level), r, Flags.TELEPORT_MESSAGE);
-        return ok(src, message != null ? message : "Teleported to " + r.id() + ".");
+        return answer(src, RegionEdits.teleport(p, RegionStore.get(src.getLevel()), region(src, id)));
     }
 }

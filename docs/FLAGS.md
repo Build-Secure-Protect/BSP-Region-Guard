@@ -78,6 +78,8 @@ Enforcement column: **event** = a Forge event, works now. **mixin** = a small pa
 | `teleport` | none | the point `/rg teleport <region>` goes to; `here` uses your position | event |
 | `spawn` | none | where players respawn after dying inside | tick |
 | `teleport-message` | none | shown after `/rg teleport` | event |
+| `border-warning` | none ("The edge of the world is N blocks away.") | set on the world default: shown `border.warnDistance` (10) blocks before the world border | tick |
+| `border-message` | none ("You have reached the edge of the world.") | set on the world default: shown when a player is pushed back at the world border | tick |
 | `teleport-in`, `teleport-out`, `set-home` | allow | BSP Teleport asks these before a teleport or setting a home; also denied inside a BSP Core Anti Totem zone that blocks the same rule | API (`regions().allows`) |
 
 ## Map making
@@ -123,3 +125,12 @@ Build Secure Protect's standing rule is that a totem must never be made impossib
 - Mods that change blocks without a fake player (most quarries and contraptions do use one) are not stopped.
 - Hoppers and pipes moving items across a border are not stopped; protect containers with `chest-access`.
 - A tree outside a region may grow leaves into it.
+
+## The world border
+
+Each world's global region (the world default, `__global__`) stands for the whole world: flags set on it apply everywhere no other region decides. It also carries the world's **border**: a square set with `/rg border set <width> [<centerX> <centerZ>]` (centre 0, 0 when left out), shown with `/rg border`, removed with `/rg border off`. Players are warned `border.warnDistance` blocks before the edge and put back where they stood when they step over it; anyone found outside (after logging in, a teleport, a respawn or a smaller border) is moved just inside, onto a spot where they can stand. Riders are moved with their mount. Teleports (`teleport-in`, which BSP Teleport asks) and homes (`set-home`) outside the border are refused. Admins with bypass on are not stopped.
+
+In the Overworld, Minecraft's own border is set to match so the wall shows (`border.vanillaWall`, on by default). Minecraft copies the Overworld's border into the other worlds, so while the Overworld has a Region Guard border the other worlds' Minecraft border is lifted and Region Guard's own border (if any) applies there. Use `/rg border` rather than `/worldborder`: Region Guard sets Minecraft's border again on every change and start.
+
+An edge of the border can lead to an edge of a world on another server (edge links; setup in `docs/NETWORK.md`). At a linked edge the player is asked whether to travel instead of seeing `border-message`.
+

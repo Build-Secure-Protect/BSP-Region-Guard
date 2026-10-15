@@ -1,5 +1,6 @@
 package com.mrgregles.bsp_region_guard.region;
 
+import com.mrgregles.bsp_region_guard.api.Cuboid;
 import com.mrgregles.bsp_region_guard.flag.Flag;
 import com.mrgregles.bsp_region_guard.flag.FlagRegistry;
 import net.minecraft.core.BlockPos;

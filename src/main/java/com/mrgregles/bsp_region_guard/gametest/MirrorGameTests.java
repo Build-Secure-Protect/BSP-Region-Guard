@@ -1,12 +1,14 @@
 package com.mrgregles.bsp_region_guard.gametest;
 
 import com.mrgregles.bsp_region_guard.BSPRegionGuard;
+import com.mrgregles.bsp_region_guard.RegionGuardConfig;
+import com.mrgregles.bsp_region_guard.api.RegionGuardApi;
+import com.mrgregles.bsp_region_guard.api.Cuboid;
 import com.mrgregles.bsp_region_guard.api.event.RemoteMessageEvent;
 import com.mrgregles.bsp_region_guard.flag.Flags;
 import com.mrgregles.bsp_region_guard.flag.State;
 import com.mrgregles.bsp_region_guard.mine.MineData;
 import com.mrgregles.bsp_region_guard.mine.Mines;
-import com.mrgregles.bsp_region_guard.region.Cuboid;
 import com.mrgregles.bsp_region_guard.region.Region;
 import com.mrgregles.bsp_region_guard.region.RegionStore;
 import com.mrgregles.bsp_region_guard.region.RegionType;
@@ -43,6 +45,24 @@ public class MirrorGameTests {
             }
         }
         return null;
+    }
+
+    /** BSP Teleport's TR4: the API names this server as the storage does, and still gives the configured name with storage off. */
+    @GameTest(template = EMPTY)
+    public void api_names_this_server(GameTestHelper h) {
+        RegionMirror before = RegionMirror.active();
+        try {
+            RegionMirror mirror = RegionMirror.startWith(h.getLevel().getServer(), new MemoryBackend(), "tr4-alpha");
+            RegionMirror.setActive(mirror);
+            h.assertTrue("tr4-alpha".equals(RegionGuardApi.get().serverId()), "with storage on, the mirror's server name");
+            RegionMirror.setActive(null);
+            String configured = RegionGuardConfig.getOr(RegionGuardConfig.STORAGE_SERVER_ID, "server-1");
+            h.assertTrue(configured.equals(RegionGuardApi.get().serverId()), "with storage off, storage.serverId from the config");
+            h.assertTrue(RegionGuardApi.API_VERSION >= 5, "API version 5 or later");
+        } finally {
+            RegionMirror.setActive(before);
+        }
+        h.succeed();
     }
 
     @GameTest(template = EMPTY)

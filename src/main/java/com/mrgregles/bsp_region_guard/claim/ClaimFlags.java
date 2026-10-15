@@ -1,12 +1,12 @@
 package com.mrgregles.bsp_region_guard.claim;
 
 import com.mrgregles.bsp_region_guard.RegionGuardConfig;
+import com.mrgregles.bsp_region_guard.api.Cuboid;
 import com.mrgregles.bsp_region_guard.compat.BspCore;
 import com.mrgregles.bsp_region_guard.flag.Flag;
 import com.mrgregles.bsp_region_guard.flag.FlagRegistry;
 import com.mrgregles.bsp_region_guard.flag.Flags;
 import com.mrgregles.bsp_region_guard.flag.State;
-import com.mrgregles.bsp_region_guard.region.Cuboid;
 import com.mrgregles.bsp_region_guard.region.Region;
 import com.mrgregles.bsp_region_guard.region.RegionQuery;
 import com.mrgregles.bsp_region_guard.region.RegionStore;

@@ -1,5 +1,6 @@
 package com.mrgregles.bsp_region_guard.region;
 
+import com.mrgregles.bsp_region_guard.api.Cuboid;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import net.minecraft.world.level.ChunkPos;
 

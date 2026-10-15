@@ -1,6 +1,6 @@
 package com.mrgregles.bsp_region_guard.mine;
 
-import com.mrgregles.bsp_region_guard.region.Cuboid;
+import com.mrgregles.bsp_region_guard.api.Cuboid;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.util.RandomSource;

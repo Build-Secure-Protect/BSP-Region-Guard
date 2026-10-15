@@ -1,6 +1,5 @@
 package com.mrgregles.bsp_region_guard.api;
 
-import com.mrgregles.bsp_region_guard.region.Cuboid;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 
@@ -26,6 +25,21 @@ public interface ClaimService {
     /** A plot an admin put up for sale, or an open area, as a shop would list it. */
     record Listing(String id, String name, Cuboid bounds, long price, long costPerBlock, int minSize, int maxSize, boolean open) {
     }
+
+    /**
+     * A claim, plot for sale or open area near some ground, as a shop map draws it (CR-3). {@code ownerName} and
+     * {@code owner} are empty / null for plots for sale and open areas. {@code type} is the region type key
+     * ({@code claim}, {@code plot_for_sale}, {@code open_for_buying}).
+     */
+    record Nearby(String id, String name, String type, String ownerName, @org.jetbrains.annotations.Nullable UUID owner, Cuboid bounds) {
+    }
+
+    /** The player's wand outline in the world they stand in, or null when it is incomplete or in another world (CR-2). */
+    @org.jetbrains.annotations.Nullable
+    Cuboid selection(ServerPlayer player);
+
+    /** Every claim, plot for sale and open area whose ground touches {@code area} (x and z only; claims are full height) (CR-3). */
+    List<Nearby> claimsNear(ServerLevel level, Cuboid area);
 
     /** Plots for sale in a world. */
     List<Listing> plotsForSale(ServerLevel level);

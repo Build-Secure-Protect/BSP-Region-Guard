@@ -28,11 +28,15 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Keeps this server's regions in the shared database and carries messages between servers (owner decisions D10,
- * D11, D29). Database work runs on one worker thread; results come back on the server thread. Each server owns its
+ * D11, D29, D34). Database work runs on one worker thread; results come back on the server thread. Each server owns its
  * regions: on start it reconciles only its own rows, and other servers' rows are read here only for the status view.
+ *
+ * <p>Messages: each gets a unique id, goes out through Redis when it is configured (arrives within milliseconds) and is
+ * always written to the MySQL message table too. A receiver handles each id once, whichever copy comes first. While
+ * Redis is connected the table is read only every {@code safetyPollSeconds}; without Redis, every {@code pollSeconds}.
  */
 public final class RegionMirror {
-    private static final int MESSAGE_BATCH = 100;
+    private static final int MESSAGE_BATCH = 100, SEEN_LIMIT = 20_000;
     /** How long a stopping server waits for queued writes (publishes, region pushes) to reach the database. */
     private static final long FLUSH_MS = 5000;
     /** Queued last by {@link #shutdown()}: the worker stops once everything before it has run. */
@@ -57,6 +61,18 @@ public final class RegionMirror {
     private volatile long lastPollMs;
     private volatile String lastError = "";
     private volatile int errors;
+    /** Redis for fast messages, or null when not configured. */
+    @Nullable
+    private volatile RedisLink redis;
+    private volatile int safetyPollSeconds = 30;
+    /** Message ids already handled, so the Redis copy and the table copy of a message act once. */
+    private final Set<String> seen = java.util.Collections.newSetFromMap(new java.util.LinkedHashMap<>(256, 0.75f, false) {
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<String, Boolean> eldest) {
+            return size() > SEEN_LIMIT;
+        }
+    });
+    private volatile int delivered;
 
     private RegionMirror(MinecraftServer server, MirrorBackend backend, String serverId, int pollSeconds, boolean threaded) {
         this.server = server;
@@ -79,6 +95,9 @@ public final class RegionMirror {
         stop();
         String mode = RegionGuardConfig.getOr(RegionGuardConfig.STORAGE_MODE, "none");
         if (!"mysql".equalsIgnoreCase(mode)) {
+            if (RegionGuardConfig.getOr(RegionGuardConfig.REDIS_ENABLED, false)) {
+                BSPRegionGuard.LOGGER.warn("storage.redis.enabled is on but storage.mode is not mysql: Redis is not used");
+            }
             return;
         }
         MirrorBackend backend = new JdbcBackend(
@@ -90,11 +109,50 @@ public final class RegionMirror {
                 RegionGuardConfig.getOr(RegionGuardConfig.STORAGE_TABLE_PREFIX, "bsp_rg_"));
         active = new RegionMirror(server, backend, RegionGuardConfig.getOr(RegionGuardConfig.STORAGE_SERVER_ID, "server-1"),
                 RegionGuardConfig.getOr(RegionGuardConfig.STORAGE_POLL_SECONDS, 5), true);
-        active.submit(() -> {
+        RegionMirror m = active;
+        m.submit(() -> {
             backend.init();
-            active.lastMessageId = backend.latestMessageId();
-            BSPRegionGuard.LOGGER.info("Region storage connected: {} (this server is '{}')", backend.describe(), active.serverId);
+            m.lastMessageId = backend.latestMessageId();
+            BSPRegionGuard.LOGGER.info("Region storage connected: {} (this server is '{}')", backend.describe(), m.serverId);
         });
+        if (RegionGuardConfig.getOr(RegionGuardConfig.REDIS_ENABLED, false)) {
+            m.safetyPollSeconds = RegionGuardConfig.getOr(RegionGuardConfig.REDIS_SAFETY_POLL_SECONDS, 30);
+            m.connectRedis(redisSettingsFromConfig());
+        }
+    }
+
+    public static RedisLink.Settings redisSettingsFromConfig() {
+        return new RedisLink.Settings(
+                RegionGuardConfig.getOr(RegionGuardConfig.REDIS_HOST, "localhost"),
+                RegionGuardConfig.getOr(RegionGuardConfig.REDIS_PORT, 6379),
+                RegionGuardConfig.getOr(RegionGuardConfig.REDIS_USERNAME, ""),
+                RegionGuardConfig.getOr(RegionGuardConfig.REDIS_PASSWORD, ""),
+                RegionGuardConfig.getOr(RegionGuardConfig.REDIS_CHANNEL, "messages"));
+    }
+
+    /** Starts the Redis link for this mirror (from the config on a server; directly in tests). */
+    public void connectRedis(RedisLink.Settings settings) {
+        RedisLink old = redis;
+        if (old != null) {
+            old.close();
+        }
+        redis = new RedisLink(settings, this::onRedisMessage);
+    }
+
+    /** For tests: how often the message table is read now, in seconds. */
+    public int pollEverySeconds() {
+        RedisLink r = redis;
+        return r != null && r.subscribed() ? Math.max(pollSeconds, safetyPollSeconds) : pollSeconds;
+    }
+
+    /** For tests: how many messages from other servers this mirror has handled. */
+    public int delivered() {
+        return delivered;
+    }
+
+    @Nullable
+    public RedisLink redis() {
+        return redis;
     }
 
     /** For tests: a mirror with its own worker thread, as on a real server. */
@@ -119,7 +177,7 @@ public final class RegionMirror {
 
     public static void stop() {
         if (active != null) {
-            active.shutdown();
+            active.close();
             active = null;
         }
     }
@@ -139,10 +197,15 @@ public final class RegionMirror {
     }
 
     /**
-     * Sends everything still queued, then closes. Messages published while the server stops (a SHUTDOWN trigger's
+     * Sends everything still queued (Redis first, then the database worker), then closes. Messages published while the server stops (a SHUTDOWN trigger's
      * landing announcement from BSP-Teleport, request TR2) are queued before this runs, so they still go out.
      */
-    private void shutdown() {
+    public void close() {
+        RedisLink link = redis;
+        if (link != null) {
+            link.close(); // sends its own queue first
+            redis = null;
+        }
         running.set(false);
         if (worker != null) {
             work.add(STOP);
@@ -197,7 +260,7 @@ public final class RegionMirror {
                 if (r != null) {
                     r.run();
                 }
-                if (running.get() && System.currentTimeMillis() - lastPollMs >= pollSeconds * 1000L) {
+                if (running.get() && System.currentTimeMillis() - lastPollMs >= pollEverySeconds() * 1000L) {
                     lastPollMs = System.currentTimeMillis();
                     pollMessages();
                 }
@@ -351,8 +414,59 @@ public final class RegionMirror {
     // ------------------------------------------------------------------ messages
 
     public void publish(String kind, String dimension, String regionId, String payload) {
-        long now = System.currentTimeMillis();
-        submit(() -> backend.publish(new MirrorBackend.Message(0, now, serverId, kind, dimension, regionId, payload)));
+        MirrorBackend.Message m = new MirrorBackend.Message(0, java.util.UUID.randomUUID().toString(), System.currentTimeMillis(), serverId, kind, dimension, regionId, payload);
+        RedisLink r = redis;
+        if (r != null) {
+            r.publish(encode(m));
+        }
+        submit(() -> backend.publish(m)); // always: the table is the safety net and the record
+    }
+
+    /** A message as it travels through Redis: a small JSON object. */
+    static String encode(MirrorBackend.Message m) {
+        com.google.gson.JsonObject o = new com.google.gson.JsonObject();
+        o.addProperty("u", m.uid());
+        o.addProperty("t", m.createdAt());
+        o.addProperty("s", m.source());
+        o.addProperty("k", m.kind());
+        o.addProperty("d", m.dimension());
+        o.addProperty("r", m.regionId());
+        o.addProperty("p", m.payload());
+        return o.toString();
+    }
+
+    @Nullable
+    static MirrorBackend.Message decode(String text) {
+        try {
+            com.google.gson.JsonObject o = com.google.gson.JsonParser.parseString(text).getAsJsonObject();
+            return new MirrorBackend.Message(0, o.get("u").getAsString(), o.get("t").getAsLong(), o.get("s").getAsString(), o.get("k").getAsString(),
+                    o.get("d").getAsString(), o.get("r").getAsString(), o.get("p").getAsString());
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
+
+    /** True the first time an id is seen; an empty id (a row from before message ids) always counts as new. */
+    private boolean firstTime(String uid) {
+        if (uid == null || uid.isEmpty()) {
+            return true;
+        }
+        synchronized (seen) {
+            return seen.add(uid);
+        }
+    }
+
+    /** On the Redis subscriber's thread. */
+    private void onRedisMessage(String text) {
+        MirrorBackend.Message m = decode(text);
+        if (m == null) {
+            BSPRegionGuard.LOGGER.debug("Ignoring a Redis message that is not Region Guard's: {}", text);
+            return;
+        }
+        if (m.source().equals(serverId) || !firstTime(m.uid())) {
+            return;
+        }
+        server.execute(() -> deliver(m));
     }
 
     private void pollMessages() {
@@ -364,8 +478,8 @@ public final class RegionMirror {
             List<MirrorBackend.Message> messages = backend.fetchMessagesAfter(lastMessageId, MESSAGE_BATCH);
             for (MirrorBackend.Message m : messages) {
                 lastMessageId = Math.max(lastMessageId, m.id());
-                if (m.source().equals(serverId)) {
-                    continue;
+                if (m.source().equals(serverId) || !firstTime(m.uid())) {
+                    continue; // our own, or already had through Redis
                 }
                 server.execute(() -> deliver(m));
             }
@@ -377,6 +491,7 @@ public final class RegionMirror {
     }
 
     private void deliver(MirrorBackend.Message m) {
+        delivered++;
         MinecraftForge.EVENT_BUS.post(new RemoteMessageEvent(m.source(), m.kind(), m.dimension(), m.regionId(), m.payload()));
         if (KIND_MINE_RESET.equals(m.kind()) && RegionGuardConfig.getOr(RegionGuardConfig.STORAGE_SYNC_MINE_RESETS, true)) {
             for (ServerLevel level : server.getAllLevels()) {
@@ -395,8 +510,10 @@ public final class RegionMirror {
     // ------------------------------------------------------------------ status
 
     public String status() {
-        return "storage: " + backend.describe() + "; this server '" + serverId + "'; poll every " + pollSeconds + " s; last message id " + lastMessageId
-                + "; pending " + work.size() + "; errors " + errors + (lastError.isEmpty() ? "" : " (last: " + lastError + ")");
+        RedisLink r = redis;
+        return "storage: " + backend.describe() + "; this server '" + serverId + "'; message table read every " + pollEverySeconds() + " s; last message id " + lastMessageId
+                + "; pending " + work.size() + "; errors " + errors + (lastError.isEmpty() ? "" : " (last: " + lastError + ")")
+                + "\n" + (r == null ? "redis: off" : r.status());
     }
 
     public void countByServer(java.util.function.Consumer<Map<String, Integer>> then) {
@@ -408,6 +525,22 @@ public final class RegionMirror {
 
     public String serverId() {
         return serverId;
+    }
+
+    /** One server's region rows in one world (another server's, for the admin screen's switcher), on the server thread. */
+    public void fetchRegionsOf(String serverId, String dimension, java.util.function.Consumer<List<MirrorBackend.RegionRow>> then) {
+        submit(() -> {
+            List<MirrorBackend.RegionRow> rows = backend.fetchRegions(serverId, dimension);
+            server.execute(() -> then.accept(rows));
+        });
+    }
+
+    /** Every server's world-default rows (borders, edge links), delivered on the server thread. */
+    public void fetchGlobals(java.util.function.Consumer<List<MirrorBackend.RegionRow>> then) {
+        submit(() -> {
+            List<MirrorBackend.RegionRow> rows = backend.fetchGlobals();
+            server.execute(() -> then.accept(rows));
+        });
     }
 
     /** Other servers' live regions in a world, as read-only summaries ("server/id", type "remote"), delivered on the server thread. */

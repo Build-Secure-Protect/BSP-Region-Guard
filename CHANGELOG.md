@@ -4,6 +4,59 @@ All notable changes to BSP Region Guard. Format follows Keep a Changelog; versio
 
 ## [Unreleased]
 
+### Added (2026-10-15, server name on the API)
+- API version 5: `RegionGuardApi.get().serverId()` gives this server's `storage.serverId` (also when shared storage is off), so BSP Teleport can check it against its own server name without reading Region Guard's config by reflection (BSP Teleport's TR4). One GameTest (67 in all).
+
+### Changed (2026-10-15, BSP Core 1.1.0)
+- Built against **BSP Core 1.1.0** and now requires it (`[1.1.0,)`): earlier 1.0.1 builds may lack the totem calls added for Region Guard (RG-C5). Nothing else changes; `tools/setup_test_server.sh` picks up the new version from `gradle.properties`.
+
+### Changed (2026-10-15, BSP Core 1.0.1 Land Office)
+- Finishing a wand outline opens **BSP Core's Land Office** with that ground drawn and priced (for players in worlds where claims are allowed; not for BSP Core admins with bypass on, who draw regions with the same wand). The claim screen's ENLARGE opens it too. Players now buy and enlarge only there: `/claim buy` and `/claim enlarge` tell them so; admins keep both (owner decisions D46, D47).
+- API version 4: `claims().selection(player)`, `claims().claimsNear(level, area)` (claims, plots for sale and open areas touching some ground, with owner name and bounds), and `bounds()` on `ClaimPurchasedEvent` and `ClaimAbandonedEvent` (BSP Core's CR-1 to CR-4).
+- The remaining totem lookups go through BSP Core's api (`BspTotems.allPlaced`, `stealRadius`, `isTotem`, `thiefAt`, RG-C5). BSP Core's full jar now starts on Mohist (RG-C4, verified); `CORE_JAR=full tools/setup_test_server.sh` uses it.
+- One GameTest (66 in all).
+
+### Added (2026-10-15, claim wipe in the screen)
+- The admin screen can wipe a world's claims (owner decision D45, mock-up option C): with the CLAIM filter on and the search empty, a red WIPE ALL N CLAIMS sits under the region list (N counts every claim in the world). It turns the right pane into the confirmation: what goes (every claim, bought plots included), the one-time code in large figures, a box to type it back, the seconds left, the server's answer, and the backups with RESTORE. The same rules as `/rg claims wipe` apply (BSP Core admins only, code within a minute, backup first, admins told). Network protocol 4. One GameTest (65 in all); both wipe tests now run in their own batches, since a wipe removes every claim in the test world.
+
+### Changed (2026-10-15, server switcher)
+- The admin screen's header has a **server picker** ("SERVER < survival-2 > 2 of 5") when shared storage is on (owner decision D44, mock-up option C). Picking another server swaps the region list and the map to that server's regions in this world, in their own colours, read from the shared storage. While looking the screen is **read-only**: gold frame, READ-ONLY in the header, only MAP, FLAGS and INFO, no editing controls, a BACK TO button; the server also refuses every edit from that screen, so a region id both servers use cannot be changed here by mistake. "+ THIS SERVER" on the map lays this server's regions underneath in grey. Region changes on this server do not pull the admin out of the view; changing world, BACK, Esc or reopening the screen does. This replaces the all-at-once OTHER SERVERS overlay. Network protocol 3. One GameTest (64 in all).
+
+### Added (2026-10-15, tab completion)
+- `/rg trigger add <region> <cause> <destination>` completes the destination word by word: for a timer the seconds first (10, 30, 60, 300), then `here`, this server's worlds (with and without `minecraft:`) and the other servers' worlds as `server/world` (from the shared storage), then your own x y z, then nothing (the rest is the message). One GameTest (63 in all).
+
+### Changed (2026-10-15, screen text)
+- All text on the admin screen, the claim screen and the edge travel pop-up (and the show-regions key message) now comes from the language file, `assets/bsp_region_guard/lang/en_us.json`, under `gui.bsp_region_guard.*`: 252 keys, with `%s` for filled-in values and `.one` / `.many` forms for counts ("1 owner", "2 owners"). The file is written by `tools/gen_assets.py` (table `GUI`); a translation is another `xx_xx.json` with the same keys. `tools/check_lang.py` checks that every key the screens use exists, that texts given values have `%s`, and that no stray `%` would break a text. Flag names, flag hints and messages sent by the server are still English.
+
+### Added (2026-10-15, edge links)
+- **Edge links between servers** (owner decisions D40 to D42): an edge of a world's border leads to an edge of a world on another server. A player who walks into a linked edge gets a window: TRAVEL hands them to BSP Teleport (a `RegionTriggerEvent` with the new cause `EDGE`, API version 3) to arrive at the same fraction along the other edge, 16 blocks inside, and the arriving server moves them onto standing ground; STAY pushes them back and they are not asked again until they leave the warning band. Links are stored on the world default of the server where they were made and work both ways because every server reads the others' world defaults from the shared storage (at start, every 5 minutes, on any border or link change, and when the BORDER tab opens). Unlinking from either side works.
+- Admin screen: the world default has a **BORDER** tab (the compass layout chosen from the mock-ups): the border with CHANGE, and a slot per edge showing where it leads or + LINK with a list of the other servers' worlds (matching edge first). SALE and MINE are hidden for the world default, which can be neither.
+- Commands `/rg border links`, `/rg border link <side> <server> <world> <their side>`, `/rg border unlink <side>`. A warning at start when `storage.serverId` and BSP Teleport's server name differ (they must match). Network protocol 2.
+- Five GameTests (62 in all): arrival geometry; a link made on another server works both ways and unlinks; the question is asked once per approach and TRAVEL goes to the teleport mod with the right destination; arrivals are put on standing ground; the BORDER tab's actions.
+
+### Changed (2026-10-14, API)
+- **API version 2.** `Cuboid` moved from `region` to `api`, `RegionQuery.Exemption` became `api.Exemption`, and the world border's shape is `api.Border`. New `regions().bounds(level, id)` and `regions().border(level)`. Every public type and method in `api` now has javadoc; `docs/API.md` lists what other mods may compile against (the `api` package and its events, plus the flag types in `flag`). Mods that only use `regions().allows`, `publish` and the events (BSP Teleport) need no change.
+
+### Added (2026-10-14, world border)
+- **World border per world** (owner decisions D36 to D39): `/rg border`, `/rg border set <width> [<centerX> <centerZ>]`, `/rg border off`. The border belongs to the world's global region, which every world now has from the start, and travels with it through the shared storage. Players are warned `border.warnDistance` (10) blocks before the edge (flag `border-warning`), put back where they stood when they step over it (flag `border-message`), and moved just inside onto standing room when found outside after a login, teleport, respawn or a smaller border; riders move with their mount. `teleport-in` and `set-home` answer no outside the border, so BSP Teleport refuses teleports and homes there. Admins with bypass on pass.
+- In the Overworld, Minecraft's own border is set to match so the wall shows (`border.vanillaWall`); the other worlds' Minecraft border is then lifted, because Minecraft would copy the Overworld's size into them. Without a Region Guard border in the Overworld, Minecraft's border is left alone.
+- Two GameTests (57 in all), in their own batch: warning, push-back, moving in from outside, refused teleports and homes, admin bypass; the Overworld wall follows and the Nether's is lifted.
+
+### Changed (2026-10-14, later)
+- The `/rg` commands and the admin screen now make every region edit through one shared class (`command/RegionEdits`), so each rule lives in one place. Rules that differed between the two now match:
+  - `/rg sale <id> 0` takes a plot off sale (it used to leave it marked for sale with no price), and `/rg open <id> 0` closes an open area.
+  - A price or cost of 0 from the SALE tab only reverts a plot for sale or an open area; it no longer turns a mine or other region into a plain protected one.
+  - `/rg open` refuses an owned claim, like `/rg sale` did.
+  - The screen can no longer change the world default's priority, and its mine settings (blocks, interval, spawn, reset) need a mine, as the commands did.
+  - Messages are the commands' fuller sentences on both; the screen still stays quiet when a field edit works.
+- One GameTest (55 in all) checks these shared rules.
+
+### Added (2026-10-14)
+- **Redis for cross-server messages** (owner decision D34; `storage.redis` section: `enabled`, `host`, `port`, `username`, `password`, `channel`, `safetyPollSeconds`). Mine resets, region triggers, BSP Teleport's landings and other `publish` calls now arrive within milliseconds. Region Guard has its own small Redis client (AUTH, PUBLISH, SUBSCRIBE, PING over a plain socket, for a local network); no library is bundled, so nothing can clash with Mohist or the other BSP mods. It reconnects by itself, waiting longer after each failure, and pings a quiet connection to notice a dead one.
+- Every message also goes into the MySQL message table with a unique id (new column `uid`, added to existing tables on start); a server handles each id once, whichever copy arrives first. While Redis is connected the table is read only every `safetyPollSeconds` (30); while it is down, every `pollSeconds` as before. On stop, Redis's queue is sent before the database worker's.
+- `/rg storage status` gains a Redis line (connected, receiving only, sending only or down; sent, received, not sent; last error). `docs/NETWORK.md` describes the four-machine setup.
+- Three GameTests (54 in all) against an in-process fake Redis on a real socket: messages arrive before the table is written and the table copy is dropped; an outage falls back to the table and the link comes back by itself; a wrong password is reported.
+
 ### Changed (2026-10-12)
 - **Claims are paid from the BSP Core bank** in Shatter Pieces, no longer with coins from the inventory (owner decision D31). Prices, costs per block and refunds are in pieces and are now `long`s. `ClaimService.purchasePlot`, `purchaseOpen` and `enlarge` answer through a callback, because on a network the bank answers after a database round trip: meanwhile the plot or outline is held for the buyer and the buyer cannot start a second purchase; if the plot changed before the money arrived, the money is paid straight back. `abandon` pays the refund into the owner's bank, also when an admin removes the claim of an offline player. The screens and commands say "pieces".
 - Built against **BSP Core 1.0.1**; the BSP Core adapter now goes through BSP Core's `api` package (admins, coins, dimensions, bank, Anti Totem zones). A few calls still use BSP Core internals where the api has no equivalent yet (every placed totem, steal radius, the totem block, test helpers). `tools/setup_test_server.sh` copies the slim jar of the version in `gradle.properties`.

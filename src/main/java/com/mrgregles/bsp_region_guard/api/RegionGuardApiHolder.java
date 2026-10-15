@@ -13,6 +13,13 @@ final class RegionGuardApiHolder {
         }
 
         @Override
+        public String serverId() {
+            var mirror = com.mrgregles.bsp_region_guard.storage.RegionMirror.active();
+            return mirror != null ? mirror.serverId()
+                    : com.mrgregles.bsp_region_guard.RegionGuardConfig.getOr(com.mrgregles.bsp_region_guard.RegionGuardConfig.STORAGE_SERVER_ID, "server-1");
+        }
+
+        @Override
         public ClaimService claims() {
             return com.mrgregles.bsp_region_guard.claim.Claims.INSTANCE;
         }
@@ -55,12 +62,23 @@ final class RegionGuardApiHolder {
         }
 
         @Override
+        public Cuboid bounds(net.minecraft.server.level.ServerLevel level, String regionId) {
+            var r = com.mrgregles.bsp_region_guard.region.RegionStore.get(level).get(regionId);
+            return r == null ? null : r.bounds();
+        }
+
+        @Override
+        public Border border(net.minecraft.server.level.ServerLevel level) {
+            return com.mrgregles.bsp_region_guard.protection.WorldBorders.of(level);
+        }
+
+        @Override
         public <F extends com.mrgregles.bsp_region_guard.flag.Flag<?>> F registerFlag(F flag) {
             return com.mrgregles.bsp_region_guard.flag.FlagRegistry.register(flag);
         }
 
         @Override
-        public void addExemption(com.mrgregles.bsp_region_guard.region.RegionQuery.Exemption exemption) {
+        public void addExemption(Exemption exemption) {
             com.mrgregles.bsp_region_guard.region.RegionQuery.addExemption(exemption);
         }
     };

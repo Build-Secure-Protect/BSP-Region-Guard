@@ -1,9 +1,9 @@
 package com.mrgregles.bsp_region_guard.network;
 
 import com.mrgregles.bsp_region_guard.api.ClaimResult;
+import com.mrgregles.bsp_region_guard.api.Cuboid;
 import com.mrgregles.bsp_region_guard.claim.ClaimFlags;
 import com.mrgregles.bsp_region_guard.claim.Claims;
-import com.mrgregles.bsp_region_guard.region.Cuboid;
 import com.mrgregles.bsp_region_guard.region.Region;
 import com.mrgregles.bsp_region_guard.region.RegionStore;
 import com.mrgregles.bsp_region_guard.region.RegionType;
@@ -107,6 +107,10 @@ public final class ClaimSync {
                     return "Outline the larger plot with the plot tool first.";
                 }
                 String id = claim.id();
+                if (!Claims.buysByCommand(player)) { // D47: the Land Office takes the money
+                    com.mrgregles.bsp_region_guard.compat.BspCore.openLandOffice(player, ground);
+                    return null;
+                }
                 Claims.INSTANCE.enlarge(player, id, ground, r -> {
                     player.displayClientMessage(Component.literal(r.message()), true);
                     refresh(player, store, id);

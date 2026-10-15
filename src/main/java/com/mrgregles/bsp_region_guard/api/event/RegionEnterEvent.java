@@ -16,6 +16,7 @@ public class RegionEnterEvent extends PlayerEvent {
     private final ResourceKey<Level> dimension;
     private final boolean teleport;
 
+    /** Fired by Region Guard; other mods only listen. */
     public RegionEnterEvent(ServerPlayer player, String regionId, ResourceKey<Level> dimension, boolean teleport) {
         super(player);
         this.regionId = regionId;
@@ -23,10 +24,12 @@ public class RegionEnterEvent extends PlayerEvent {
         this.teleport = teleport;
     }
 
+    /** The region's id. */
     public String regionId() {
         return regionId;
     }
 
+    /** The world it happened in. */
     public ResourceKey<Level> dimension() {
         return dimension;
     }

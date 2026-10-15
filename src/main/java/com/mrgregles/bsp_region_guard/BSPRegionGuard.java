@@ -69,6 +69,9 @@ public class BSPRegionGuard {
         MinecraftForge.EVENT_BUS.addListener(com.mrgregles.bsp_region_guard.trigger.Triggers::onLeave);
         MinecraftForge.EVENT_BUS.addListener(com.mrgregles.bsp_region_guard.trigger.Triggers::onServerTick);
         MinecraftForge.EVENT_BUS.addListener(com.mrgregles.bsp_region_guard.trigger.Triggers::onServerStopping);
+        MinecraftForge.EVENT_BUS.addListener(com.mrgregles.bsp_region_guard.protection.WorldBorders::onServerStarted);
+        MinecraftForge.EVENT_BUS.addListener(com.mrgregles.bsp_region_guard.protection.EdgeLinks::onServerTick);
+        MinecraftForge.EVENT_BUS.addListener(com.mrgregles.bsp_region_guard.protection.EdgeLinks::onRemoteMessage);
         MinecraftForge.EVENT_BUS.addListener(this::onServerStarted);
         MinecraftForge.EVENT_BUS.addListener(this::onServerStopped);
         registerProtection(MinecraftForge.EVENT_BUS);

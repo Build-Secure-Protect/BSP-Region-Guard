@@ -1,6 +1,6 @@
 package com.mrgregles.bsp_region_guard.network;
 
-import com.mrgregles.bsp_region_guard.region.Cuboid;
+import com.mrgregles.bsp_region_guard.api.Cuboid;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.fml.DistExecutor;

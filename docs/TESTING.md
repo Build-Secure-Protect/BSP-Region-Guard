@@ -184,9 +184,9 @@ Needs a MySQL database reachable from two test servers (two copies of `server/` 
 - [ ] `/rg trigger add test enter lobby/minecraft:overworld 0 64 0 See you there`: with no BSP Teleport installed, nothing moves and the log warns that no teleport mod handled it (or, with storage on, a `trigger` message appears in the messages table).
 
 - [ ] Admin screen, TELEPORT tab: the triggers list shows what `/rg trigger list` shows; x removes one; pick a cause chip, + ADD, type `here` (or `30 here` for a timer), Enter: the trigger appears and works.
-- [ ] Admin screen, MAP tab with shared storage on and a second server's regions in the database: OTHER SERVERS draws them in grey with "server/id" labels; clicking one does nothing; HIDE OTHERS removes them.
+- [ ] (Replaced on 2026-10-15 by the server switcher; see that section.)
 
-Not yet in this build: BSP Core's shop screen (RG-C3), BSP Teleport's side of cross-server triggers (see the BSP-Teleport handoff in the vault), Redis.
+Not yet in this build: BSP Core's shop screen (RG-C3). (BSP Teleport's side of cross-server triggers exists since 2026-10-12; Redis since 2026-10-14.)
 
 ## 2026-10-12: bank payments, BSP-Core 1.0.1, Anti Totem zones, shutdown flush (build 0.1.0)
 
@@ -197,4 +197,95 @@ Needs BSP-Core 1.0.1 (its `api` package and bank). On the Mohist test server, `t
 - [ ] On a network (BSP Core with shared storage): two players try to buy the same plot at the same moment; one gets it, the other is told someone else is buying it (or, if their charge went through first, gets the money back).
 - [ ] Anti Totem zones (D32): put a BSP Core Anti Totem zone with "teleport in" blocked somewhere without any region; BSP Teleport refuses a teleport into it (Region Guard answers no for `teleport-in` there). Same for "totem place" if BSP Core asks Region Guard.
 - [ ] Shutdown landings (TR2): with storage on and a shutdown trigger to another server, stop the server; the player lands at the trigger's position on the holding server, not its spawn. The log shows no "queued writes not sent" warning.
+
+## 2026-10-14: Redis messaging (build 0.1.0)
+
+Needs the network set up as in `docs/NETWORK.md`: MySQL and Redis on the main machine, at least two backends with `storage.mode = mysql`, `storage.redis.enabled = true`, the same `tablePrefix` and `channel`, different `serverId`s. Built and tested headless only (54 GameTests against a fake Redis); this is the first real run.
+
+- [ ] Start each backend: the log says `Region storage connected: mysql ...` and `Redis connected (redis <host>:6379, channel bsp_rg:messages)`. `/rg storage status` says the table is read every 30 s and Redis is `connected` with no error.
+- [ ] Wrong Redis password on one backend: its log warns "Redis refused the login", `/rg storage status` shows it, the server keeps running and still gets messages (within 5 s, from the table).
+- [ ] A mine with the same id and world on two backends: `/rg mine reset quarry` on one resets it on the other **at once** (not after a few seconds). `/rg storage status` on the receiver counts one received message.
+- [ ] Stop Redis on the main machine: within a few seconds each backend's log warns once and `/rg storage status` says `down` and reading every 5 s. A mine reset still reaches the other server, within about 5 s. Start Redis again: the logs say "Redis connected again" within about 30 s, status is `connected`, resets are instant again. Nothing is reset twice.
+- [ ] With BSP Teleport: a cross-server shutdown trigger (`/rg trigger add <region> shutdown <holding server>/minecraft:overworld x y z`), stop the backend while standing inside: you land at that spot on the holding server (the landing message goes out through Redis before the server finishes stopping).
+- [ ] Watch for a while with players moving between servers: no "queued writes not sent" warning on stop, and the "not sent" count in the status stays at 0 while Redis is up.
+
+## 2026-10-14: commands and screen share their edit rules (build 0.1.0)
+
+Every edit the admin screen makes now goes through the same code as the `/rg` command. Re-check a few edits from both sides:
+
+- [ ] `/rg sale shop1 100`, then `/rg sale shop1 0`: the plot is no longer for sale (gold box gone, `/claim list` does not list it). The same from the SALE tab (SET PRICE 0).
+- [ ] On a mine, SET PRICE 0 in the SALE tab: the region stays a mine.
+- [ ] `/rg open <an owned claim> 5`: refused, the claim is untouched.
+- [ ] Screen: world default selected, change its priority: refused with a message.
+- [ ] Screen and commands: flags, owners and members, ranks, parent, type, rename, redefine, select, teleport, triggers and the MINE tab behave as before; a failed edit shows the same sentence the command gives.
+
+## 2026-10-14: world border (build 0.1.0)
+
+- [ ] `/rg border set 200` in the Overworld: the chat line shows the square (x -100 to 100, z -100 to 100) and Minecraft's wall appears at it. `/rg border` repeats it.
+- [ ] Walk towards the edge: about 10 blocks before it the action bar says how far the edge is (once per approach). Walk into the wall: you cannot pass (Minecraft's wall). With F3 off and an elytra or a boat along the edge: same.
+- [ ] Set `/rg border set 100` while standing 80 blocks out: within a tick you are moved just inside onto solid ground with "You have reached the edge of the world."
+- [ ] In the Nether: `/rg border set 300`: there is no visible wall, but stepping over the edge puts you back with the message; on a horse or in a boat you move back with it. The Nether is not limited by the Overworld's 200 (the Overworld wall does not show up in the Nether).
+- [ ] Log out, `/rg border set 50` from the console for that world, log back in outside: you are moved inside.
+- [ ] With BSP Teleport: a home or a teleport to a spot outside the border is refused.
+- [ ] `/rg flag __global__ border-message "Turn back, traveller"` and `/rg flag __global__ border-warning "Here be dragons"`: the new texts show.
+- [ ] As a BSP Core admin with bypass on, walk out past the Nether border: nothing stops you; `/rg bypass` off: you are pushed back like anyone.
+- [ ] `/rg border off` in the Overworld: the wall disappears.
+
+## 2026-10-15: edge links between servers (build 0.1.0)
+
+Needs two backends on the proxy with shared storage (and Redis if available), BSP Teleport on both, `storage.serverId` equal to each server's proxy name (the log warns if not), and a border on each (`/rg border set 400` on A, `/rg border set 600` on B, both in the Overworld). Built and tested headless only (62 GameTests); the screens have not been seen in game.
+
+- [ ] On A: `/rg gui`, select the world default: the tabs are MAP, FLAGS, ACCESS, RANKS, TELEPORT, INFO, BORDER (no SALE or MINE). BORDER shows A's world in the middle ("BORDER 400 wide, around 0, 0") and four + LINK slots.
+- [ ] Click + LINK on the east slot: a list shows B's Overworld with its west edge first. Pick it: the east slot names B, "its west edge - 600". `/rg border links` on A says the same; on B (after a moment, or reopen the BORDER tab) the west slot names A with "made on A".
+- [ ] On A, walk east: about 10 blocks before the edge the warning shows; at the wall a window asks "Beyond this edge is B" with the arrival point. STAY: the window closes, you stand at the edge, nothing asks again while you stay near it. Walk 20 blocks back west and return: it asks again.
+- [ ] TRAVEL: you leave A and arrive on B 16 blocks inside its west edge, at the matching place along it (a quarter of the way along A's edge arrives a quarter of the way along B's), standing on the ground (not inside a hill or in the air).
+- [ ] On B, walk back west to the edge: the window offers A. TRAVEL brings you back near A's east edge.
+- [ ] Unlink from B's side (x on the west slot): A's east slot becomes + LINK again within a moment; walking into A's east edge just pushes you back with the edge message.
+- [ ] With BSP Teleport removed from A: TRAVEL says travel is not available, and you stay.
+- [ ] Find out with the owner whether inventory and XP follow players between your servers (that depends on how player data is shared, not on Region Guard; BSP Core carries Shatter Totems).
+
+## 2026-10-15: screen text from the language file (build 0.1.0)
+
+Before testing: `python3 tools/gen_assets.py && python3 tools/check_lang.py` (0 missing).
+
+- [ ] Open the admin screen (`/rg gui`), the claim screen (`/claim gui`) and walk into a linked edge: every label, hint, button and line reads as English text. A raw key such as `gui.bsp_region_guard.set_price` anywhere means a key is missing (tell Claude which screen and where).
+- [ ] Counts read naturally: "1 region" / "3 regions" in the admin header, "1 owner" / "2 owners" under a region's name, "1 px = 1 block" / "1 px = 4 blocks" under the map.
+- [ ] Tabs, filter chips (ALL, PROT, ...), the FLAGS tab's inh / allow / deny switches, the type chips on INFO, the trigger causes on TELEPORT, and the BORDER tab's NORTH/EAST/SOUTH/WEST all show their labels.
+- [ ] Press B (show regions): "Regions shown." / "Regions hidden."
+
+## 2026-10-15: trigger destination completion
+
+- [ ] Type `/rg trigger add test enter ` and press Tab: here, minecraft:overworld, overworld, the other worlds, and (with shared storage) other servers' worlds as server/world. Pick a world, space, Tab: your x y z (all three, or just x). After `here` and after z nothing is offered (the message is free text).
+- [ ] `/rg trigger add test timer ` then Tab: 10, 30, 60, 300; after the seconds the destinations as above.
+
+## 2026-10-15: server switcher in the admin screen
+
+Needs two backends with shared storage, regions on both in the Overworld.
+
+- [ ] On A, `/rg gui`: the header shows SERVER < A > 1 of 2 (give it ten seconds after the server starts). Click >: the frame turns gold, the header says READ-ONLY, the list and map show B's regions in their colours, only MAP, FLAGS and INFO remain, and no button changes anything. FLAGS shows B's values; INFO shows B's priority, parent, bounds.
+- [ ] + THIS SERVER on the map: A's regions appear underneath in grey; clicking one does nothing.
+- [ ] While looking, have someone create or change a region on A: the screen stays on B.
+- [ ] BACK TO A (or Esc, or < again): back to A's regions, editing works. Reopening the screen always starts on A.
+
+## 2026-10-15: claim wipe from the admin screen
+
+As a BSP Core admin, in a world with a few claims (and a copy of the world, in case):
+
+- [ ] Pick the CLAIM filter: the list shows the claims and a red WIPE ALL N CLAIMS under it. Type something in the search box: the button disappears (it always wipes every claim, so it only shows when nothing is hidden).
+- [ ] Press it: the right pane shows "WIPE EVERY CLAIM IN OVERWORLD", how many claims and players, a four-digit code, a typing box with WIPE, and the seconds counting down. Type a wrong code: nothing is wiped and the answer says so. Wait a minute: the code runs out and ASK FOR A CODE appears.
+- [ ] Ask again, type the right code, WIPE: the claims are gone from the list and the map, the answer names the backup file, other admins online get a chat line, and the file appears under BACKUPS.
+- [ ] RESTORE on that file: the claims come back with their owners.
+- [ ] A non-admin operator gets "Only BSP Core admins can wipe claims." (when BSP Core's admin list is set).
+- [ ] CLOSE, or picking another filter, returns the pane to the region view.
+
+## 2026-10-15: BSP Core's Land Office
+
+Needs BSP Core 1.0.1 from 2026-10-15 (the Land Office) and a world where claims are allowed, with an open area.
+
+- [ ] As a player, outline ground inside the open area with the plot tool: on the second corner the Land Office opens with the outline drawn and priced. Buying there creates the claim (Region Guard's `/claim list` shows it).
+- [ ] Outline next to another player's claim: the office's map shows that claim nearby with its owner.
+- [ ] Open the office from its block after outlining: it shows and prices the same outline.
+- [ ] `/claim buy <area>` as a player: "Buy at a Land Office...". As a BSP Core admin: it still buys.
+- [ ] As an admin with bypass on, draw a region with the wand: no Land Office opens. `/rg bypass` off: it opens.
+- [ ] In the claim screen, outline a bigger plot around yours and press ENLARGE: the Land Office opens with that outline for the enlargement.
 

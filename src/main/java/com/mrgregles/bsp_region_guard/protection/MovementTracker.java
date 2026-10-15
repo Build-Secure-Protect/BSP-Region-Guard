@@ -1,6 +1,7 @@
 package com.mrgregles.bsp_region_guard.protection;
 
 import com.mrgregles.bsp_region_guard.BSPRegionGuard;
+import com.mrgregles.bsp_region_guard.api.Cuboid;
 import com.mrgregles.bsp_region_guard.api.event.RegionEnterEvent;
 import com.mrgregles.bsp_region_guard.api.event.RegionLeaveEvent;
 import com.mrgregles.bsp_region_guard.compat.BspCore;
@@ -8,7 +9,6 @@ import com.mrgregles.bsp_region_guard.compat.LuckPermsBridge;
 import com.mrgregles.bsp_region_guard.flag.FlagLocation;
 import com.mrgregles.bsp_region_guard.flag.Flags;
 import com.mrgregles.bsp_region_guard.flag.State;
-import com.mrgregles.bsp_region_guard.region.Cuboid;
 import com.mrgregles.bsp_region_guard.region.Region;
 import com.mrgregles.bsp_region_guard.region.RegionQuery;
 import com.mrgregles.bsp_region_guard.region.RegionStore;
@@ -75,6 +75,10 @@ public final class MovementTracker {
         long lastFeedTick = Long.MIN_VALUE;
         @Nullable
         FlagLocation respawnAt;
+        /** Warned about the world border on this approach (re-armed once they move well away from it). */
+        boolean borderWarned;
+        /** Asked whether to travel across a linked edge on this approach (re-armed with the warning). */
+        boolean edgeAsked;
     }
 
     static Tracked of(ServerPlayer player) {
@@ -133,6 +137,11 @@ public final class MovementTracker {
         }
     }
 
+    /** For tests: whether the player has been warned about the world border on this approach. */
+    public static boolean borderWarned(ServerPlayer player) {
+        return of(player).borderWarned;
+    }
+
     public static void clearAll() {
         TRACKED.clear();
         warnedNoLuckPerms = false;
@@ -149,6 +158,12 @@ public final class MovementTracker {
         BlockPos blockPos = player.blockPosition();
 
         boolean teleport = t.pos == null || t.dimension == null || !t.dimension.equals(level.dimension()) || t.pos.distanceToSqr(pos) > TELEPORT_DISTANCE_SQ;
+        EdgeLinks.tickArrival(player);
+        if (WorldBorders.tick(player, t, teleport ? null : t.pos)) {
+            t.dimension = level.dimension();
+            t.pos = player.position();
+            return; // moved back inside the world border
+        }
         List<Region> here = store.at(blockPos);
         Set<String> nowIds = new HashSet<>();
         for (Region r : here) {

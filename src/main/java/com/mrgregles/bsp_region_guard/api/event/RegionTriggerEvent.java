@@ -14,7 +14,23 @@ import net.minecraftforge.eventbus.api.Event;
  */
 @Cancelable
 public class RegionTriggerEvent extends Event {
-    public enum Cause { ENTER, EXIT, TIMER, SHUTDOWN }
+    /** What fired the trigger: walking in, walking out, the timer while inside, or the server stopping. */
+    public enum Cause {
+        /** The player walked or teleported into the region. */
+        ENTER,
+        /** The player left the region. */
+        EXIT,
+        /** The trigger's interval passed while the player was inside. */
+        TIMER,
+        /** The server is stopping and the player is inside (the "holding server" case). */
+        SHUTDOWN,
+        /**
+         * The player walked to a world-border edge linked to another server's world and chose to travel (owner
+         * decisions D40 to D42). The region is the world default ({@code __global__}); the destination is on the other
+         * server, 16 blocks inside its matching edge. Not something an admin adds with {@code /rg trigger}.
+         */
+        EDGE
+    }
 
     private final ServerPlayer player;
     private final String regionId;
@@ -24,6 +40,7 @@ public class RegionTriggerEvent extends Event {
     private final double x, y, z;
     private final String message;
 
+    /** Fired by Region Guard; other mods only listen. */
     public RegionTriggerEvent(ServerPlayer player, String regionId, ResourceKey<Level> regionDimension, Cause cause,
                               String destinationServer, String destinationWorld, double x, double y, double z, String message) {
         this.player = player;
@@ -38,18 +55,22 @@ public class RegionTriggerEvent extends Event {
         this.message = message;
     }
 
+    /** The player the trigger is for. */
     public ServerPlayer player() {
         return player;
     }
 
+    /** The region's id. */
     public String regionId() {
         return regionId;
     }
 
+    /** The world of the region that fired. */
     public ResourceKey<Level> regionDimension() {
         return regionDimension;
     }
 
+    /** What fired it. */
     public Cause cause() {
         return cause;
     }
@@ -59,26 +80,32 @@ public class RegionTriggerEvent extends Event {
         return destinationServer;
     }
 
+    /** True when the destination is on another server (BSP Teleport carries those out). */
     public boolean crossServer() {
         return !destinationServer.isEmpty();
     }
 
+    /** The destination world id, for example {@code minecraft:overworld}. */
     public String destinationWorld() {
         return destinationWorld;
     }
 
+    /** Destination x. */
     public double x() {
         return x;
     }
 
+    /** Destination y. */
     public double y() {
         return y;
     }
 
+    /** Destination z. */
     public double z() {
         return z;
     }
 
+    /** Shown to the player on arrival; empty for none. */
     public String message() {
         return message;
     }

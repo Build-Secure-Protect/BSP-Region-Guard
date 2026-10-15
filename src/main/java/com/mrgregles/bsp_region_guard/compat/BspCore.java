@@ -5,7 +5,6 @@ import com.mrgregles.bsp_core.api.BspBank;
 import com.mrgregles.bsp_core.api.BspPlayers;
 import com.mrgregles.bsp_core.api.BspZones;
 import com.mrgregles.bsp_core.data.TotemLedger;
-import com.mrgregles.bsp_core.totem.ShatterTotemBlockEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.GlobalPos;
 import net.minecraft.resources.ResourceKey;
@@ -19,7 +18,6 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -28,10 +26,9 @@ import java.util.function.Consumer;
 /**
  * The only class that touches BSP-Core.
  *
- * <p>Calls go through BSP-Core's {@code api} package (1.0.1) where it has them. A few still reach BSP-Core's own
- * classes because the api has no equivalent yet (follow-up to request RG-C1 in the vault): every placed totem
- * ({@code TotemLedger.allPlaced}), the steal radius, the totem block, the steal at a position, and the test-only
- * helpers. A rename there breaks this file and nothing else.
+ * <p>Every call the mod makes at run time goes through BSP-Core's {@code api} package (since RG-C5, 2026-10-15). Only
+ * the test helpers below still reach BSP-Core's own classes (recording a placed totem, the totem block, the admin
+ * list, Anti Totem zones). A rename there breaks this file and nothing else.
  */
 public final class BspCore {
     private BspCore() {
@@ -101,6 +98,16 @@ public final class BspCore {
         BspBank.credit(server, player, pieces, BANK_PARTY, reason, then);
     }
 
+    /** Opens BSP Core's Land Office on the map with this ground outlined (y does not matter). */
+    public static void openLandOffice(ServerPlayer player, com.mrgregles.bsp_region_guard.api.Cuboid ground) {
+        com.mrgregles.bsp_core.api.BspLandOffice.open(player, ground.minX(), ground.minZ(), ground.maxX(), ground.maxZ());
+    }
+
+    /** Opens BSP Core's Land Office with no ground outlined. */
+    public static void openLandOffice(ServerPlayer player) {
+        com.mrgregles.bsp_core.api.BspLandOffice.open(player);
+    }
+
     /** An amount as players read it, for example {@code 12,500 pieces}. */
     public static String money(long pieces) {
         return BspBank.format(pieces);
@@ -152,7 +159,7 @@ public final class BspCore {
     /** How close a thief must stand to steal, in blocks. */
     public static int stealRadius() {
         try {
-            return BSPConfig.STEAL_RADIUS.get();
+            return com.mrgregles.bsp_core.api.BspTotems.stealRadius();
         } catch (RuntimeException e) {
             return 5;
         }
@@ -164,15 +171,14 @@ public final class BspCore {
 
     /** Placed totems in this world within {@code radius} blocks (box distance) of a position, from BSP Core's ledger. */
     public static List<PlacedTotem> placedTotemsNear(ServerLevel level, BlockPos pos, int radius) {
+        // BspTotems.placedNear measures a sphere; the totem rule has always used a box, so filter allPlaced here
         List<PlacedTotem> out = new ArrayList<>();
-        Map<UUID, Set<GlobalPos>> all = TotemLedger.get(level.getServer()).allPlaced();
-        for (Map.Entry<UUID, Set<GlobalPos>> e : all.entrySet()) {
-            for (GlobalPos gp : e.getValue()) {
-                if (gp.dimension().equals(level.dimension())) {
-                    BlockPos p = gp.pos();
-                    if (Math.abs(p.getX() - pos.getX()) <= radius && Math.abs(p.getY() - pos.getY()) <= radius && Math.abs(p.getZ() - pos.getZ()) <= radius) {
-                        out.add(new PlacedTotem(e.getKey(), p));
-                    }
+        for (com.mrgregles.bsp_core.api.BspTotems.Placed t : com.mrgregles.bsp_core.api.BspTotems.allPlaced(level.getServer())) {
+            GlobalPos gp = t.where();
+            if (gp.dimension().equals(level.dimension())) {
+                BlockPos p = gp.pos();
+                if (Math.abs(p.getX() - pos.getX()) <= radius && Math.abs(p.getY() - pos.getY()) <= radius && Math.abs(p.getZ() - pos.getZ()) <= radius) {
+                    out.add(new PlacedTotem(t.owner(), p));
                 }
             }
         }
@@ -181,19 +187,20 @@ public final class BspCore {
 
     /** Whether a block state is a placed Shatter Totem. */
     public static boolean isTotemBlock(net.minecraft.world.level.block.state.BlockState state) {
-        return state.is(com.mrgregles.bsp_core.registry.ModBlocks.SHATTER_TOTEM.get());
+        return com.mrgregles.bsp_core.api.BspTotems.isTotem(state);
     }
 
+    /** For tests: a totem block to place (no api equivalent; test-only). */
     public static net.minecraft.world.level.block.state.BlockState totemBlockState() {
         return com.mrgregles.bsp_core.registry.ModBlocks.SHATTER_TOTEM.get().defaultBlockState();
     }
 
     /** Whether a steal is running at a placed totem (the chunk must be loaded). */
     public static Optional<UUID> thiefAt(ServerLevel level, BlockPos pos) {
-        return level.getBlockEntity(pos) instanceof ShatterTotemBlockEntity be ? be.getSteal().map(st -> st.thief()) : Optional.empty();
+        return com.mrgregles.bsp_core.api.BspTotems.thiefAt(level, pos).map(com.mrgregles.bsp_core.api.BspTotems.Steal::thief);
     }
 
-    /** Tells BSP Core's ledger about a placed totem. For tests and, later, the cross-server mirror. */
+    /** For tests: tells BSP Core's ledger about a placed totem (test-only internal call). */
     public static void recordPlacedTotem(ServerLevel level, UUID owner, BlockPos pos, int tier) {
         TotemLedger.get(level.getServer()).recordPlaced(owner, GlobalPos.of(level.dimension(), pos), tier);
     }

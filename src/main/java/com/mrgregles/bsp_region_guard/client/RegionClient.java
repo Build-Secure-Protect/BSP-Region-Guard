@@ -9,6 +9,9 @@ import org.jetbrains.annotations.Nullable;
 public final class RegionClient {
     @Nullable
     private static RegionListPacket list;
+    /** The last list of this server's own regions, kept while the admin looks at another server (its "+ THIS SERVER" overlay). */
+    @Nullable
+    private static RegionListPacket ownList;
     @Nullable
     private static RegionDetailPacket detail;
     @Nullable
@@ -28,8 +31,16 @@ public final class RegionClient {
         return detail;
     }
 
+    @Nullable
+    public static RegionListPacket ownList() {
+        return ownList;
+    }
+
     public static void receive(RegionListPacket msg) {
         list = msg;
+        if (!msg.remote()) {
+            ownList = msg;
+        }
         Minecraft mc = Minecraft.getInstance();
         if (msg.open()) {
             mc.setScreen(new RegionScreen(msg.select()));
@@ -55,6 +66,21 @@ public final class RegionClient {
             screen.onOpen(msg);
         } else {
             mc.setScreen(new ClaimScreen(msg));
+        }
+    }
+
+    /** The travel pop-up at a linked world edge; it replaces any screen but the player's own typing. */
+    public static void receive(com.mrgregles.bsp_region_guard.network.EdgePromptPacket msg) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player != null && !(mc.screen instanceof net.minecraft.client.gui.screens.ChatScreen)) {
+            mc.setScreen(new EdgePromptScreen(msg));
+        }
+    }
+
+    /** The claim wipe's state and the server's answer, for the admin screen (D45). */
+    public static void receive(com.mrgregles.bsp_region_guard.network.ClaimWipePacket msg) {
+        if (Minecraft.getInstance().screen instanceof RegionScreen screen) {
+            screen.onWipe(msg);
         }
     }
 

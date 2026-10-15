@@ -103,6 +103,8 @@ public final class Flags {
     public static final LocationFlag TELEPORT = FlagRegistry.register(new LocationFlag("teleport")).describe(MOVEMENT, "where /rg teleport goes; 'here' for your position");
     public static final LocationFlag SPAWN = FlagRegistry.register(new LocationFlag("spawn")).describe(MOVEMENT, "where players who die inside respawn");
     public static final StringFlag TELEPORT_MESSAGE = string("teleport-message", null, MOVEMENT, "shown after /rg teleport");
+    public static final StringFlag BORDER_WARNING = string("border-warning", null, MOVEMENT, "world default: shown near the world border (border.warnDistance blocks before it)");
+    public static final StringFlag BORDER_MESSAGE = string("border-message", null, MOVEMENT, "world default: shown when a player is pushed back at the world border");
 
     // ----------------------------------------------------------------- map making
     public static final StateFlag ITEM_PICKUP = plain("item-pickup", State.ALLOW, MAP_MAKING, "picking up items");

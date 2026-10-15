@@ -1,21 +1,18 @@
 package com.mrgregles.bsp_region_guard.network;
 
 import com.mojang.authlib.GameProfile;
+import com.mrgregles.bsp_region_guard.claim.ClaimData;
+import com.mrgregles.bsp_region_guard.command.RegionEdits;
 import com.mrgregles.bsp_region_guard.compat.BspCore;
 import com.mrgregles.bsp_region_guard.compat.LuckPermsBridge;
 import com.mrgregles.bsp_region_guard.flag.Flag;
 import com.mrgregles.bsp_region_guard.flag.FlagContext;
-import com.mrgregles.bsp_region_guard.flag.FlagLocation;
 import com.mrgregles.bsp_region_guard.flag.FlagRegistry;
-import com.mrgregles.bsp_region_guard.flag.Flags;
-import com.mrgregles.bsp_region_guard.protection.TotemRule;
-import com.mrgregles.bsp_region_guard.region.Cuboid;
 import com.mrgregles.bsp_region_guard.region.Region;
 import com.mrgregles.bsp_region_guard.region.RegionQuery;
 import com.mrgregles.bsp_region_guard.region.RegionStore;
 import com.mrgregles.bsp_region_guard.region.RegionType;
 import com.mrgregles.bsp_region_guard.registry.ModItems;
-import com.mrgregles.bsp_region_guard.selection.Selection;
 import com.mrgregles.bsp_region_guard.selection.Selections;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -46,6 +43,14 @@ public final class RegionSync {
 
     /** Opens the screen for a player on the region they stand in (or the first one). */
     public static void open(ServerPlayer player) {
+        open(player, true);
+    }
+
+    /** As {@link #open(ServerPlayer)}; with {@code screen} false the open screen is just refilled (back from another server). */
+    static void open(ServerPlayer player, boolean screen) {
+        if (screen) {
+            RemoteViews.clear(player); // a fresh screen always starts on this server
+        }
         if (!mayEdit(player)) {
             player.displayClientMessage(Component.literal("Only operators and BSP Core admins can open the region screen."), true);
             return;
@@ -62,9 +67,17 @@ public final class RegionSync {
         if (select == null && store.size() > 0) {
             select = store.all().iterator().next().id();
         }
-        sendList(player, select, true);
+        sendList(player, select, screen);
         if (select != null) {
             sendDetail(player, store.get(select));
+        }
+        if (screen && com.mrgregles.bsp_region_guard.storage.RegionMirror.active() != null) {
+            String keep = select; // re-read which servers exist, so the server picker is current
+            com.mrgregles.bsp_region_guard.protection.EdgeLinks.refresh(() -> {
+                if (!player.hasDisconnected() && RemoteViews.of(player) == null) {
+                    sendList(player, keep, false);
+                }
+            });
         }
     }
 
@@ -85,7 +98,23 @@ public final class RegionSync {
     }
 
     public static void sendList(ServerPlayer player, @Nullable String select, boolean open) {
-        RegionNetwork.sendTo(player, new RegionListPacket(player.serverLevel().dimension().location(), listFor(player), select, open));
+        RemoteViews.View view = open ? null : RemoteViews.of(player);
+        if (view != null) { // looking at another server: a change here does not pull them back
+            sendRemoteList(player, view, select);
+            return;
+        }
+        List<String> servers = mayEdit(player) ? RemoteViews.servers() : List.of();
+        RegionNetwork.sendTo(player, new RegionListPacket(player.serverLevel().dimension().location(), listFor(player), select, open, "", servers));
+    }
+
+    /** Another server's regions in this world, read-only (D44). */
+    static void sendRemoteList(ServerPlayer player, RemoteViews.View view, @Nullable String select) {
+        List<RegionListPacket.Summary> list = new ArrayList<>();
+        for (Region r : view.regions().values()) {
+            list.add(new RegionListPacket.Summary(r.id(), r.name(), r.type().key(), r.priority(), r.parentId(), r.bounds(),
+                    r.owners().size(), r.members().size(), r.flags().size()));
+        }
+        RegionNetwork.sendTo(player, new RegionListPacket(player.serverLevel().dimension().location(), list, select, false, view.server(), RemoteViews.servers()));
     }
 
     /** Every player in the store's world gets a fresh list (after a region changed). */
@@ -123,6 +152,11 @@ public final class RegionSync {
     }
 
     public static void sendDetail(ServerPlayer player, @Nullable Region r) {
+        sendDetail(player, r, null);
+    }
+
+    /** {@code view} non-null: {@code r} is one of another server's regions, inherited values come from its own parents there. */
+    static void sendDetail(ServerPlayer player, @Nullable Region r, @Nullable RemoteViews.View view) {
         if (r == null) {
             return;
         }
@@ -135,7 +169,7 @@ public final class RegionSync {
         if (r.parentId() != null) {
             for (Flag<?> f : FlagRegistry.all()) {
                 if (r.flag(f) == null) {
-                    Object v = RegionQuery.effective(store, r, f);
+                    Object v = view == null ? RegionQuery.effective(store, r, f) : inheritedThere(view, r, f);
                     if (v != null) {
                         inherited.put(f.name(), format(f, v));
                     }
@@ -153,7 +187,7 @@ public final class RegionSync {
             data.put("trigger." + (i + 1), triggers.get(i).describe());
         }
         data.remove(com.mrgregles.bsp_region_guard.trigger.Trigger.KEY);
-        if (r.type() == RegionType.MINE) {
+        if (r.type() == RegionType.MINE && view == null) {
             StringBuilder fill = new StringBuilder();
             for (var e : com.mrgregles.bsp_region_guard.mine.MineData.fill(r)) {
                 fill.append(fill.length() == 0 ? "" : ";").append(e.block()).append('=').append(e.weight());
@@ -163,9 +197,76 @@ public final class RegionSync {
             data.put("hasSpawn", String.valueOf(com.mrgregles.bsp_region_guard.mine.MineData.spawn(r) != null));
             data.put("hasShell", String.valueOf(store.has(r.id() + "_shell")));
         }
+        if (r.isGlobal() && view == null) {
+            borderData(player.serverLevel(), data);
+        }
+        if (view != null) {
+            data.put("remote", view.server());
+        }
         RegionNetwork.sendTo(player, new RegionDetailPacket(r.id(), r.name(), r.type().key(), r.priority(), r.parentId(), r.bounds(),
                 people(player, r.owners()), people(player, r.members()), new ArrayList<>(r.ranks()),
                 flags, inherited, LuckPermsBridge.groupNames(), r.version(), r.updatedAt(), data));
+    }
+
+    /**
+     * The claim wipe from the admin screen (D45): the same two steps as {@code /rg claims wipe} (ClaimWipe checks the
+     * admin, the code and its minute), then the screen gets the new state and the server's answer.
+     */
+    private static void wipe(ServerPlayer player, ServerLevel level, String action, String a) {
+        String message = switch (action) {
+            case RegionActionPacket.WIPE_REQUEST -> com.mrgregles.bsp_region_guard.claim.ClaimWipe.request(player, level);
+            case RegionActionPacket.WIPE_CONFIRM -> com.mrgregles.bsp_region_guard.claim.ClaimWipe.confirm(player, level, a);
+            default -> com.mrgregles.bsp_region_guard.claim.ClaimWipe.restore(player, a);
+        };
+        sendWipe(player, level, message);
+        if (!action.equals(RegionActionPacket.WIPE_REQUEST)) {
+            sendList(player, null, false);
+        }
+    }
+
+    static void sendWipe(ServerPlayer player, ServerLevel level, String message) {
+        var st = com.mrgregles.bsp_region_guard.claim.ClaimWipe.state(player, level);
+        RegionNetwork.sendTo(player, new ClaimWipePacket(st.claims(), st.owners(), st.code(), (int) st.secondsLeft(), st.backups(), message));
+    }
+
+    /** A flag's value from a remote region's parents, as that server would resolve it (parents only, at most 8 deep). */
+    @Nullable
+    private static Object inheritedThere(RemoteViews.View view, Region r, Flag<?> f) {
+        Region p = r.parentId() == null ? null : view.regions().get(r.parentId());
+        for (int i = 0; i < 8 && p != null; i++) {
+            Object v = p.flag(f);
+            if (v != null) {
+                return v;
+            }
+            p = p.parentId() == null ? null : view.regions().get(p.parentId());
+        }
+        return null;
+    }
+
+    /**
+     * For the BORDER tab: {@code storage} (this server's id, or "off"), {@code edge.<side>} = "server|world|their side|their
+     * width|own or theirs" for each linked edge, and {@code net.<n>} = "server|world|width|free sides" for every other
+     * server's world (width 0 when it has no border).
+     */
+    private static void borderData(ServerLevel level, Map<String, String> data) {
+        data.remove(com.mrgregles.bsp_region_guard.protection.EdgeLinks.KEY);
+        String me = com.mrgregles.bsp_region_guard.protection.EdgeLinks.thisServer();
+        data.put("storage", me.isEmpty() ? "off" : me);
+        var network = com.mrgregles.bsp_region_guard.protection.EdgeLinks.network();
+        var own = com.mrgregles.bsp_region_guard.protection.EdgeLinks.own(level);
+        com.mrgregles.bsp_region_guard.protection.EdgeLinks.effective(level).forEach((side, p) -> {
+            int width = network.stream().filter(w -> w.server().equals(p.server()) && w.dimension().equals(p.dimension()) && w.border() != null)
+                    .mapToInt(w -> w.border().size()).findFirst().orElse(0);
+            data.put("edge." + side.key(), p.server() + "|" + p.dimension() + "|" + p.side().key() + "|" + width + "|" + (own.containsKey(side) ? "own" : "theirs"));
+        });
+        int n = 0;
+        for (var w : network) {
+            StringBuilder free = new StringBuilder();
+            for (var s : com.mrgregles.bsp_region_guard.protection.EdgeLinks.freeSides(level, w)) {
+                free.append(free.length() == 0 ? "" : ",").append(s.key());
+            }
+            data.put("net." + (++n), w.server() + "|" + w.dimension() + "|" + (w.border() == null ? 0 : w.border().size()) + "|" + free);
+        }
     }
 
     @SuppressWarnings("unchecked")
@@ -210,8 +311,35 @@ public final class RegionSync {
         String id = msg.regionId();
         Region r = id.isEmpty() ? null : id.equals(Region.GLOBAL_ID) ? store.global() : store.get(id);
         String a = msg.a().trim(), b = msg.b().trim();
+        RemoteViews.View view = RemoteViews.of(player);
+        if (view != null) { // looking at another server: only reading and switching back are allowed (D44)
+            switch (msg.action()) {
+                case RegionActionPacket.VIEW_SERVER -> {
+                    return RemoteViews.view(player, a);
+                }
+                case RegionActionPacket.LIST -> {
+                    sendRemoteList(player, view, id.isEmpty() ? null : id);
+                    return null;
+                }
+                case RegionActionPacket.SELECT -> {
+                    sendDetail(player, view.regions().get(id), view);
+                    return null;
+                }
+                default -> {
+                    return "Read-only: these are " + view.server() + "'s regions. Switch back to " + com.mrgregles.bsp_region_guard.protection.EdgeLinks.thisServer()
+                            + " to change anything.";
+                }
+            }
+        }
         try {
             switch (msg.action()) {
+                case RegionActionPacket.VIEW_SERVER -> {
+                    return RemoteViews.view(player, a);
+                }
+                case RegionActionPacket.WIPE_REQUEST, RegionActionPacket.WIPE_CONFIRM, RegionActionPacket.WIPE_RESTORE -> {
+                    wipe(player, level, msg.action(), a);
+                    return null;
+                }
                 case RegionActionPacket.LIST -> {
                     sendList(player, r == null ? null : r.id(), false);
                     return null;
@@ -243,16 +371,13 @@ public final class RegionSync {
                     return "Region wand given.";
                 }
                 case RegionActionPacket.CREATE -> {
-                    Selection sel = Selections.of(player);
-                    Cuboid box = sel.cuboid();
-                    if (box == null || !level.dimension().equals(sel.dimension())) {
-                        return "Select two corners with the wand first.";
+                    RegionEdits.Result made = RegionEdits.create(level, a, RegionEdits.selectionIn(player), 0);
+                    Region created = made.ok() ? store.get(Region.validateId(a)) : null;
+                    if (created != null) {
+                        sendList(player, created.id(), false);
+                        sendDetail(player, created);
                     }
-                    Region created = new Region(Region.validateId(a), level.dimension(), box, RegionType.PROTECTED);
-                    store.add(created);
-                    sendList(player, created.id(), false);
-                    sendDetail(player, created);
-                    return "Region " + created.id() + " created.";
+                    return made.message();
                 }
                 default -> {
                     if (r == null) {
@@ -272,212 +397,102 @@ public final class RegionSync {
         }
     }
 
+    /** Edits that answer only when they fail: the screen redraws to show the change, so success needs no words. */
+    private static final java.util.Set<String> QUIET = java.util.Set.of(RegionActionPacket.FLAG, RegionActionPacket.ADD_OWNER, RegionActionPacket.REMOVE_OWNER,
+            RegionActionPacket.ADD_MEMBER, RegionActionPacket.REMOVE_MEMBER, RegionActionPacket.ADD_RANK, RegionActionPacket.REMOVE_RANK,
+            RegionActionPacket.PRIORITY, RegionActionPacket.PARENT, RegionActionPacket.TYPE, RegionActionPacket.RENAME, RegionActionPacket.MINE_ADD,
+            RegionActionPacket.MINE_INTERVAL, RegionActionPacket.TRIGGER_REMOVE, RegionActionPacket.SET_DATA, RegionActionPacket.EDGE_REFRESH);
+
+    /** One edit from the screen, through the same {@link RegionEdits} the commands use. */
     @Nullable
     private static String edit(ServerPlayer player, ServerLevel level, RegionStore store, Region r, String action, String a, String b) {
-        switch (action) {
+        RegionEdits.Result result = switch (action) {
             case RegionActionPacket.FLAG -> {
                 Flag<?> flag = FlagRegistry.get(a);
-                if (flag == null) {
-                    return "No flag named '" + a + "'.";
-                }
-                if (b.isEmpty()) {
-                    r.setFlag(flag, null);
-                } else {
-                    setParsed(r, flag, b, new FlagContext(level, player));
-                }
-                store.touch(r);
-                return null;
+                yield flag == null ? new RegionEdits.Result(false, "No flag named '" + a + "'.") : RegionEdits.flag(store, r, flag, b, new FlagContext(level, player));
             }
             case RegionActionPacket.ADD_OWNER, RegionActionPacket.REMOVE_OWNER, RegionActionPacket.ADD_MEMBER, RegionActionPacket.REMOVE_MEMBER -> {
                 UUID who = resolvePlayer(player, a);
                 if (who == null) {
-                    return "No player called '" + a + "' is known to this server.";
+                    yield new RegionEdits.Result(false, "No player called '" + a + "' is known to this server.");
                 }
-                switch (action) {
-                    case RegionActionPacket.ADD_OWNER -> r.addOwner(who);
-                    case RegionActionPacket.REMOVE_OWNER -> r.removeOwner(who);
-                    case RegionActionPacket.ADD_MEMBER -> r.addMember(who);
-                    default -> r.removeMember(who);
-                }
-                store.touch(r);
-                return null;
+                boolean owner = action.equals(RegionActionPacket.ADD_OWNER) || action.equals(RegionActionPacket.REMOVE_OWNER);
+                boolean add = action.equals(RegionActionPacket.ADD_OWNER) || action.equals(RegionActionPacket.ADD_MEMBER);
+                RegionEdits.person(store, r, who, owner, add);
+                yield new RegionEdits.Result(true, "");
             }
-            case RegionActionPacket.ADD_RANK -> {
-                r.addRank(a);
-                store.touch(r);
-                return null;
+            case RegionActionPacket.ADD_RANK -> RegionEdits.rank(store, r, a, true);
+            case RegionActionPacket.REMOVE_RANK -> RegionEdits.rank(store, r, a, false);
+            case RegionActionPacket.PRIORITY -> RegionEdits.priority(store, r, Integer.parseInt(a));
+            case RegionActionPacket.PARENT -> RegionEdits.parent(store, r, a);
+            case RegionActionPacket.TYPE -> RegionEdits.type(level, store, r, a);
+            case RegionActionPacket.RENAME -> RegionEdits.rename(store, r, a);
+            case RegionActionPacket.DELETE -> RegionEdits.remove(store, r);
+            case RegionActionPacket.REDEFINE -> RegionEdits.redefine(store, r, RegionEdits.selectionIn(player));
+            case RegionActionPacket.SELECT_BOUNDS -> RegionEdits.selectBounds(player, r);
+            case RegionActionPacket.TELEPORT -> RegionEdits.teleport(player, store, r);
+            case RegionActionPacket.MINE_CREATE -> RegionEdits.makeMine(store, r);
+            case RegionActionPacket.MINE_ADD -> RegionEdits.mineBlock(store, r, RegionEdits.blockId(a), b.isEmpty() ? 0 : Integer.parseInt(b));
+            case RegionActionPacket.MINE_INTERVAL -> RegionEdits.mineInterval(store, r, a.isEmpty() ? 0 : Integer.parseInt(a));
+            case RegionActionPacket.MINE_SPAWN -> RegionEdits.mineSpawn(player, store, r, a.equals("clear"));
+            case RegionActionPacket.MINE_SHELL -> RegionEdits.mineShell(level, store, r, a.isEmpty() ? 5 : Integer.parseInt(a));
+            case RegionActionPacket.MINE_RESET -> RegionEdits.mineReset(level, store, r);
+            case RegionActionPacket.TRIGGER_ADD -> RegionEdits.addTrigger(player, store, r, a, b);
+            case RegionActionPacket.TRIGGER_REMOVE -> RegionEdits.removeTrigger(store, r, Integer.parseInt(a));
+            case RegionActionPacket.SET_DATA -> setData(level, store, r, a, b);
+            case RegionActionPacket.BORDER_SET, RegionActionPacket.BORDER_OFF, RegionActionPacket.EDGE_LINK, RegionActionPacket.EDGE_UNLINK,
+                 RegionActionPacket.EDGE_REFRESH -> border(player, level, r, action, a, b);
+            default -> new RegionEdits.Result(false, "Unknown action " + action);
+        };
+        return result.ok() && QUIET.contains(action) || result.message().isEmpty() ? null : result.message();
+    }
+
+    /** The BORDER tab of the world default: the border, the edge links, and a fresh read of the other servers' worlds. */
+    private static RegionEdits.Result border(ServerPlayer player, ServerLevel level, Region r, String action, String a, String b) {
+        if (!r.isGlobal()) {
+            return new RegionEdits.Result(false, "The border belongs to the world default.");
+        }
+        switch (action) {
+            case RegionActionPacket.BORDER_SET -> {
+                String[] centre = b.isBlank() ? new String[0] : b.trim().split("\\s+");
+                return RegionEdits.border(level, Integer.parseInt(a), centre.length == 2 ? Double.parseDouble(centre[0]) : 0, centre.length == 2 ? Double.parseDouble(centre[1]) : 0);
             }
-            case RegionActionPacket.REMOVE_RANK -> {
-                r.removeRank(a);
-                store.touch(r);
-                return null;
+            case RegionActionPacket.BORDER_OFF -> {
+                return RegionEdits.borderOff(level);
             }
-            case RegionActionPacket.PRIORITY -> {
-                r.setPriority(Integer.parseInt(a));
-                store.touch(r);
-                return null;
+            case RegionActionPacket.EDGE_LINK -> {
+                String[] t = b.split("\\|");
+                return t.length == 3 ? RegionEdits.edgeLink(level, a, t[0], t[1], t[2]) : new RegionEdits.Result(false, "Pick a world to link to.");
             }
-            case RegionActionPacket.PARENT -> {
-                if (a.isEmpty() || a.equalsIgnoreCase("none")) {
-                    r.setParentId(null);
-                } else {
-                    Region parent = store.get(a);
-                    if (parent == null) {
-                        return "No region named '" + a + "'.";
+            case RegionActionPacket.EDGE_UNLINK -> {
+                return RegionEdits.edgeUnlink(level, a);
+            }
+            default -> { // EDGE_REFRESH: re-read the network, then show it
+                String id = r.id();
+                com.mrgregles.bsp_region_guard.protection.EdgeLinks.refresh(() -> {
+                    Region now = RegionStore.get(level).get(id);
+                    if (now != null && !player.hasDisconnected()) {
+                        sendDetail(player, now);
                     }
-                    if (parent == r || store.isAncestor(r, parent)) {
-                        return "That would make a loop of parents.";
-                    }
-                    r.setParentId(parent.id());
-                }
-                store.touch(r);
-                return null;
-            }
-            case RegionActionPacket.TYPE -> {
-                RegionType type = RegionType.byKey(a.toLowerCase());
-                if (type == null || type == RegionType.GLOBAL || r.isGlobal()) {
-                    return "Types: protected, plot_for_sale, open_for_buying, claim, mine.";
-                }
-                if ((type == RegionType.CLAIM || type == RegionType.PLOT_FOR_SALE || type == RegionType.OPEN_FOR_BUYING) && !TotemRule.claimsAllowedIn(level)) {
-                    return "Claims are not allowed in a PvP world.";
-                }
-                r.setType(type);
-                store.touch(r);
-                return null;
-            }
-            case RegionActionPacket.RENAME -> {
-                r.setName(a.isEmpty() ? r.id() : a);
-                store.touch(r);
-                return null;
-            }
-            case RegionActionPacket.DELETE -> {
-                store.remove(r.id());
-                return "Region " + r.id() + " removed.";
-            }
-            case RegionActionPacket.REDEFINE -> {
-                Selection sel = Selections.of(player);
-                Cuboid box = sel.cuboid();
-                if (box == null || !level.dimension().equals(sel.dimension())) {
-                    return "Select two corners with the wand first.";
-                }
-                if (r.isGlobal()) {
-                    return "The world default has no bounds.";
-                }
-                r.setBounds(box);
-                store.touch(r);
-                return "Region " + r.id() + " now covers " + box + ".";
-            }
-            case RegionActionPacket.SELECT_BOUNDS -> {
-                if (r.bounds() != null) {
-                    Selections.of(player).set(level.dimension(), r.bounds());
-                    Selections.sync(player);
-                    return "Selection set to " + r.id() + ".";
-                }
-                return "The world default has no corners.";
-            }
-            case RegionActionPacket.TELEPORT -> {
-                return teleport(player, level, store, r);
-            }
-            case RegionActionPacket.MINE_CREATE -> {
-                if (r.isGlobal()) {
-                    return "The world default cannot be a mine.";
-                }
-                com.mrgregles.bsp_region_guard.mine.Mines.makeMine(store, r);
-                return r.id() + " is now a mine.";
-            }
-            case RegionActionPacket.MINE_ADD -> {
-                net.minecraft.resources.ResourceLocation block = net.minecraft.resources.ResourceLocation.tryParse(a.contains(":") ? a : "minecraft:" + a);
-                int weight = b.isEmpty() ? 0 : Integer.parseInt(b);
-                if (block == null || weight > 0 && !net.minecraftforge.registries.ForgeRegistries.BLOCKS.containsKey(block)) {
-                    return "No block called " + a + ".";
-                }
-                com.mrgregles.bsp_region_guard.mine.MineData.put(r, block, weight);
-                store.touch(r);
-                return null;
-            }
-            case RegionActionPacket.MINE_INTERVAL -> {
-                com.mrgregles.bsp_region_guard.mine.Mines.schedule(store, r, a.isEmpty() ? 0 : Integer.parseInt(a));
-                return null;
-            }
-            case RegionActionPacket.MINE_SPAWN -> {
-                com.mrgregles.bsp_region_guard.mine.MineData.setSpawn(r, a.equals("clear") ? null
-                        : FlagLocation.of(level, player.getX(), player.getY(), player.getZ(), player.getYRot(), player.getXRot()));
-                store.touch(r);
-                return a.equals("clear") ? "Reset spawn cleared." : "Players are moved to where you stand when the mine resets.";
-            }
-            case RegionActionPacket.MINE_SHELL -> {
-                if (r.type() != RegionType.MINE) {
-                    return r.id() + " is not a mine.";
-                }
-                Region shell = com.mrgregles.bsp_region_guard.mine.Mines.makeShell(level, store, r, Math.max(1, Math.min(64, a.isEmpty() ? 5 : Integer.parseInt(a))));
-                return shell.id() + " surrounds the mine.";
-            }
-            case RegionActionPacket.MINE_RESET -> {
-                return com.mrgregles.bsp_region_guard.mine.Mines.reset(level, store, r);
-            }
-            case RegionActionPacket.TRIGGER_ADD -> {
-                com.mrgregles.bsp_region_guard.api.event.RegionTriggerEvent.Cause cause;
-                try {
-                    cause = com.mrgregles.bsp_region_guard.api.event.RegionTriggerEvent.Cause.valueOf(a.toUpperCase(java.util.Locale.ROOT));
-                } catch (IllegalArgumentException e) {
-                    return "Causes: enter, exit, timer, shutdown.";
-                }
-                var trigger = com.mrgregles.bsp_region_guard.trigger.Triggers.parse(player, cause, b);
-                var triggers = com.mrgregles.bsp_region_guard.trigger.Trigger.of(r.typeData());
-                triggers.add(trigger);
-                com.mrgregles.bsp_region_guard.trigger.Trigger.store(r.typeData(), triggers);
-                store.touch(r);
-                return "Trigger added: " + trigger.describe();
-            }
-            case RegionActionPacket.TRIGGER_REMOVE -> {
-                var triggers = com.mrgregles.bsp_region_guard.trigger.Trigger.of(r.typeData());
-                int index = Integer.parseInt(a);
-                if (index < 1 || index > triggers.size()) {
-                    return "No trigger " + index + ".";
-                }
-                triggers.remove(index - 1);
-                com.mrgregles.bsp_region_guard.trigger.Trigger.store(r.typeData(), triggers);
-                store.touch(r);
-                return null;
-            }
-            case RegionActionPacket.SET_DATA -> {
-                if (r.isGlobal()) {
-                    return "The world default cannot be sold.";
-                }
-                String key = a;
-                if (key.equals(com.mrgregles.bsp_region_guard.claim.ClaimData.PLAYER_FLAGS)) {
-                    var unknown = com.mrgregles.bsp_region_guard.claim.ClaimFlags.setAllowed(r, b);
-                    store.touch(r);
-                    return unknown.isEmpty() ? null : "Not flags, ignored: " + String.join(", ", unknown);
-                }
-                long value = a.isEmpty() ? 0 : Long.parseLong(b.isEmpty() ? "0" : b);
-                boolean sale = key.equals(com.mrgregles.bsp_region_guard.claim.ClaimData.PRICE);
-                boolean open = key.equals(com.mrgregles.bsp_region_guard.claim.ClaimData.COST_PER_BLOCK);
-                if ((sale || open) && !TotemRule.claimsAllowedIn(level)) {
-                    return "Claims are not allowed in a PvP world.";
-                }
-                if (r.type() == RegionType.CLAIM && (sale || open)) {
-                    return r.id() + " is owned; abandon it first.";
-                }
-                com.mrgregles.bsp_region_guard.claim.ClaimData.set(r, key, value);
-                if (sale && value > 0) {
-                    r.setType(RegionType.PLOT_FOR_SALE);
-                } else if (open && value > 0) {
-                    r.setType(RegionType.OPEN_FOR_BUYING);
-                } else if ((sale || open) && value <= 0) {
-                    r.setType(RegionType.PROTECTED);
-                }
-                store.touch(r);
-                return null;
-            }
-            default -> {
-                return "Unknown action " + action;
+                });
+                return new RegionEdits.Result(true, "");
             }
         }
     }
 
-    private static <T> void setParsed(Region r, Flag<T> flag, String value, FlagContext context) {
-        r.setFlag(flag, flag.parse(value, context));
+    /** The SALE tab's fields: price, cost per block, plot sizes, the flags buyers may set. */
+    private static RegionEdits.Result setData(ServerLevel level, RegionStore store, Region r, String key, String value) {
+        if (key.equals(ClaimData.PLAYER_FLAGS)) {
+            return RegionEdits.plotFlags(store, r, value);
+        }
+        long n = value.isEmpty() ? 0 : Long.parseLong(value);
+        return switch (key) {
+            case ClaimData.PRICE -> RegionEdits.sale(level, store, r, n);
+            case ClaimData.COST_PER_BLOCK -> RegionEdits.open(level, store, r, n);
+            case ClaimData.MIN_SIZE -> RegionEdits.plotSizes(store, r, (int) n, ClaimData.maxSize(r));
+            case ClaimData.MAX_SIZE -> RegionEdits.plotSizes(store, r, ClaimData.minSize(r), (int) n);
+            default -> new RegionEdits.Result(false, "Unknown field " + key);
+        };
     }
 
     @Nullable
@@ -500,25 +515,9 @@ public final class RegionSync {
         return null;
     }
 
+    /** For the claim screen's TELEPORT HOME button. */
     static String teleport(ServerPlayer p, ServerLevel level, RegionStore store, Region r) {
-        FlagLocation target = r.flag(Flags.TELEPORT);
-        if (target != null) {
-            ServerLevel dest = p.server.getLevel(target.dimension());
-            if (dest == null) {
-                return "The teleport point is in a world that does not exist.";
-            }
-            p.teleportTo(dest, target.x(), target.y(), target.z(), target.yaw(), target.pitch());
-        } else if (r.bounds() != null) {
-            Cuboid bnd = r.bounds();
-            double x = (bnd.minX() + bnd.maxX() + 1) / 2.0, z = (bnd.minZ() + bnd.maxZ() + 1) / 2.0;
-            int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING, (int) Math.floor(x), (int) Math.floor(z));
-            y = Math.max(bnd.minY(), Math.min(bnd.maxY() + 1, y));
-            p.teleportTo(level, x, y, z, p.getYRot(), p.getXRot());
-        } else {
-            return "The world default has nowhere to teleport to.";
-        }
-        String message = RegionQuery.effective(store, r, Flags.TELEPORT_MESSAGE);
-        return message != null ? message : "Teleported to " + r.id() + ".";
+        return RegionEdits.teleport(p, store, r).message();
     }
 
     /** For the map: the surface height at a column, or {@code Integer.MIN_VALUE} when the chunk is not loaded. */

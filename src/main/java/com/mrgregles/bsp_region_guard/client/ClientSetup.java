@@ -44,7 +44,7 @@ public final class ClientSetup {
             boolean on = RegionClient.toggleShowRegions();
             Minecraft mc = Minecraft.getInstance();
             if (mc.player != null) {
-                mc.player.displayClientMessage(Component.literal(on ? "Regions shown." : "Regions hidden."), true);
+                mc.player.displayClientMessage(Component.literal(on ? Tr.t("regions_shown") : Tr.t("regions_hidden")), true);
             }
         }
     }

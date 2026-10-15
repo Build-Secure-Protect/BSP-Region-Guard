@@ -1,6 +1,6 @@
 package com.mrgregles.bsp_region_guard.item;
 
-import com.mrgregles.bsp_region_guard.region.Cuboid;
+import com.mrgregles.bsp_region_guard.api.Cuboid;
 import com.mrgregles.bsp_region_guard.selection.Selection;
 import com.mrgregles.bsp_region_guard.selection.Selections;
 import net.minecraft.core.BlockPos;
@@ -65,5 +65,10 @@ public final class RegionWandItem extends Item {
             text += " (" + box.sizeX() + " x " + box.sizeY() + " x " + box.sizeZ() + ", " + box.volume() + " blocks)";
         }
         player.displayClientMessage(Component.literal(text), true);
+        if (box != null && player.serverLevel().dimension().equals(sel.dimension())
+                && com.mrgregles.bsp_region_guard.claim.Claims.landOfficeOnOutline(player)) {
+            // CR-1 / D46: a finished outline opens BSP Core's Land Office with that ground drawn and priced
+            com.mrgregles.bsp_region_guard.compat.BspCore.openLandOffice(player, box);
+        }
     }
 }

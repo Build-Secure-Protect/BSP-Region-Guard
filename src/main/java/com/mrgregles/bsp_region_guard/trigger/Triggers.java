@@ -123,11 +123,15 @@ public final class Triggers {
         }
     }
 
-    /** Fires one trigger for one player: the event first, then the move if nobody took it over and it is local. */
-    public static void fire(ServerPlayer player, Region region, Trigger t) {
+    /**
+     * Fires one trigger for one player: the event first, then the move if nobody took it over and it is local.
+     * Returns true when the move was carried out (by a listener such as BSP Teleport, or here); false when a
+     * cross-server move found nobody to do it, or the world does not exist.
+     */
+    public static boolean fire(ServerPlayer player, Region region, Trigger t) {
         RegionTriggerEvent event = new RegionTriggerEvent(player, region.id(), region.dimension(), t.cause(), t.server(), t.world(), t.x(), t.y(), t.z(), t.message());
         if (MinecraftForge.EVENT_BUS.post(event)) {
-            return;
+            return true;
         }
         if (!t.message().isEmpty()) {
             player.displayClientMessage(Component.literal(t.message()), false);
@@ -136,9 +140,10 @@ public final class Triggers {
             ServerLevel dest = player.server.getLevel(ResourceKey.create(Registries.DIMENSION, ResourceLocation.parse(t.world())));
             if (dest == null) {
                 BSPRegionGuard.LOGGER.warn("Trigger on {} points at a world that does not exist: {}", region.id(), t.world());
-                return;
+                return false;
             }
             player.teleportTo(dest, t.x(), t.y(), t.z(), player.getYRot(), player.getXRot());
+            return true;
         } else if (RegionMirror.active() != null) {
             // nobody on this server handles cross-server moves yet: let the network know (BSP Teleport can act on it)
             RegionMirror.active().publish(KIND_TRIGGER, region.dimension().location().toString(), region.id(),
@@ -146,6 +151,7 @@ public final class Triggers {
         } else {
             BSPRegionGuard.LOGGER.warn("Trigger on {} needs server '{}' but no teleport mod handled it and shared storage is off", region.id(), t.server());
         }
+        return false;
     }
 
     /**

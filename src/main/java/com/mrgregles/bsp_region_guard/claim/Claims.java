@@ -4,12 +4,12 @@ import com.mrgregles.bsp_region_guard.BSPRegionGuard;
 import com.mrgregles.bsp_region_guard.RegionGuardConfig;
 import com.mrgregles.bsp_region_guard.api.ClaimResult;
 import com.mrgregles.bsp_region_guard.api.ClaimService;
+import com.mrgregles.bsp_region_guard.api.Cuboid;
 import com.mrgregles.bsp_region_guard.api.event.ClaimAbandonedEvent;
 import com.mrgregles.bsp_region_guard.api.event.ClaimPurchasedEvent;
 import com.mrgregles.bsp_region_guard.compat.BspCore;
 import com.mrgregles.bsp_region_guard.compat.LuckPermsBridge;
 import com.mrgregles.bsp_region_guard.protection.TotemRule;
-import com.mrgregles.bsp_region_guard.region.Cuboid;
 import com.mrgregles.bsp_region_guard.region.Region;
 import com.mrgregles.bsp_region_guard.region.RegionStore;
 import com.mrgregles.bsp_region_guard.region.RegionType;
@@ -273,7 +273,7 @@ public final class Claims implements ClaimService {
         plot.typeData().putLong(ClaimData.BOUGHT_AT, System.currentTimeMillis());
         plot.typeData().putString(ClaimData.ORIGIN, ClaimData.ORIGIN_PLOT);
         store.touch(plot);
-        MinecraftForge.EVENT_BUS.post(new ClaimPurchasedEvent(player, plot.id(), level.dimension(), price, false));
+        MinecraftForge.EVENT_BUS.post(new ClaimPurchasedEvent(player, plot.id(), level.dimension(), price, false, plot.bounds()));
         BSPRegionGuard.LOGGER.info("{} bought plot {} in {} for {}", player.getGameProfile().getName(), plot.id(), level.dimension().location(), BspCore.money(price));
         return ClaimResult.ok("You bought " + plot.id() + " for " + BspCore.money(price) + ".", plot.id(), price);
     }
@@ -381,7 +381,7 @@ public final class Claims implements ClaimService {
         claim.typeData().putLong(ClaimData.BOUGHT_AT, System.currentTimeMillis());
         claim.typeData().putString(ClaimData.ORIGIN, ClaimData.ORIGIN_OPEN);
         store.add(claim);
-        MinecraftForge.EVENT_BUS.post(new ClaimPurchasedEvent(player, claim.id(), level.dimension(), price, false));
+        MinecraftForge.EVENT_BUS.post(new ClaimPurchasedEvent(player, claim.id(), level.dimension(), price, false, claim.bounds()));
         BSPRegionGuard.LOGGER.info("{} bought {} in {} ({}) for {}", player.getGameProfile().getName(), claim.id(), open.id(), level.dimension().location(), BspCore.money(price));
         return ClaimResult.ok("You bought " + claim.id() + " for " + BspCore.money(price) + ".", claim.id(), price);
     }
@@ -468,7 +468,7 @@ public final class Claims implements ClaimService {
         claim.setBounds(fullHeight(level, ground));
         claim.typeData().putLong(ClaimData.BOUGHT_FOR, ClaimData.boughtFor(claim) + price);
         store.touch(claim);
-        MinecraftForge.EVENT_BUS.post(new ClaimPurchasedEvent(player, claim.id(), level.dimension(), price, true));
+        MinecraftForge.EVENT_BUS.post(new ClaimPurchasedEvent(player, claim.id(), level.dimension(), price, true, claim.bounds()));
         return ClaimResult.ok(claim.id() + " is now " + ground.sizeX() + " x " + ground.sizeZ() + "; you paid " + BspCore.money(price) + " for the extra ground.", claim.id(), price);
     }
 
@@ -486,6 +486,7 @@ public final class Claims implements ClaimService {
         if (!owner && !BspCore.isAdmin(player)) {
             return ClaimResult.fail("Only the owner can give up " + claimId + ".");
         }
+        Cuboid bounds = claim.bounds();
         long refund = ClaimData.boughtFor(claim) * RegionGuardConfig.getOr(RegionGuardConfig.CLAIM_REFUND_PERCENT, 50) / 100;
         // an admin removing someone else's claim: the refund goes to the owner's bank, online or not
         UUID payee = owner ? player.getUUID() : claim.owners().stream().findFirst().orElse(null);
@@ -511,9 +512,51 @@ public final class Claims implements ClaimService {
         } else {
             store.remove(claim.id());
         }
-        MinecraftForge.EVENT_BUS.post(new ClaimAbandonedEvent(player, claimId, level.dimension(), refund));
+        MinecraftForge.EVENT_BUS.post(new ClaimAbandonedEvent(player, claimId, level.dimension(), refund, bounds));
         String back = refund <= 0 ? "." : (owner ? "; your bank gets " : "; the owner's bank gets ") + BspCore.money(refund) + " back.";
         return ClaimResult.ok("You gave up " + claimId + back, claimId, refund);
+    }
+
+    // ------------------------------------------------------------------ the Land Office (CR-1 to CR-3)
+
+    /** D46: a finished wand outline opens the Land Office for this player (not for admins drawing regions with bypass on). */
+    public static boolean landOfficeOnOutline(ServerPlayer player) {
+        return !com.mrgregles.bsp_region_guard.region.RegionQuery.bypasses(player) && TotemRule.claimsAllowedIn(player.serverLevel());
+    }
+
+    /** D47: players buy and enlarge at a Land Office; admins keep the commands for support and testing. */
+    public static boolean buysByCommand(ServerPlayer player) {
+        return BspCore.isAdmin(player);
+    }
+
+    @Override
+    @Nullable
+    public Cuboid selection(ServerPlayer player) {
+        var sel = com.mrgregles.bsp_region_guard.selection.Selections.of(player);
+        Cuboid box = sel.cuboid();
+        return box != null && player.serverLevel().dimension().equals(sel.dimension()) ? box : null;
+    }
+
+    @Override
+    public List<Nearby> claimsNear(ServerLevel level, Cuboid area) {
+        List<Nearby> out = new ArrayList<>();
+        var cache = level.getServer().getProfileCache();
+        for (Region r : RegionStore.get(level).all()) {
+            Cuboid b = r.bounds();
+            boolean kind = r.type() == RegionType.CLAIM || r.type() == RegionType.PLOT_FOR_SALE || r.type() == RegionType.OPEN_FOR_BUYING;
+            // on the ground: claims are full height, so only x and z decide
+            if (!kind || b == null || b.maxX() < area.minX() || b.minX() > area.maxX() || b.maxZ() < area.minZ() || b.minZ() > area.maxZ()) {
+                continue;
+            }
+            String owner = "";
+            UUID first = r.owners().stream().findFirst().orElse(null);
+            if (first != null) {
+                owner = cache == null ? first.toString().substring(0, 8)
+                        : cache.get(first).map(com.mojang.authlib.GameProfile::getName).orElse(first.toString().substring(0, 8));
+            }
+            out.add(new Nearby(r.id(), r.name(), r.type().key(), owner, first, b));
+        }
+        return out;
     }
 
     // ------------------------------------------------------------------ owner edits
