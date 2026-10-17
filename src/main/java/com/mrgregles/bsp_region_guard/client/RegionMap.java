@@ -139,7 +139,7 @@ public final class RegionMap {
         }
         ensure(level);
         g.blit(TEXTURE, x, y, W, H, 0f, 0f, W, H, W, H);
-        g.enableScissor(x, y, x + W, y + H);
+        HoloScreen.scissor(g, x, y, x + W, y + H);
         RegionListPacket.Summary hovered = null;
         int hoveredArea = Integer.MAX_VALUE;
         for (RegionListPacket.Summary s : regions) {

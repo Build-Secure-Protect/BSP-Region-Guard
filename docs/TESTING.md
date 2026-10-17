@@ -289,3 +289,20 @@ Needs BSP Core 1.0.1 from 2026-10-15 (the Land Office) and a world where claims 
 - [ ] As an admin with bypass on, draw a region with the wand: no Land Office opens. `/rg bypass` off: it opens.
 - [ ] In the claim screen, outline a bigger plot around yours and press ENLARGE: the Land Office opens with that outline for the enlargement.
 
+## 2026-10-17: retest after B1 and B2 (edge links)
+
+Same setup as the edge links section: two backends with shared storage, an Overworld border on both, an edge of A linked to B.
+
+- [ ] As a player (or `/rg bypass` off), walk to the linked edge on A: the edge-of-world warning 10 blocks before, then the travel window as soon as you stand against the wall. TRAVEL: you arrive on B 16 blocks inside its matching edge. STAY: the window closes and you are not asked again until you walk more than 13 blocks back from the edge and return.
+- [ ] As an admin with bypass on: the same window appears at the wall.
+- [ ] The BORDER tab shows the centre as "around 0, 0" (no "d").
+
+## 2026-10-17: larger screens and landing on the ground (B3, B4)
+
+The new jar on every server **and every client**.
+
+- [ ] `/rg gui`: the admin screen is about twice as big as before (smaller only if the window has no room). Every button, the search box, list scrolling, the map (click a region) and the flag list scrolling still answer where you click. Resize the window while it is open: it re-fits.
+- [ ] The claim screen (`/claim gui`) and the travel window are larger in the same way.
+- [ ] `config/bsp_region_guard-client.toml`, `scale = 1.0`, reopen: the old size. `scale = 1.5`: in between.
+- [ ] Travel across a linked edge several times, ending up in forest, near water and on hills: always on the ground under open sky, never in a cave or inside blocks. In the Nether (if linked) the old search still applies.
+

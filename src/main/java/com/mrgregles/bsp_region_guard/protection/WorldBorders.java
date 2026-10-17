@@ -135,7 +135,7 @@ public final class WorldBorders {
     static boolean tick(ServerPlayer player, MovementTracker.Tracked t, @Nullable Vec3 before) {
         ServerLevel level = player.serverLevel();
         Border b = of(level);
-        if (b == null || RegionQuery.bypasses(player)) {
+        if (b == null) {
             t.borderWarned = false;
             t.edgeAsked = false;
             return false;
@@ -143,6 +143,17 @@ public final class WorldBorders {
         Vec3 pos = player.position();
         double toEdge = b.toEdge(pos.x, pos.z);
         int warnAt = RegionGuardConfig.getOr(RegionGuardConfig.BORDER_WARN_DISTANCE, 10);
+        boolean bypass = RegionQuery.bypasses(player);
+        // a linked edge asks whether to travel as soon as the player is next to it: in the Overworld Minecraft's own
+        // wall stands on the edge, so nobody gets past it on foot (bug B1); admins with bypass are asked too
+        boolean linked = toEdge <= EdgeLinks.REACH && (!bypass || toEdge > -warnAt) && EdgeLinks.atEdge(player, t, b, pos);
+        if (bypass) {
+            t.borderWarned = false;
+            if (toEdge > warnAt + 3) {
+                t.edgeAsked = false;
+            }
+            return false;
+        }
         if (toEdge >= 0) {
             if (toEdge <= warnAt && !t.borderWarned) {
                 t.borderWarned = true;
@@ -154,7 +165,6 @@ public final class WorldBorders {
             }
             return false;
         }
-        boolean linked = EdgeLinks.atEdge(player, t, b, pos); // a linked edge asks whether to travel instead
         Vec3 target = before != null && b.contains(before.x, before.z) ? before : safeInside(level, b, pos);
         move(player, level, target);
         t.borderWarned = true;
@@ -207,6 +217,91 @@ public final class WorldBorders {
         }
         BSPRegionGuard.LOGGER.debug("No standing room at {}, {}; using the surface", x, z);
         return new Vec3(x + 0.5, level.getHeight(Heightmap.Types.MOTION_BLOCKING, x, z), z + 0.5);
+    }
+
+    /** How far around a traveller's arrival point {@link #groundSpot} looks for dry ground (owner, D50). */
+    public static final int GROUND_SEARCH = 12;
+
+    /**
+     * Where a traveller from a linked edge lands (bug B4, owner decision D50): on the ground open to the sky, never in a
+     * cave or underground. Takes the top of the column (stepping through grass, flowers and thin snow) when it is solid,
+     * safe ground with two free blocks above; otherwise the nearest such column within {@link #GROUND_SEARCH} blocks,
+     * kept clear of the border's edge; with no dry ground anywhere near (open sea), the water's surface. Worlds with a
+     * ceiling (the Nether) keep {@link #standingSpot}. Loads the chunks it looks at.
+     */
+    public static Vec3 groundSpot(ServerLevel level, @Nullable Border border, double xd, double zd, double preferYd) {
+        if (level.dimensionType().hasCeiling()) {
+            return standingSpot(level, xd, zd, preferYd);
+        }
+        int x0 = Mth.floor(xd), z0 = Mth.floor(zd);
+        Vec3 water = null;
+        for (int r = 0; r <= GROUND_SEARCH; r++) {
+            for (int dx = -r; dx <= r; dx++) {
+                for (int dz = -r; dz <= r; dz++) {
+                    if (Math.max(Math.abs(dx), Math.abs(dz)) != r) {
+                        continue; // only the ring at distance r
+                    }
+                    int x = x0 + dx, z = z0 + dz;
+                    if (border != null && border.toEdge(x + 0.5, z + 0.5) < 3) {
+                        continue; // never next to (or past) the edge: that would ask about travelling again
+                    }
+                    Surface s = surface(level, x, z);
+                    if (s.ground()) {
+                        return new Vec3(x + 0.5, s.y(), z + 0.5);
+                    }
+                    if (water == null && s.water()) {
+                        water = new Vec3(x + 0.5, s.y(), z + 0.5);
+                    }
+                }
+            }
+        }
+        if (water != null) {
+            return water;
+        }
+        BSPRegionGuard.LOGGER.debug("No dry ground near {}, {}; using the top of the column", x0, z0);
+        return new Vec3(x0 + 0.5, level.getHeight(Heightmap.Types.MOTION_BLOCKING, x0, z0), z0 + 0.5);
+    }
+
+    /** The top of a column: where feet would go, whether that is safe dry ground, and whether it is a water surface. */
+    private record Surface(double y, boolean ground, boolean water) {
+    }
+
+    private static Surface surface(ServerLevel level, int x, int z) {
+        level.getChunk(x >> 4, z >> 4);
+        int y = level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
+        // step down through what a player walks through (thin snow, grass, flowers) and invisible barrier roofs
+        while (y > level.getMinBuildHeight() + 1 && (passable(level, new BlockPos(x, y - 1, z))
+                || level.getBlockState(new BlockPos(x, y - 1, z)).is(net.minecraft.world.level.block.Blocks.BARRIER))) {
+            y--;
+        }
+        BlockPos groundPos = new BlockPos(x, y - 1, z), feet = new BlockPos(x, y, z);
+        BlockState ground = level.getBlockState(groundPos);
+        if (!ground.getFluidState().isEmpty()) {
+            boolean water = ground.getFluidState().is(net.minecraft.tags.FluidTags.WATER) && clear(level, feet) && clear(level, feet.above());
+            return new Surface(y, false, water);
+        }
+        var shape = ground.getCollisionShape(level, groundPos);
+        boolean ok = !shape.isEmpty() && !harmful(ground) && !ground.is(net.minecraft.tags.BlockTags.LEAVES) && !ground.is(net.minecraft.tags.BlockTags.LOGS)
+                && clear(level, feet) && clear(level, feet.above());
+        return new Surface(ok ? y - 1 + shape.max(net.minecraft.core.Direction.Axis.Y) : y, ok, false);
+    }
+
+    private static boolean passable(Level level, BlockPos pos) {
+        BlockState s = level.getBlockState(pos);
+        return s.getCollisionShape(level, pos).isEmpty() && s.getFluidState().isEmpty() && !harmful(s);
+    }
+
+    private static boolean clear(Level level, BlockPos pos) {
+        BlockState s = level.getBlockState(pos);
+        return s.getCollisionShape(level, pos).isEmpty() && s.getFluidState().isEmpty() && !harmful(s);
+    }
+
+    /** Blocks nobody should be dropped on or into. */
+    private static boolean harmful(BlockState s) {
+        return s.is(net.minecraft.tags.BlockTags.FIRE) || s.is(net.minecraft.tags.BlockTags.CAMPFIRES) || s.is(net.minecraft.world.level.block.Blocks.MAGMA_BLOCK)
+                || s.is(net.minecraft.world.level.block.Blocks.CACTUS) || s.is(net.minecraft.world.level.block.Blocks.POWDER_SNOW)
+                || s.is(net.minecraft.world.level.block.Blocks.SWEET_BERRY_BUSH) || s.is(net.minecraft.world.level.block.Blocks.WITHER_ROSE)
+                || s.is(net.minecraft.world.level.block.Blocks.POINTED_DRIPSTONE);
     }
 
     private static boolean standable(Level level, int x, int y, int z) {

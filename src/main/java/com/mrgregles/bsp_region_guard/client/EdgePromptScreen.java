@@ -12,13 +12,13 @@ import net.minecraft.network.chat.Component;
  * TRAVEL sends the player on; STAY or Esc closes it, and the server does not ask again until they walk away from
  * the edge and come back.
  */
-public final class EdgePromptScreen extends Screen {
+public final class EdgePromptScreen extends HoloScreen {
     private static final int W = 220, H = 112, BTN_W = 70, BTN_H = 16;
     private final EdgePromptPacket prompt;
     private boolean answered;
 
     public EdgePromptScreen(EdgePromptPacket prompt) {
-        super(Component.literal(Tr.t("edge.title")));
+        super(Component.literal(Tr.t("edge.title")), W, H);
         this.prompt = prompt;
     }
 
@@ -36,7 +36,7 @@ public final class EdgePromptScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics g, int mouseX, int mouseY, float partial) {
+    protected void draw(GuiGraphics g, int mouseX, int mouseY, float partial) {
         renderBackground(g);
         int x = left(), y = top();
         g.fill(x, y, x + W, y + H, RegionScreen.BG);
@@ -50,7 +50,7 @@ public final class EdgePromptScreen extends Screen {
         button(g, x + 10, y + H - BTN_H - 12, Tr.t("travel"), RegionScreen.TQ, mouseX, mouseY);
         button(g, x + 10 + BTN_W + 8, y + H - BTN_H - 12, Tr.t("stay"), RegionScreen.MUTED, mouseX, mouseY);
         RegionScreen.text(g, font, Tr.t("esc_stay"), x + W - 10 - (int) (font.width(Tr.t("esc_stay")) * 0.7f), y + H - 18, RegionScreen.MUTED, 0.7f);
-        super.render(g, mouseX, mouseY, partial);
+        super.draw(g, mouseX, mouseY, partial);
     }
 
     private static String worldName(String id) {
@@ -77,7 +77,7 @@ public final class EdgePromptScreen extends Screen {
     }
 
     @Override
-    public boolean mouseClicked(double mx, double my, int button) {
+    protected boolean onClick(double mx, double my, int button) {
         int bx = left() + 10, by = top() + H - BTN_H - 12;
         if (my >= by && my < by + BTN_H) {
             if (mx >= bx && mx < bx + BTN_W) {
@@ -89,7 +89,7 @@ public final class EdgePromptScreen extends Screen {
                 return true;
             }
         }
-        return super.mouseClicked(mx, my, button);
+        return super.onClick(mx, my, button);
     }
 
     private void answer(boolean travel) {

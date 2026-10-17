@@ -151,6 +151,11 @@ public final class RegionSync {
         }
     }
 
+    /** A type-data value as the screen shows it: numbers plain ("0.0", "500"), not NBT text ("0.0d", "500L", bug B2). */
+    public static String dataText(net.minecraft.nbt.Tag tag) {
+        return tag instanceof net.minecraft.nbt.NumericTag n ? n.getAsNumber().toString() : tag.getAsString();
+    }
+
     public static void sendDetail(ServerPlayer player, @Nullable Region r) {
         sendDetail(player, r, null);
     }
@@ -179,7 +184,7 @@ public final class RegionSync {
         Map<String, String> data = new LinkedHashMap<>();
         for (String key : r.typeData().getAllKeys()) {
             if (!key.equals(com.mrgregles.bsp_region_guard.mine.MineData.FILL) && !key.equals(com.mrgregles.bsp_region_guard.mine.MineData.SPAWN)) {
-                data.put(key, r.typeData().get(key).getAsString());
+                data.put(key, dataText(r.typeData().get(key)));
             }
         }
         var triggers = com.mrgregles.bsp_region_guard.trigger.Trigger.of(r.typeData());

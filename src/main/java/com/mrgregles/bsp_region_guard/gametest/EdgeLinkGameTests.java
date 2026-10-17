@@ -166,6 +166,70 @@ public class EdgeLinkGameTests {
         h.succeed();
     }
 
+    /**
+     * Bug B1: in the Overworld Minecraft's own wall stands on the edge, so a player never gets past it on foot. The
+     * question must come while they stand just inside, without moving them; admins with bypass are asked too.
+     */
+    @GameTest(template = EMPTY, batch = BATCH)
+    public void a_linked_edge_asks_from_just_inside_the_wall(GameTestHelper h) {
+        ServerLevel level = h.getLevel();
+        String dim = level.dimension().location().toString();
+        ServerPlayer player = TestPlayers.mockServerPlayer(h);
+        ServerPlayer admin = TestPlayers.mockServerPlayer(h);
+        List<? extends String> previousAdmins = com.mrgregles.bsp_region_guard.compat.BspCore.setAdminNames(List.of(admin.getGameProfile().getName()));
+        RegionMirror alpha = RegionMirror.startWith(level.getServer(), new MemoryBackend(), "alpha");
+        RegionMirror.setActive(alpha);
+        BlockPos o = h.absolutePos(BlockPos.ZERO);
+        try {
+            alpha.drain();
+            WorldBorders.set(level, new Border(o.getX(), o.getZ(), 40));
+            EdgeLinks.setNetwork(List.of(new EdgeLinks.World("beta", dim, new Border(0, 0, 3000), Map.of())));
+            h.assertTrue(EdgeLinks.link(level, Side.NORTH, new Place("beta", dim, Side.SOUTH)).ok(), "linked");
+            long t = 0;
+            for (ServerPlayer p : List.of(player, admin)) {
+                String who = p == admin ? "admin with bypass" : "player";
+                p.setPos(o.getX() + 5.5, o.getY() + 2, o.getZ() + 0.5);
+                MovementTracker.tick(p, t++);
+                p.setPos(o.getX() + 5.5, o.getY() + 2, o.getZ() - 18.5); // 1.5 from the edge: not yet
+                MovementTracker.tick(p, t++);
+                h.assertTrue(EdgeLinks.pendingToken(p) == 0, who + ": not asked 1.5 blocks away");
+                p.setPos(o.getX() + 5.5, o.getY() + 2, o.getZ() - 19.7); // against the wall, 0.3 inside
+                MovementTracker.tick(p, t++);
+                int token = EdgeLinks.pendingToken(p);
+                h.assertTrue(token != 0, who + ": asked while standing against the wall");
+                h.assertTrue(Math.abs(p.getZ() - (o.getZ() - 19.7)) < 0.01, who + ": and not moved");
+                MovementTracker.tick(p, t++);
+                h.assertTrue(EdgeLinks.pendingToken(p) == token, who + ": asked once, not every tick");
+                EdgeLinks.answer(p, token, false);
+            }
+        } finally {
+            com.mrgregles.bsp_region_guard.compat.BspCore.setAdminNames(new java.util.ArrayList<>(previousAdmins));
+            WorldBorders.set(level, null);
+            com.mrgregles.bsp_region_guard.region.RegionStore.get(level).global().typeData().remove(EdgeLinks.KEY);
+            EdgeLinks.clearAll();
+            MovementTracker.clearAll();
+            RegionMirror.setActive(null);
+            player.discard();
+            admin.discard();
+        }
+        h.succeed();
+    }
+
+    /** Bug B2: the BORDER tab showed "around 0.0d, 0.0d"; numbers reach the screen plain. */
+    @GameTest(template = EMPTY, batch = BATCH)
+    public void the_screen_gets_plain_numbers(GameTestHelper h) {
+        CompoundTag t = new CompoundTag();
+        t.putDouble("x", 0.0);
+        t.putLong("price", 500L);
+        t.putInt("size", 100);
+        t.putString("name", "spawn");
+        h.assertTrue("0.0".equals(com.mrgregles.bsp_region_guard.network.RegionSync.dataText(t.get("x"))), "a double: " + t.get("x"));
+        h.assertTrue("500".equals(com.mrgregles.bsp_region_guard.network.RegionSync.dataText(t.get("price"))), "a long");
+        h.assertTrue("100".equals(com.mrgregles.bsp_region_guard.network.RegionSync.dataText(t.get("size"))), "an int");
+        h.assertTrue("spawn".equals(com.mrgregles.bsp_region_guard.network.RegionSync.dataText(t.get("name"))), "text unchanged");
+        h.succeed();
+    }
+
     @GameTest(template = EMPTY, batch = BATCH)
     public void an_arriving_traveller_is_put_on_standing_room(GameTestHelper h) {
         ServerLevel level = h.getLevel();
@@ -191,6 +255,67 @@ public class EdgeLinkGameTests {
             MovementTracker.clearAll();
             RegionMirror.setActive(null);
             player.discard();
+        }
+        h.succeed();
+    }
+
+    /**
+     * Bug B4: travellers sometimes landed underground. The test area itself lies deep underground in the GameTest
+     * world, so it is a cave: a pillar with a gap in it there, a tree on the surface straight above, and an arrival
+     * there must land on the surface beside the tree (the old search refused the trunk and searched from the
+     * traveller's height, finding the cave).
+     * Lava and water pools laid on the real surface are passed over for dry ground beside them.
+     */
+    @GameTest(template = EMPTY, batch = BATCH)
+    public void arrivals_land_on_the_ground_never_in_a_cave(GameTestHelper h) {
+        ServerLevel level = h.getLevel();
+        var surfaceMap = net.minecraft.world.level.levelgen.Heightmap.Types.MOTION_BLOCKING_NO_LEAVES;
+        net.minecraft.world.level.block.state.BlockState stone = net.minecraft.world.level.block.Blocks.STONE.defaultBlockState();
+        for (int y = 1; y <= 8; y++) {
+            h.setBlock(new BlockPos(2, y, 2), y == 3 || y == 4 ? net.minecraft.world.level.block.Blocks.AIR.defaultBlockState() : stone);
+        }
+        h.setBlock(new BlockPos(2, 9, 2), net.minecraft.world.level.block.Blocks.SNOW.defaultBlockState());
+        BlockPos pillar = h.absolutePos(new BlockPos(2, 0, 2));
+        // and a small tree on the world's surface above it (the owner's test world is spruce forest): the old search
+        // refused the trunk's top, capped by leaves, and fell back to the traveller's own height, into the cave
+        BlockPos base = new BlockPos(pillar.getX(), level.getHeight(surfaceMap, pillar.getX(), pillar.getZ()), pillar.getZ());
+        java.util.Map<BlockPos, net.minecraft.world.level.block.state.BlockState> saved = new java.util.HashMap<>();
+        for (int y = 0; y <= 4; y++) {
+            BlockPos p = base.above(y);
+            saved.put(p, level.getBlockState(p));
+            level.setBlock(p, (y < 4 ? net.minecraft.world.level.block.Blocks.SPRUCE_LOG : net.minecraft.world.level.block.Blocks.SPRUCE_LEAVES).defaultBlockState()
+                    .trySetValue(net.minecraft.world.level.block.LeavesBlock.PERSISTENT, true), 2);
+        }
+        try {
+            net.minecraft.world.phys.Vec3 spot = WorldBorders.groundSpot(level, null, pillar.getX() + 0.5, pillar.getZ() + 0.5, h.absolutePos(new BlockPos(2, 3, 2)).getY());
+            BlockPos feet = BlockPos.containing(spot);
+            h.assertTrue(feet.getY() >= level.getHeight(surfaceMap, feet.getX(), feet.getZ()) - 1 && feet.getY() > h.absolutePos(new BlockPos(2, 10, 2)).getY(),
+                    "on the world's surface, not in the cave below: " + spot);
+            h.assertTrue(!(feet.getX() == base.getX() && feet.getZ() == base.getZ()) && Math.abs(feet.getX() - base.getX()) <= WorldBorders.GROUND_SEARCH,
+                    "beside the tree, not on top of it: " + spot);
+        } finally {
+            saved.forEach((p, st) -> level.setBlock(p, st, 2));
+        }
+
+        // pools laid on the real surface next to the test: the traveller is put on dry ground beside them
+        net.minecraft.world.level.block.state.BlockState[] pools = {net.minecraft.world.level.block.Blocks.LAVA.defaultBlockState(), net.minecraft.world.level.block.Blocks.WATER.defaultBlockState()};
+        for (int i = 0; i < pools.length; i++) {
+            BlockPos col = h.absolutePos(new BlockPos(6 + 4 * i, 0, 6));
+            BlockPos poolPos = new BlockPos(col.getX(), level.getHeight(surfaceMap, col.getX(), col.getZ()), col.getZ());
+            net.minecraft.world.level.block.state.BlockState before = level.getBlockState(poolPos);
+            level.setBlock(poolPos, pools[i], 2);
+            try {
+                net.minecraft.world.phys.Vec3 s2 = WorldBorders.groundSpot(level, null, col.getX() + 0.5, col.getZ() + 0.5, h.absolutePos(new BlockPos(6, 2, 6)).getY());
+                BlockPos feet = BlockPos.containing(s2), below = feet.below();
+                String what = pools[i].getBlock().getName().getString();
+                h.assertTrue(!(Math.floor(s2.x) == col.getX() && Math.floor(s2.z) == col.getZ()), "not on the " + what + ": " + s2);
+                h.assertTrue(Math.abs(s2.x - col.getX()) <= WorldBorders.GROUND_SEARCH + 1 && Math.abs(s2.z - col.getZ()) <= WorldBorders.GROUND_SEARCH + 1, "but close by");
+                h.assertTrue(level.getBlockState(below).getFluidState().isEmpty() && !level.getBlockState(below).getCollisionShape(level, below).isEmpty()
+                        && level.getBlockState(feet).getCollisionShape(level, feet).isEmpty(), "on dry, solid ground beside the " + what + ": " + level.getBlockState(below));
+                h.assertTrue(feet.getY() >= level.getHeight(surfaceMap, feet.getX(), feet.getZ()) - 1, "on the surface beside the " + what);
+            } finally {
+                level.setBlock(poolPos, before, 2);
+            }
         }
         h.succeed();
     }

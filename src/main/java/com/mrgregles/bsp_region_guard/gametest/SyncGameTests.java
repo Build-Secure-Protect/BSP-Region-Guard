@@ -306,4 +306,15 @@ public class SyncGameTests {
         }
         h.succeed();
     }
+
+    /** D50: screens are drawn twice as big when the window has room, as large as fits when not, never smaller than before. */
+    @GameTest(template = "empty")
+    public void screens_are_drawn_larger_but_fit_the_window(GameTestHelper h) {
+        h.assertTrue(com.mrgregles.bsp_region_guard.RegionGuardClientConfig.screenScale(2.0, 960, 540, 420, 236, 8) == 2f, "room to spare: twice as big");
+        float fit = com.mrgregles.bsp_region_guard.RegionGuardClientConfig.screenScale(2.0, 682, 511, 420, 236, 8);
+        h.assertTrue(Math.abs(fit - (682 - 8) / 420f) < 0.001, "a narrower window: as wide as fits, " + fit);
+        h.assertTrue(com.mrgregles.bsp_region_guard.RegionGuardClientConfig.screenScale(2.0, 300, 200, 420, 236, 8) == 1f, "a tiny window: never below the old size");
+        h.assertTrue(com.mrgregles.bsp_region_guard.RegionGuardClientConfig.screenScale(1.0, 1920, 1080, 420, 236, 8) == 1f, "ui.scale 1: the old size");
+        h.succeed();
+    }
 }

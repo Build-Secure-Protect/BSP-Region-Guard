@@ -4,6 +4,16 @@ All notable changes to BSP Region Guard. Format follows Keep a Changelog; versio
 
 ## [Unreleased]
 
+### Changed (2026-10-17, from the network test)
+- **The screens are drawn twice as big** (the admin screen, the claim screen and the travel window): a new client setting, `ui.scale` in `config/bsp_region_guard-client.toml` (default 2, from 1 to 4). A screen that would not fit the window at that size is drawn as large as fits, never smaller than before. One GameTest for the sizing rule.
+
+### Fixed (2026-10-17, landing after edge travel)
+- **Travellers across a linked edge sometimes landed underground** (B4): when the top of the column was not plain standing ground (a tree trunk capped by leaves, water, lava), the landing search fell back to the height the player left the other server at and could pick a cave. Arrivals now always land on the ground open to the sky: the top of the column (through grass, flowers and thin snow) when it is solid and safe, otherwise the nearest such column within 12 blocks (kept clear of the edge), and with no dry ground near (open sea) the water's surface. Worlds with a ceiling keep the old search. One GameTest (71 in all).
+
+### Fixed (2026-10-17, from the first network test)
+- **A linked edge never asked whether to travel in the Overworld** (B1): the question came only once a player was past the edge, but Minecraft's own wall (which Region Guard sets in the Overworld) stops everyone just inside it. The question now comes within a block of a linked edge, and admins with bypass on are asked too. Two GameTests (69 in all).
+- The BORDER tab showed the centre as "around 0.0d, 0.0d" and other numbers from region data with NBT suffixes (B2); the screen now gets plain numbers.
+
 ### Added (2026-10-15, server name on the API)
 - API version 5: `RegionGuardApi.get().serverId()` gives this server's `storage.serverId` (also when shared storage is off), so BSP Teleport can check it against its own server name without reading Region Guard's config by reflection (BSP Teleport's TR4). One GameTest (67 in all).
 

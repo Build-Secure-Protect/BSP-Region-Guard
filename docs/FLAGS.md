@@ -132,5 +132,5 @@ Each world's global region (the world default, `__global__`) stands for the whol
 
 In the Overworld, Minecraft's own border is set to match so the wall shows (`border.vanillaWall`, on by default). Minecraft copies the Overworld's border into the other worlds, so while the Overworld has a Region Guard border the other worlds' Minecraft border is lifted and Region Guard's own border (if any) applies there. Use `/rg border` rather than `/worldborder`: Region Guard sets Minecraft's border again on every change and start.
 
-An edge of the border can lead to an edge of a world on another server (edge links; setup in `docs/NETWORK.md`). At a linked edge the player is asked whether to travel instead of seeing `border-message`.
+An edge of the border can lead to an edge of a world on another server (edge links; setup in `docs/NETWORK.md`). Within a block of a linked edge the player is asked whether to travel (admins with bypass on too), and a player past it is pushed back without `border-message`.
 

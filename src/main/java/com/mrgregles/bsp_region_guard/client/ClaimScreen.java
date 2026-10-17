@@ -26,7 +26,7 @@ import java.util.Map;
  * build, the flags the owner may set as plain sentences, messages, and giving the claim up. Every change is an
  * {@link ClaimActionPacket}; the server checks ownership and answers with fresh data.
  */
-public class ClaimScreen extends Screen {
+public class ClaimScreen extends HoloScreen {
     private static final int W = 420, H = 236;
     private static final int BG = RegionScreen.BG, INSET = RegionScreen.INSET, LINE = RegionScreen.LINE, TQ = RegionScreen.TQ, VIO = RegionScreen.VIO,
             GOLD = RegionScreen.GOLD, BAD = RegionScreen.BAD, TEXT = RegionScreen.TEXT, MUTED = RegionScreen.MUTED, HINT = 0xFF6F7788;
@@ -81,7 +81,7 @@ public class ClaimScreen extends Screen {
     private String editingMessage;
 
     public ClaimScreen(ClaimOpenPacket open) {
-        super(Component.literal(Tr.t("my_claim")));
+        super(Component.literal(Tr.t("my_claim")), W, H);
         this.selected = open.select();
         this.allowed = open.allowed();
         this.limit = open.limit();
@@ -167,7 +167,7 @@ public class ClaimScreen extends Screen {
     // ------------------------------------------------------------------ setup
 
     @Override
-    protected void init() {
+    protected void layout() {
         input = new EditBox(font, left() + RIGHT_X + 7, top() + H - 44, RIGHT_W - 80, 10, Component.literal(Tr.t("value_label")));
         input.setBordered(false);
         input.setMaxLength(200);
@@ -259,7 +259,7 @@ public class ClaimScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics g, int mouseX, int mouseY, float partial) {
+    protected void draw(GuiGraphics g, int mouseX, int mouseY, float partial) {
         hits.clear();
         renderBackground(g);
         int x = left(), y = top();
@@ -279,7 +279,7 @@ public class ClaimScreen extends Screen {
             chip(g, x + 10, y + 56, 60, 12, Tr.t("plot_tool"), true, MUTED, 0.75f, () -> send(ClaimActionPacket.of(ClaimActionPacket.TOOL, "")));
             drawForSale(g, x, y + 76);
             text(g, Tr.t("claims_used", mine.size(), limit), x + 10, y + H - 14, MUTED, 0.6f);
-            super.render(g, mouseX, mouseY, partial);
+            super.draw(g, mouseX, mouseY, partial);
             return;
         }
 
@@ -420,7 +420,7 @@ public class ClaimScreen extends Screen {
             }
         });
         text(g, Tr.t("changes_save_at_once_esc_closes"), x + 10, y + H - 14, MUTED, 0.6f);
-        super.render(g, mouseX, mouseY, partial);
+        super.draw(g, mouseX, mouseY, partial);
     }
 
     /** With no claim selected: the plots for sale and open areas the server lists for this player. */
@@ -450,8 +450,8 @@ public class ClaimScreen extends Screen {
     // ------------------------------------------------------------------ input
 
     @Override
-    public boolean mouseClicked(double mx, double my, int button) {
-        if (super.mouseClicked(mx, my, button)) {
+    protected boolean onClick(double mx, double my, int button) {
+        if (super.onClick(mx, my, button)) {
             return true;
         }
         for (Hit h : hits) {
@@ -465,14 +465,14 @@ public class ClaimScreen extends Screen {
     }
 
     @Override
-    public boolean mouseScrolled(double mx, double my, double delta) {
+    protected boolean onScroll(double mx, double my, double delta) {
         int x = left(), y = top();
         if (mx >= x + MAP_X && mx < x + RIGHT_X && my >= y + MAP_Y && my < y + MAP_Y + RegionMap.H) {
             zoomedByHand = true;
             map.zoom(delta > 0 ? -1 : 1);
             return true;
         }
-        return super.mouseScrolled(mx, my, delta);
+        return super.onScroll(mx, my, delta);
     }
 
     @Override

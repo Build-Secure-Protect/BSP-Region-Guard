@@ -28,7 +28,7 @@ import java.util.Locale;
  * map as the first tab. Drawn in BSP Core's Holo HUD style with fills. The server owns every value: each edit is sent
  * as a {@link RegionActionPacket} and the screen redraws from the packets that come back.
  */
-public class RegionScreen extends Screen {
+public class RegionScreen extends HoloScreen {
     static final int W = 420, H = 236;
     static final int BG = 0xF010151C, INSET = 0xFF0C0E12, LINE = 0xFF2A2F3A, TQ = 0xFF19D3B0, VIO = 0xFFB58CFF, GOLD = 0xFFFFD23A,
             BAD = 0xFFFF6B5C, TEXT = 0xFFE6EAF2, MUTED = 0xFF9AA3B5;
@@ -81,7 +81,7 @@ public class RegionScreen extends Screen {
     private String editingFlag;
 
     public RegionScreen(@Nullable String select) {
-        super(Component.literal(Tr.t("regions")));
+        super(Component.literal(Tr.t("regions")), W, H);
         this.selected = select;
     }
 
@@ -193,7 +193,7 @@ public class RegionScreen extends Screen {
     // ------------------------------------------------------------------ setup
 
     @Override
-    protected void init() {
+    protected void layout() {
         int x = left(), y = top();
         search = new EditBox(font, x + LIST_X + 3, y + 24, LIST_W - 6, 10, Component.literal(Tr.t("search_label")));
         search.setBordered(false);
@@ -389,7 +389,7 @@ public class RegionScreen extends Screen {
     // ------------------------------------------------------------------ render
 
     @Override
-    public void render(GuiGraphics g, int mouseX, int mouseY, float partial) {
+    protected void draw(GuiGraphics g, int mouseX, int mouseY, float partial) {
         hits.clear();
         renderBackground(g);
         int x = left(), y = top();
@@ -418,7 +418,7 @@ public class RegionScreen extends Screen {
 
         drawList(g, x, y, mouseX, mouseY);
         drawPane(g, x, y, mouseX, mouseY);
-        super.render(g, mouseX, mouseY, partial);
+        super.draw(g, mouseX, mouseY, partial);
     }
 
     private List<RegionListPacket.Summary> filtered() {
@@ -760,7 +760,7 @@ public class RegionScreen extends Screen {
         int listTop = cy + 15, listH = CONTENT_H - 17 - (inputMode == Input.FLAG_VALUE ? 18 : 0);
         int visible = listH / rowH;
         flagScroll = Mth.clamp(flagScroll, 0, Math.max(0, rows.size() - visible));
-        g.enableScissor(px + 1, listTop, px + PANE_W - 1, listTop + listH);
+        HoloScreen.scissor(g, px + 1, listTop, px + PANE_W - 1, listTop + listH);
         for (int i = 0; i < visible && i + flagScroll < rows.size(); i++) {
             Object row = rows.get(i + flagScroll);
             int ry = listTop + i * rowH;
@@ -1204,8 +1204,8 @@ public class RegionScreen extends Screen {
     // ------------------------------------------------------------------ input
 
     @Override
-    public boolean mouseClicked(double mx, double my, int button) {
-        if (super.mouseClicked(mx, my, button)) {
+    protected boolean onClick(double mx, double my, int button) {
+        if (super.onClick(mx, my, button)) {
             return true;
         }
         for (Hit h : hits) {
@@ -1221,7 +1221,7 @@ public class RegionScreen extends Screen {
     }
 
     @Override
-    public boolean mouseScrolled(double mx, double my, double delta) {
+    protected boolean onScroll(double mx, double my, double delta) {
         int x = left(), y = top();
         if (mx >= x + LIST_X && mx < x + LIST_X + LIST_W && my >= y + LIST_Y && my < y + LIST_Y + LIST_H) {
             listScroll -= (int) Math.signum(delta);
@@ -1236,7 +1236,7 @@ public class RegionScreen extends Screen {
             }
             return true;
         }
-        return super.mouseScrolled(mx, my, delta);
+        return super.onScroll(mx, my, delta);
     }
 
     @Override

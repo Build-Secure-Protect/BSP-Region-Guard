@@ -47,6 +47,8 @@ public final class EdgeLinks {
     public static final String KIND_CHANGED = "edge-links", KIND_UNLINK = "edge-unlink", KIND_ARRIVAL = "edge-arrival";
     /** How far inside the other world's edge a traveller arrives (D41). */
     public static final int ARRIVAL_INSET = 16;
+    /** How close to a linked edge (in blocks) a player is asked whether to travel; past the edge counts too. */
+    public static final double REACH = 1.0;
     private static final long PROMPT_MS = 60_000, ARRIVAL_MS = 60_000, REFRESH_TICKS = 20 * 60 * 5;
 
     private EdgeLinks() {
@@ -408,8 +410,9 @@ public final class EdgeLinks {
     private static int nextToken = 1;
 
     /**
-     * Called by the border when a player is outside it. When the edge is linked: asks the player (once per approach)
-     * and returns true, so the border pushes them back without its usual message. False for an unlinked edge.
+     * Called by the border when a player is within {@link #REACH} of its edge or past it. When the nearest edge is
+     * linked: asks the player (once per approach) and returns true, so a player past the edge is pushed back without
+     * the border's usual message. False for an unlinked edge.
      */
     static boolean atEdge(ServerPlayer player, MovementTracker.Tracked t, Border b, Vec3 pos) {
         ServerLevel level = player.serverLevel();
@@ -473,8 +476,9 @@ public final class EdgeLinks {
     private static final Map<UUID, Arrival> ARRIVALS = new HashMap<>();
 
     /**
-     * Once a traveller from a linked edge stands at their arrival point here, moves them onto standing room in that
-     * column (the sending server could not know the ground here). Called every tick from the movement tracker.
+     * Once a traveller from a linked edge stands at their arrival point here, moves them onto the ground at or near
+     * that spot, never into a cave (the sending server could not know the ground here). Called every tick from the
+     * movement tracker.
      */
     static void tickArrival(ServerPlayer player) {
         if (ARRIVALS.isEmpty()) {
@@ -493,7 +497,7 @@ public final class EdgeLinks {
             return; // not there yet (still connecting)
         }
         ARRIVALS.remove(player.getUUID());
-        Vec3 spot = WorldBorders.standingSpot(level, player.getX(), player.getZ(), player.getY());
+        Vec3 spot = WorldBorders.groundSpot(level, WorldBorders.of(level), player.getX(), player.getZ(), player.getY());
         player.teleportTo(level, spot.x, spot.y, spot.z, player.getYRot(), player.getXRot());
         player.fallDistance = 0;
     }

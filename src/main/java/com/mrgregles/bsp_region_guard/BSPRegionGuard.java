@@ -38,6 +38,7 @@ public class BSPRegionGuard {
 
     public BSPRegionGuard(FMLJavaModLoadingContext context) {
         context.registerConfig(ModConfig.Type.SERVER, RegionGuardConfig.SPEC);
+        context.registerConfig(ModConfig.Type.CLIENT, RegionGuardClientConfig.SPEC);
         Flags.init();
         com.mrgregles.bsp_region_guard.protection.TotemRule.init();
         ModItems.register(context.getModEventBus());
