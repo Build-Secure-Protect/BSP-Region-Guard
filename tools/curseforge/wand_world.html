@@ -1,0 +1,44 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="size" content="520x260"><link rel="stylesheet" href="holo.css"></head>
+<body style="background:#87a9cc">
+<svg class="abs" style="left:0;top:0" width="520" height="260" viewBox="0 0 520 260">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7fa3c9"/><stop offset="1" stop-color="#b9d0e6"/></linearGradient>
+    <pattern id="grass" width="20" height="10" patternUnits="userSpaceOnUse" patternTransform="skewX(-63.4)"><rect width="20" height="10" fill="#5f9a45"/><rect width="10" height="5" fill="#6aa84e"/><rect x="10" y="5" width="10" height="5" fill="#578f3f"/></pattern>
+  </defs>
+  <rect width="520" height="260" fill="url(#sky)"/>
+  <!-- ground: an iso diamond -->
+  <polygon points="260,70 520,200 260,330 0,200" fill="url(#grass)"/>
+  <polygon points="0,200 260,330 260,345 0,215" fill="#6b4a2e"/><polygon points="520,200 260,330 260,345 520,215" fill="#5a3d25"/>
+  <!-- teal protected region: wire cube with translucent faces -->
+  <g stroke="#19d3b0" stroke-width="1.2">
+    <polygon points="160,190 270,135 380,190 270,245" fill="rgba(25,211,176,0.16)"/>
+    <polygon points="160,110 270,55 380,110 270,165" fill="rgba(25,211,176,0.07)"/>
+    <polygon points="160,190 160,110 270,165 270,245" fill="rgba(25,211,176,0.10)"/>
+    <polygon points="270,245 270,165 380,110 380,190" fill="rgba(25,211,176,0.08)"/>
+    <line x1="270" y1="135" x2="270" y2="55" stroke-dasharray="3 3" opacity="0.6"/>
+  </g>
+  <text paint-order="stroke" stroke="#0c1016" stroke-width="3" stroke-linejoin="round" x="270" y="48" fill="#19d3b0" font-family="VT323" font-size="15" text-anchor="middle">spawn</text>
+  <!-- gold plot for sale -->
+  <g stroke="#ffd23a" stroke-width="1.2">
+    <polygon points="380,215 425,192 470,215 425,238" fill="rgba(255,210,58,0.18)"/>
+    <polygon points="380,175 425,152 470,175 425,198" fill="rgba(255,210,58,0.07)"/>
+    <polygon points="380,215 380,175 425,198 425,238" fill="rgba(255,210,58,0.10)"/>
+    <polygon points="425,238 425,198 470,175 470,215" fill="rgba(255,210,58,0.08)"/>
+  </g>
+  <text paint-order="stroke" stroke="#0c1016" stroke-width="3" stroke-linejoin="round" x="425" y="146" fill="#ffd23a" font-family="VT323" font-size="12" text-anchor="middle">plot for sale</text>
+  <!-- violet claim -->
+  <g stroke="#b58cff" stroke-width="1.2">
+    <polygon points="70,200 110,180 150,200 110,220" fill="rgba(181,140,255,0.2)"/>
+    <polygon points="70,165 110,145 150,165 110,185" fill="rgba(181,140,255,0.07)"/>
+    <polygon points="70,200 70,165 110,185 110,220" fill="rgba(181,140,255,0.10)"/>
+    <polygon points="110,220 110,185 150,165 150,200" fill="rgba(181,140,255,0.08)"/>
+  </g>
+  <text paint-order="stroke" stroke="#0c1016" stroke-width="3" stroke-linejoin="round" x="110" y="136" fill="#b58cff" font-family="VT323" font-size="12" text-anchor="middle">alex_bakery (your claim)</text>
+  <!-- wand corner markers -->
+  <g fill="#fff"><circle cx="160" cy="190" r="3"/><circle cx="380" cy="110" r="3"/></g>
+  <text paint-order="stroke" stroke="#0c1016" stroke-width="3" stroke-linejoin="round" x="168" y="198" fill="#fff" font-family="VT323" font-size="11">corner 1 (left-click)</text>
+  <text paint-order="stroke" stroke="#0c1016" stroke-width="3" stroke-linejoin="round" x="386" y="104" fill="#fff" font-family="VT323" font-size="11">corner 2 (right-click)</text>
+</svg>
+<div class="abs" style="left:10px;top:10px;padding:4px 6px;background:rgba(16,21,28,0.85);border:1px solid var(--tq)"><span class="t75 tq">Region Wand</span> <span class="t6 muted">- two corners make a box, B shows regions</span></div>
+</body></html>

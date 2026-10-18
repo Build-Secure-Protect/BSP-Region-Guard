@@ -1,0 +1,22 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="size" content="560x230"><link rel="stylesheet" href="holo.css">
+<style>.lay{position:absolute;border:1px solid;padding:5px 7px}.lay b{font-family:VT323;font-weight:normal;font-size:10px;display:block;margin-bottom:2px}.lay p{margin:0;font-family:"IBM Plex Sans";font-size:5.8px;line-height:1.5;color:var(--muted)}
+.lay code{font-family:VT323;font-size:7.5px;color:var(--text)}</style></head>
+<body style="background:#0c1016">
+<div class="abs" style="left:20px;top:14px;font-size:16px;color:var(--tq)">HOW A RULE IS DECIDED AT ONE SPOT</div>
+<div class="abs cap" style="left:20px;top:34px;font-size:7px;color:var(--muted)">Regions stack. Region Guard looks at the regions covering the spot, highest priority first; the first one that sets the flag decides.</div>
+<div class="lay" style="left:20px;top:56px;width:300px;height:38px;border-color:var(--vio);background:rgba(181,140,255,0.08)"><b class="vio">alex_bakery - claim - priority 3</b><p>sets <code>chest-access allow</code> for its members. Does not set <code>pvp</code>.</p></div>
+<div class="lay" style="left:20px;top:100px;width:300px;height:38px;border-color:var(--gold);background:rgba(255,210,58,0.06)"><b class="gold">market_plots - open area - priority 2</b><p>sets <code>pvp deny</code> and <code>mob-spawning deny</code>.</p></div>
+<div class="lay" style="left:20px;top:144px;width:300px;height:38px;border-color:var(--muted);background:rgba(154,163,181,0.06)"><b class="muted">__global__ - the world default</b><p>flags for the whole world, the world border, edge links. Sets <code>creeper-explosion deny</code>.</p></div>
+<div class="abs cap" style="left:20px;top:192px;font-size:6.2px;color:var(--hint)">Not set anywhere: the parent region, then the world default, then the flag's own default. Equal priority: deny beats allow.</div>
+<div class="abs cap" style="left:20px;top:203px;font-size:6.2px;color:var(--hint)">Build flags (break, place, chests, doors...) need no setting: owners and members may, everyone else may not.</div>
+<div class="arrow" style="left:330px;top:60px">&#8594;</div><div class="arrow" style="left:330px;top:104px">&#8594;</div><div class="arrow" style="left:330px;top:148px">&#8594;</div>
+<div class="card" style="left:352px;top:56px;width:190px;height:126px;border-color:var(--tq)">
+  <h3 class="tq">ANSWERS INSIDE THE BAKERY</h3>
+  <p><span class="t75 text">chest-access</span> <span class="t75 tq">allow</span> for members - from the claim</p>
+  <p style="margin-top:5px"><span class="t75 text">pvp</span> <span class="t75 bad">deny</span> - the claim is silent, the open area decides</p>
+  <p style="margin-top:5px"><span class="t75 text">creeper-explosion</span> <span class="t75 bad">deny</span> - from the world default</p>
+  <p style="margin-top:5px"><span class="t75 text">block-break</span> <span class="t75 bad">deny</span> for strangers - owners and members may build</p>
+  <p style="margin-top:8px;color:var(--hint)">BSP-Core admins pass every rule unless they switch it off with /rg bypass.</p>
+</div>
+</body></html>
