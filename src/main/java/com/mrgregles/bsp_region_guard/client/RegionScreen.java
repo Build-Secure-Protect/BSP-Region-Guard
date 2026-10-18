@@ -32,7 +32,9 @@ public class RegionScreen extends HoloScreen {
     static final int W = 420, H = 236;
     static final int BG = 0xF010151C, INSET = 0xFF0C0E12, LINE = 0xFF2A2F3A, TQ = 0xFF19D3B0, VIO = 0xFFB58CFF, GOLD = 0xFFFFD23A,
             BAD = 0xFFFF6B5C, TEXT = 0xFFE6EAF2, MUTED = 0xFF9AA3B5;
-    private static final String[] TABS = {"MAP", "FLAGS", "ACCESS", "RANKS", "SALE", "MINE", "TELEPORT", "INFO", "BORDER"};
+    private static final String[] TABS = {"MAP", "FLAGS", "ACCESS", "RANKS", "SALE", "MINE", "TELEPORT", "INFO", "BORDER", "BANNED"};
+    /** BANNED opens the banned blocks editor (D56) rather than drawing in the pane. */
+    private static final int BANNED_TAB = 9;
     /** The BORDER tab is the last one and only shown for the world default. */
     private static final int BORDER_TAB = 8;
     private static final String[] FILTERS = {"ALL", "PROT", "CLAIM", "MINE", "SALE"};
@@ -587,7 +589,8 @@ public class RegionScreen extends HoloScreen {
         if (global ? tab == 4 || tab == 5 : tab == BORDER_TAB) {
             tab = 0;
         }
-        int tx = px;
+        List<Integer> visible = new ArrayList<>();
+        int textWidth = 0;
         for (int i = 0; i < TABS.length; i++) {
             if (global ? i == 4 || i == 5 : i == BORDER_TAB) {
                 continue;
@@ -595,9 +598,29 @@ public class RegionScreen extends HoloScreen {
             if (remote() && i != 0 && i != 1 && i != 7) {
                 continue;
             }
+            visible.add(i);
+            textWidth += (int) (font.width(Tr.t("tab." + TABS[i].toLowerCase(Locale.ROOT))) * 0.75f);
+        }
+        // the row must fit the pane: narrow the padding when there are many tabs
+        int pad = 8;
+        while (pad > 3 && textWidth + visible.size() * (pad + 2) > PANE_W) {
+            pad--;
+        }
+        int tx = px;
+        for (int i : visible) {
             int ti = i;
             String tabName = Tr.t("tab." + TABS[i].toLowerCase(Locale.ROOT));
-            int w = (int) (font.width(tabName) * 0.75f) + 8;
+            int w = (int) (font.width(tabName) * 0.75f) + pad;
+            if (ti == BANNED_TAB) {
+                chip(g, tx, y + 50, w, 12, tabName, false, BAD, 0.75f, () -> {
+                    closeInput();
+                    if (minecraft != null) {
+                        minecraft.setScreen(new BannedBlocksScreen(this, s.id()));
+                    }
+                });
+                tx += w + 2;
+                continue;
+            }
             chip(g, tx, y + 50, w, 12, tabName, tab == i, TQ, 0.75f, () -> {
                 tab = ti;
                 flagScroll = 0;

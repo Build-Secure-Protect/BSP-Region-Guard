@@ -42,6 +42,7 @@ def main():
         "edge.": sides,
         "cause.": ["enter", "exit", "timer", "shutdown"],
         "type.": ["protected", "plot_for_sale", "open_for_buying", "claim", "mine", "global", "remote"],
+        "rule.": ["place", "use", "break", "carry"],
     }
     used_families = set(re.findall(r'Tr\.[tn]\("([a-z0-9_]+\.)"\s*\+', every))
     for fam in used_families:

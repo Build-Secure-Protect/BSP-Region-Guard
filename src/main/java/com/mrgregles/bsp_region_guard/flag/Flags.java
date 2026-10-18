@@ -138,6 +138,11 @@ public final class Flags {
     // ----------------------------------------------------------------- BSP additions
     public static final StateFlag DISPENSER_USE = plain("dispenser-use", State.ALLOW, BSP, "dispensers firing into the region (mixin: dispensers)");
     public static final StateFlag FALLING_BLOCKS = plain("falling-blocks", State.ALLOW, BSP, "sand and gravel landing inside (mixin: fallingBlocks)");
+    // banned blocks (D51 to D55): block or item ids, "@mod" or "mod:*" for a whole mod, "#mod:tag" for a tag
+    public static final StringSetFlag DENY_PLACE = FlagRegistry.register(new StringSetFlag("deny-place")).describe(BSP, "blocks nobody may place here: ids, @mod, #tag");
+    public static final StringSetFlag DENY_USE = FlagRegistry.register(new StringSetFlag("deny-use")).describe(BSP, "blocks and items nobody may right-click here");
+    public static final StringSetFlag DENY_BREAK = FlagRegistry.register(new StringSetFlag("deny-break")).describe(BSP, "blocks nobody may break here");
+    public static final StringSetFlag DENY_CARRY = FlagRegistry.register(new StringSetFlag("deny-carry")).describe(BSP, "blocks and items not allowed in at all, even carried");
     public static final StringSetFlag ALLOWED_RANKS = FlagRegistry.register(new StringSetFlag("allowed-ranks")).describe(BSP, "LuckPerms groups that may enter");
     public static final StateFlag TELEPORT_IN = plain("teleport-in", State.ALLOW, BSP, "BSP Teleport: teleporting into the region");
     public static final StateFlag TELEPORT_OUT = plain("teleport-out", State.ALLOW, BSP, "BSP Teleport: teleporting out");

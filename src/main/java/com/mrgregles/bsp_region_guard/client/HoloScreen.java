@@ -86,8 +86,13 @@ abstract class HoloScreen extends Screen {
     }
 
     @Override
-    public boolean mouseReleased(double mx, double my, int button) {
-        return super.mouseReleased(mx / scale, my / scale, button);
+    public final boolean mouseReleased(double mx, double my, int button) {
+        return onRelease(mx / scale, my / scale, button);
+    }
+
+    /** A mouse button let go, in the screen's units; the default passes it to the widgets. */
+    protected boolean onRelease(double mx, double my, int button) {
+        return super.mouseReleased(mx, my, button);
     }
 
     @Override

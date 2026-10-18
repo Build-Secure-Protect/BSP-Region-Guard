@@ -110,6 +110,7 @@ Enforcement column: **event** = a Forge event, works now. **mixin** = a small pa
 | `falling-blocks` | allow | sand, gravel and anvils landing in the region from outside | mixin |
 | `allowed-ranks` | none | LuckPerms groups that may enter, on top of `entry` | tick |
 | `totem-place`, `totem-drop` | allow | For BSP Core to ask about Shatter Totems; also denied inside a BSP Core Anti Totem zone that blocks the same rule (until the two zone systems merge) | API (`regions().allows`) |
+| `deny-place`, `deny-use`, `deny-break`, `deny-carry` | none | banned blocks and items, comma separated: ids (`minecraft:tnt`), whole mods (`@create` or `create:*`), tags (`#minecraft:beds`). See "Banned blocks" below | event, tick, mixin |
 | `mine-only-break` | deny | inside a mine's shell only the mine's own blocks may be broken | later (mines) |
 
 ## Mixin groups
@@ -133,4 +134,17 @@ Each world's global region (the world default, `__global__`) stands for the whol
 In the Overworld, Minecraft's own border is set to match so the wall shows (`border.vanillaWall`, on by default). Minecraft copies the Overworld's border into the other worlds, so while the Overworld has a Region Guard border the other worlds' Minecraft border is lifted and Region Guard's own border (if any) applies there. Use `/rg border` rather than `/worldborder`: Region Guard sets Minecraft's border again on every change and start.
 
 An edge of the border can lead to an edge of a world on another server (edge links; setup in `docs/NETWORK.md`). Within a block of a linked edge the player is asked whether to travel (admins with bypass on too), and a player past it is pushed back without `border-message`.
+
+## Banned blocks
+
+Four list flags keep chosen blocks and items out of a region's hands. They apply to **everyone**, owners and members included; only BSP Core admins with bypass on, and the Shatter Totem rule near a placed totem, pass. Unlike other flags the lists **add up**: a block is banned at a spot when any region covering it, any of those regions' parents, or the world default bans it, so a child region cannot lift its parent's ban.
+
+| Flag | What it stops |
+|---|---|
+| `deny-place` | placing the block (it stays in the player's inventory; storing it in a chest inside is fine), and emptying a banned bucket |
+| `deny-use` | right-clicking the block, or using the item in hand (flint and steel, end crystals) |
+| `deny-break` | breaking the block |
+| `deny-carry` | having it in the region at all, and counts as the other three. A player carrying one (inventory, armour, off-hand, Curios slots, or packed inside a carried shulker box, bundle or backpack) is put back at the edge, with a window showing what they carry; `teleport-in` refuses them; inside, it cannot be picked up, and no container hands one out, **the ender chest included** (mixin group `containers`). A player found inside holding one (logged in there, given one, or a ban added later) is moved just outside within a second. |
+
+Set them in the admin screen's **BANNED** tab (drag blocks in from the creative tabs; `@mod` in its search shows one mod's blocks) or with `/rg flag spawn deny-carry minecraft:tnt,@create`. Known gaps: hoppers and pipes moving banned items into containers inside; items already in chests inside stay there (they just can't be taken out).
 

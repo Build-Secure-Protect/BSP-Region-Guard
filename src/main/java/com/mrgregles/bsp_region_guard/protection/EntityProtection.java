@@ -257,6 +257,17 @@ public final class EntityProtection {
         }
         if (!Protection.mayPlayer(level, event.getItem().blockPosition(), Flags.ITEM_PICKUP, player)) {
             event.setCanceled(true);
+            return;
+        }
+        // deny-carry: a banned item lying inside cannot be picked up (D54)
+        BlockPos at = player.blockPosition();
+        if (BannedBlocks.carryApplies(level, at, player)) {
+            var entries = BannedBlocks.entries(level, at, BannedBlocks.Rule.CARRY);
+            var hit = entries.isEmpty() ? null : BannedBlocks.bannedIn(entries, event.getItem().getItem());
+            if (hit != null) {
+                event.setCanceled(true);
+                Protection.tellOnce(player, hit.stack().getHoverName().getString() + " is not allowed in " + hit.regionId() + ".");
+            }
         }
     }
 

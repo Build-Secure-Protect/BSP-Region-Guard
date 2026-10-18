@@ -66,6 +66,20 @@ public final class Protection {
         sp.displayClientMessage(Component.literal(RegionQuery.denyMessage(level, pos)), true);
     }
 
+    /** A message on the action bar, at most once every 1.5 seconds per player (for refusals that repeat every tick). */
+    public static void tellOnce(Player player, String message) {
+        if (!(player instanceof ServerPlayer sp)) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        Long last = LAST_MESSAGE.get(sp.getUUID());
+        if (last != null && now - last < MESSAGE_GAP_MS) {
+            return;
+        }
+        LAST_MESSAGE.put(sp.getUUID(), now);
+        sp.displayClientMessage(Component.literal(message), true);
+    }
+
     public static void tell(Player player, ServerLevel level, BlockPos pos, String message) {
         if (player instanceof ServerPlayer sp) {
             sp.displayClientMessage(Component.literal(message), true);

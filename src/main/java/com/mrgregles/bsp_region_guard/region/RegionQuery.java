@@ -137,7 +137,8 @@ public final class RegionQuery {
         RegionStore store = RegionStore.get(level);
         List<Region> applicable = store.at(pos);
         if (resolve(store, applicable, flag, player) == State.ALLOW && !blockedByBspCoreZone(level, pos, flag)
-                && !((flag == Flags.TELEPORT_IN || flag == Flags.SET_HOME) && com.mrgregles.bsp_region_guard.protection.WorldBorders.keepsOut(level, pos, player))) {
+                && !((flag == Flags.TELEPORT_IN || flag == Flags.SET_HOME) && com.mrgregles.bsp_region_guard.protection.WorldBorders.keepsOut(level, pos, player))
+                && !(flag == Flags.TELEPORT_IN && player instanceof ServerPlayer sp && com.mrgregles.bsp_region_guard.protection.BannedBlocks.carriesBanned(level, pos, sp))) {
             return true;
         }
         return isExempt(level, pos, flag, player);

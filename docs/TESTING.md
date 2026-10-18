@@ -306,3 +306,40 @@ The new jar on every server **and every client**.
 - [ ] `config/bsp_region_guard-client.toml`, `scale = 1.0`, reopen: the old size. `scale = 1.5`: in between.
 - [ ] Travel across a linked edge several times, ending up in forest, near water and on hills: always on the ground under open sky, never in a cave or inside blocks. In the Nether (if linked) the old search still applies.
 
+## 2026-10-18: banned blocks, server side (T10.1a)
+
+A region (`/rg define bantest` with the wand), yourself with `/rg bypass` off, and a second account that is a member (`/rg addmember bantest <name>`).
+
+- [ ] `/rg flag bantest deny-place minecraft:tnt`: the member can't place TNT inside ("TNT can't be placed in bantest."), it stays in their hand; they can put it in a chest inside. Outside it places as usual.
+- [ ] `/rg flag bantest deny-break minecraft:bookshelf`: nobody (owner, member, stranger) can break a bookshelf inside.
+- [ ] `/rg flag bantest deny-use minecraft:flint_and_steel,minecraft:lever`: flint and steel does nothing inside, levers can't be flipped.
+- [ ] `/rg flag bantest deny-carry minecraft:tnt`: walk up with TNT in your inventory: you're put back at the edge with "Remove TNT from your inventory to enter bantest." Try with TNT inside a shulker box, a bundle, a backpack (Sophisticated Backpacks), and worn in a Curios slot. Drop it outside and walk in.
+- [ ] With TNT in your ender chest, stand inside and open it: the TNT won't come out (click, shift-click, number keys); other items do. Outside it comes out.
+- [ ] Drop TNT inside (from outside, with a dispenser or by throwing): you can't pick it up inside.
+- [ ] Log out inside holding TNT (give it with `/give` first, as an admin with bypass, then `/rg bypass` off): within a second you're moved just outside.
+- [ ] `@minecraft` and `#minecraft:beds` entries ban a whole mod and every bed. `/rg bypass` on: none of the bans apply to you.
+- [ ] With BSP Teleport: `/tp`-style moves or homes into the region are refused while carrying TNT.
+
+## 2026-10-19: the banned blocks editor (T10.1b)
+
+As an admin, `/rg gui`, pick a region.
+
+- [ ] The tab row shows BANNED at the end, and every tab still fits. BANNED opens the editor; DONE or Esc returns to the region screen on the same region.
+- [ ] The right side shows the creative tabs (vanilla and modded) across the top, with arrows when there are many; clicking one lists its blocks, scrolling works, hovering shows the item's tooltip.
+- [ ] Type `@minecraft`: only vanilla things. `@create` (or any installed mod): only that mod's. `@minecraft stone`: vanilla things with "stone" in the name. A plain word searches every name.
+- [ ] Pick PLACE, drag TNT to the left grid: it appears with a gold frame and a P; the region's `/rg info` shows `deny-place: minecraft:tnt`. Shift-click a block on the right: it is added at once.
+- [ ] Right-click the TNT on the left: P, U, B, C in turn, its frame colour changing (gold, teal, violet, red); `/rg info` follows.
+- [ ] Hover a banned block: the card at the bottom shows its name, id and four switches; switching them changes the lists; x REMOVE frees it. Dragging it back to the right frees it too.
+- [ ] Point at a Create block, press BAN WHOLE MOD: an entry with a star appears (`@create`).
+- [ ] Close and reopen: everything is as you left it. A second admin opening the same region sees the same list.
+- [ ] Check the rules from the T10.1a section still apply with lists made here.
+
+## 2026-10-19: the banned items pop-up (T10.1c)
+
+The new jar on the server **and** the client (network protocol 5). A region with `deny-carry minecraft:tnt,minecraft:lava_bucket`.
+
+- [ ] Walk in carrying 12 TNT and a shulker box holding a lava bucket: you're put back and a red-framed window opens, "YOU CAN'T BRING THESE INTO <region>", showing TNT (x 12) and the lava bucket (in Shulker Box), the two lines of advice, and OK. Hovering a picture shows the item's tooltip. OK or Esc closes it.
+- [ ] Keep walking into the edge: the action-bar line repeats, but the window reopens no more than every 5 seconds.
+- [ ] Carry seven different banned things: six pictures and "and 1 more".
+- [ ] Stand inside, get TNT (as an admin with bypass, `/give`, then `/rg bypass` off): you're moved out and the window opens.
+

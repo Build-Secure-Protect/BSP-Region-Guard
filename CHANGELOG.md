@@ -4,6 +4,32 @@ All notable changes to BSP Region Guard. Format follows Keep a Changelog; versio
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-19
+
+Banned blocks per region. Built against BSP Core 1.3.0 (requires 1.1.0 or newer). Network protocol 5: servers and players need this version together.
+
+### Added (2026-10-19, banned items pop-up)
+- A player turned away for carrying banned things now gets a **window** ("YOU CAN'T BRING THESE INTO SPAWN") showing a picture and the name of each banned thing they carry and where it is ("x 12", "in Shulker Box"), with "Remove them from your inventory to enter." and an OK button. Up to six are shown, the rest counted. It opens at most every 5 seconds; the action-bar line still shows each time. The same window opens when someone holding a banned item is moved out from inside. Network protocol 5 (players need the new jar). One GameTest (80 in all).
+
+### Added (2026-10-19, banned blocks screen)
+- **BANNED** tab in the admin screen opens the **banned blocks editor** (owner decision D56, mock-up option C). On the left is a grid of the region's banned blocks; on the right, Minecraft's creative tabs with a search box (`@mod` shows one mod's blocks, as in JEI; `@mod words` narrows it).
+- **Using it:**
+  - Pick a rule on the bar (PLACE, USE, BREAK, CARRY), then drag blocks into the grid, or shift-click them.
+  - Right-click a banned block to step through its rules, or hover it for its four switches.
+  - Drag it back, or press x, to allow it again.
+  - BAN WHOLE MOD bans every block of the last block you pointed at.
+- **Saving:** every change is saved as the region's `deny-*` lists at once.
+- The tab row narrows its spacing so nine tabs fit. Two GameTests (79 in all).
+
+### Added (2026-10-18, banned blocks, server side)
+- **Banned blocks per region** (owner decisions D51 to D56). Four list flags: `deny-place`, `deny-use`, `deny-break` and `deny-carry`. Entries are ids, whole mods (`@create` or `create:*`) or tags (`#minecraft:beds`). They apply to owners and members too; only admins with bypass pass. The lists add up across overlapping regions and parents.
+- `deny-carry` keeps a block or item out of the region entirely: players carrying one (anywhere in their inventory, Curios slots, or inside carried shulker boxes, bundles and backpacks) are put back at the edge, refused by `teleport-in`, can't pick one up inside, can't take one out of any container inside (the ender chest included; new mixin group `containers`), and are moved out if found inside holding one.
+- Built against BSP Core 1.3.0 (still requires 1.1.0 or newer). Six GameTests (77 in all). The BANNED BLOCKS screen and the player's pop-up follow.
+
+## [0.1.0] - 2026-10-18
+
+First release on CurseForge.
+
 ### Changed (2026-10-17, from the network test)
 - **The screens are drawn twice as big** (the admin screen, the claim screen and the travel window): a new client setting, `ui.scale` in `config/bsp_region_guard-client.toml` (default 2, from 1 to 4). A screen that would not fit the window at that size is drawn as large as fits, never smaller than before. One GameTest for the sizing rule.
 

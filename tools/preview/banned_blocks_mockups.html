@@ -1,0 +1,422 @@
+<title>Banned Blocks Mock-ups</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=VT323&family=IBM+Plex+Sans:wght@400;600&display=swap">
+<style>
+/* Layout: a notes column, then each option as a real-size in-game screen drawn at 2x inside its own scroller.
+   Single dark look on purpose: these are the game's own screens. */
+:root {
+    color-scheme: dark;
+    --page: #0b0e13;
+    --panel: #10151c;
+    --inset: #0c0e12;
+    --line: #2a2f3a;
+    --tq: #19d3b0;
+    --vio: #b58cff;
+    --gold: #ffd23a;
+    --bad: #ff6b5c;
+    --text: #e6eaf2;
+    --muted: #9aa3b5;
+    --hint: #6f7788;
+    --dim: #4a5060;
+    --mc: "VT323", ui-monospace, Menlo, monospace;
+    --ui: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+body { background: var(--page); color: var(--text); font-family: var(--ui); }
+.wrap { max-width: 900px; margin: 0 auto; padding-block: 28px 64px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1 { font-family: var(--mc); font-weight: normal; font-size: 2.6rem; color: var(--tq); margin: 0 0 4px; letter-spacing: 0.5px; text-wrap: balance; }
+h2 { font-family: var(--mc); font-weight: normal; font-size: 1.9rem; margin: 40px 0 6px; text-wrap: balance; }
+h2 .tag { color: var(--muted); font-size: 1.2rem; margin-left: 8px; }
+p, li { line-height: 1.55; color: var(--muted); max-width: 68ch; }
+p strong, li strong { color: var(--text); font-weight: 600; }
+.lede { font-size: 1.02rem; color: var(--text); }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 14px 0 4px; font-size: 0.86rem; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.sw { width: 12px; height: 12px; border: 2px solid; display: inline-block; }
+.scroller { overflow-x: auto; margin-top: 12px; padding-bottom: 6px; }
+.stage { width: 840px; height: 472px; position: relative; background:
+    linear-gradient(rgba(10,14,20,.55), rgba(10,14,20,.55)),
+    radial-gradient(ellipse at 20% 85%, #3d5a3a 0, transparent 45%),
+    radial-gradient(ellipse at 70% 20%, #6d8fb3 0, transparent 55%),
+    linear-gradient(#8fb2d6, #5f7f9e 55%, #3a5137 56%, #2d3f2b); }
+.stage.small { width: 640px; height: 300px; }
+.scr { position: absolute; left: 0; top: 0; width: 420px; height: 236px; transform: scale(2); transform-origin: 0 0;
+    font-family: var(--mc); color: var(--text); -webkit-font-smoothing: none; }
+.stage.small .scr { width: 320px; height: 150px; }
+.notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px 28px; margin-top: 10px; }
+.notes div { min-width: 0; }
+.notes h3 { font-family: var(--mc); font-weight: normal; font-size: 1.25rem; margin: 6px 0 2px; color: var(--text); }
+.notes p { margin: 0; font-size: 0.9rem; }
+ol.dec { padding-left: 1.3em; } ol.dec li { margin: 4px 0; font-size: 0.93rem; }
+.pill { font-family: var(--mc); font-size: 1.05rem; padding: 0 6px; border: 1px solid var(--line); color: var(--muted); }
+
+/* ---------- in-game parts, in GUI units (the stage scales them 2x) ---------- */
+.a { position: absolute; }
+.frame { position: absolute; background: rgba(16,21,28,.95); border: 1px solid var(--tq); }
+.in { position: absolute; background: var(--inset); border: 1px solid var(--line); }
+.t1 { font-size: 10.5px; line-height: 1; white-space: nowrap; }
+.t8 { font-size: 8px; line-height: 1; white-space: nowrap; }
+.t6 { font-size: 6.6px; line-height: 1; white-space: nowrap; }
+.t5 { font-size: 5.6px; line-height: 1.2; }
+.c-tq { color: var(--tq); } .c-vio { color: var(--vio); } .c-gold { color: var(--gold); } .c-bad { color: var(--bad); }
+.c-muted { color: var(--muted); } .c-hint { color: var(--hint); } .c-text { color: var(--text); }
+.chip { position: absolute; display: flex; align-items: center; justify-content: center; background: var(--inset);
+    border: 1px solid var(--line); color: var(--muted); font-size: 6.6px; line-height: 1; white-space: nowrap; cursor: pointer; }
+.chip.on { color: var(--tq); border-color: var(--tq); background: rgba(25,211,176,.13); }
+.chip.gold { color: var(--gold); border-color: var(--gold); background: rgba(255,210,58,.12); }
+.chip.bad { color: var(--bad); border-color: var(--bad); background: rgba(255,107,92,.12); }
+.chip.vio { color: var(--vio); border-color: var(--vio); background: rgba(181,140,255,.12); }
+.chip.big { font-size: 8px; }
+.grid { position: absolute; display: grid; gap: 1px; align-content: start; overflow: hidden; }
+.slot { width: 16px; height: 16px; background: #171b22; border: 1px solid #262b35; position: relative; display: flex;
+    align-items: center; justify-content: center; }
+.slot.item { cursor: grab; }
+.slot.drop-hint { outline: 1px dashed var(--tq); }
+.slot svg { width: 12px; height: 12px; pointer-events: none; }
+.slot .m { position: absolute; right: -1px; bottom: -1px; font-size: 5px; line-height: 5px; padding: 0 1px; background: #000; cursor: pointer; }
+.slot.mode-carry { border-color: var(--bad); box-shadow: inset 0 0 0 1px rgba(255,107,92,.35); }
+.slot.mode-place { border-color: var(--gold); }
+.slot.mode-use { border-color: var(--tq); }
+.slot.mode-break { border-color: var(--vio); }
+.slot.sel { outline: 1px solid #fff; }
+.dropzone.over { box-shadow: inset 0 0 0 1px var(--tq); background: rgba(25,211,176,.06); }
+.tip { position: absolute; background: #0a0d12; border: 1px solid var(--vio); padding: 3px 4px; pointer-events: none; }
+.row { position: absolute; left: 1px; right: 1px; height: 18px; display: flex; align-items: center; gap: 3px; padding: 0 3px;
+    border-bottom: 1px solid #1a1f28; }
+.row svg { width: 12px; height: 12px; flex: none; }
+.row .nm { flex: 1; min-width: 0; overflow: hidden; }
+.tg { font-size: 5.6px; border: 1px solid var(--line); padding: 1px 2px; color: var(--dim); cursor: pointer; line-height: 1; }
+.tg.p { color: var(--gold); border-color: var(--gold); } .tg.u { color: var(--tq); border-color: var(--tq); }
+.tg.b { color: var(--vio); border-color: var(--vio); } .tg.c { color: var(--bad); border-color: var(--bad); }
+button:focus-visible, .chip:focus-visible { outline: 1px solid #fff; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <h1>BANNED BLOCKS</h1>
+  <p class="lede">Three layouts for a new <strong>BANNED BLOCKS</strong> tab in Region Guard's admin screen, and the window a player sees when they try to walk in carrying something banned. Each screen below works: drag blocks from the browser on the right into the list on the left, and click a banned block's badge to change its rule.</p>
+  <div class="legend">
+    <span><i class="sw" style="border-color:var(--gold)"></i>PLACE: can't be placed here</span>
+    <span><i class="sw" style="border-color:var(--tq)"></i>USE: can't be right-clicked here</span>
+    <span><i class="sw" style="border-color:var(--vio)"></i>BREAK: can't be broken here</span>
+    <span><i class="sw" style="border-color:var(--bad)"></i>CARRY: not allowed in the region at all</span>
+  </div>
+  <p>CARRY covers the other three. A newly dragged block starts with PLACE on. The rules apply to everyone, owners and members included; only admins with bypass on are exempt, and only admins can edit the list.</p>
+
+  <h2>A. A tab in the pane <span class="tag">region list stays on the left</span></h2>
+  <div class="scroller"><div class="stage"><div class="scr" id="optA"></div></div></div>
+  <div class="notes">
+    <div><h3>How it works</h3><p>BANNED joins the tabs. The pane splits: the banned list on the left, the block browser on the right. Click a banned block to pick it; its four switches show underneath.</p></div>
+    <div><h3>Good for</h3><p>Staying inside the screen you know. You can hop between regions on the left without leaving the tab.</p></div>
+    <div><h3>Watch out</h3><p>The tightest of the three: about 6 x 5 banned blocks and 7 x 5 browser blocks show at once, the rest scroll.</p></div>
+  </div>
+
+  <h2>B. A full-width editor <span class="tag">one row per banned block</span></h2>
+  <div class="scroller"><div class="stage"><div class="scr" id="optB"></div></div></div>
+  <div class="notes">
+    <div><h3>How it works</h3><p>Opening BANNED BLOCKS uses the whole screen. The left side lists each banned block on its own row, with its name, its mod and the four switches. The browser on the right has creative-style tabs down its side.</p></div>
+    <div><h3>Good for</h3><p>Reading the rules at a glance: every block's switches are visible without clicking. Easy to check a long list.</p></div>
+    <div><h3>Watch out</h3><p>Fewer banned blocks show at once (about 9 rows). BACK returns to the region screen.</p></div>
+  </div>
+
+  <h2>C. Inventory style <span class="tag">pick a rule, then drop blocks</span></h2>
+  <div class="scroller"><div class="stage"><div class="scr" id="optC"></div></div></div>
+  <div class="notes">
+    <div><h3>How it works</h3><p>Looks like Minecraft's own creative inventory: a big chest-like grid on the left, the browser with tabs across the top on the right. Choose a rule on the bar first; every block you drop gets that rule. Right-click a slot to change it.</p></div>
+    <div><h3>Good for</h3><p>Banning lots of blocks quickly with the same rule, and the closest match to "an unlimited inventory" as described.</p></div>
+    <div><h3>Watch out</h3><p>A slot shows its rule only by its border colour and badge; hover for the full card.</p></div>
+  </div>
+
+  <h2>The player's side <span class="tag">same for every option</span></h2>
+  <div class="scroller"><div class="stage small"><div class="scr" id="popup"></div></div></div>
+  <div class="notes">
+    <div><h3>Walking in with a CARRY block</h3><p>They are pushed back a step and this window opens, showing every banned thing they carry, including inside shulker boxes, bundles, backpacks and Curios slots. They aren't asked again until they step away and come back.</p></div>
+    <div><h3>Placing a PLACE block</h3><p>It's refused and stays in their inventory, with a line above the hotbar: "TNT can't be placed in spawn." They may still store it in chests inside.</p></div>
+    <div><h3>Containers and the ender chest</h3><p>Inside the region, chests and other containers won't accept a CARRY block from a player, and the ender chest won't hand one out.</p></div>
+  </div>
+
+  <h2>To decide</h2>
+  <ol class="dec">
+    <li><strong>Which layout:</strong> A, B or C, or a mix. <span class="pill">default B</span> (the rules are visible without clicking).</li>
+    <li><strong>Whole mod at once:</strong> the BAN WHOLE MOD button bans every block of the hovered block's mod as one entry (shown as the mod's name with a star). <span class="pill">default yes</span></li>
+    <li><strong>Search:</strong> the browser's search matches names and mod ids (<code>create:</code> lists every Create block). <span class="pill">default yes</span></li>
+    <li><strong>Items as well as blocks:</strong> the browser shows items too (lava buckets, end crystals, flint and steel), since CARRY and USE matter for them. <span class="pill">default yes</span></li>
+    <li><strong>Removing:</strong> drag a banned block back to the browser, or press x on it. <span class="pill">default both</span></li>
+  </ol>
+  <p>Already decided (owner, 2026-10-18): per-block rules with four switches; CARRY checks inventory, armour, off-hand, Curios and anything packed in carried containers; inside the region the ender chest won't hand out banned items and containers won't take them; applies to everyone but admins with bypass; only admins edit it; tags by command only.</p>
+</div>
+
+<script>
+// ------------------------------------------------------------ shared data
+// Simple drawn icons (no game textures): an isometric cube with top/left/right colours, or a flat item shape.
+const ITEMS = [
+  // tab, id, name, kind, colours
+  ['building','minecraft:stone','Stone','cube',['#9a9a9a','#7d7d7d','#6b6b6b']],
+  ['building','minecraft:oak_planks','Oak Planks','cube',['#b8945f','#9c7a49','#86683d']],
+  ['building','minecraft:glass','Glass','cube',['#cfe8f0','#a9cad6','#8fb4c2']],
+  ['building','minecraft:bricks','Bricks','cube',['#a85d48','#8e4b39','#7a3f30']],
+  ['building','minecraft:obsidian','Obsidian','cube',['#3b2a52','#2a1d3c','#20162f']],
+  ['redstone','minecraft:tnt','TNT','cube',['#e8e8e8','#d23a2e','#b02c22']],
+  ['redstone','minecraft:piston','Piston','cube',['#c9a76a','#7d7d7d','#6b6b6b']],
+  ['redstone','minecraft:dispenser','Dispenser','cube',['#8a8a8a','#6e6e6e','#5c5c5c']],
+  ['redstone','minecraft:hopper','Hopper','cube',['#5c5c5c','#444','#3a3a3a']],
+  ['redstone','minecraft:observer','Observer','cube',['#6b6b6b','#4f4f4f','#d23a2e']],
+  ['functional','minecraft:red_bed','Red Bed','cube',['#c7372f','#e8e0d0','#a12a24']],
+  ['functional','minecraft:ender_chest','Ender Chest','cube',['#20302c','#162420','#0f1a17']],
+  ['functional','minecraft:respawn_anchor','Respawn Anchor','cube',['#3a2a55','#24183a','#7b3fd0']],
+  ['functional','minecraft:end_crystal','End Crystal','item',['#e8a3ff','#9b5bd6']],
+  ['functional','minecraft:lava_bucket','Lava Bucket','item',['#ff8a2a','#b9bcc2']],
+  ['functional','minecraft:flint_and_steel','Flint and Steel','item',['#8a8a8a','#3b3b3b']],
+  ['create','create:mechanical_drill','Mechanical Drill','cube',['#c9a35a','#a5813f','#8a6a30']],
+  ['create','create:mechanical_saw','Mechanical Saw','cube',['#b8bcc4','#a5813f','#8a6a30']],
+  ['create','create:deployer','Deployer','cube',['#c9a35a','#6d5a3a','#57472d']],
+  ['create','create:mechanical_harvester','Mechanical Harvester','cube',['#c9a35a','#6aa84e','#57472d']],
+  ['create','create:contraption_controls','Contraption Controls','cube',['#4b4b4b','#c9a35a','#8a6a30']],
+  ['mekanism','mekanism:digital_miner','Digital Miner','cube',['#d8dde4','#3c8fd6','#2c6fa8']],
+  ['mekanism','mekanism:atomic_disassembler','Atomic Disassembler','item',['#3c8fd6','#d8dde4']],
+  ['mekanism','mekanism:teleporter','Teleporter','cube',['#d8dde4','#55c06a','#3e9050']],
+  ['chunks','chunkloaders:basic_chunk_loader','Chunk Loader','cube',['#6a4a8a','#4a3266','#3a2650']],
+  ['chunks','chunkloaders:advanced_chunk_loader','Advanced Chunk Loader','cube',['#8a6ab0','#5a3f80','#45306a']],
+];
+const TABS = [['building','BUILDING'],['redstone','REDSTONE'],['functional','FUNCTIONAL'],['create','CREATE'],['mekanism','MEKANISM'],['chunks','CHUNK LOADERS']];
+const MODES = ['place','use','break','carry'];
+const MODE_TXT = {place:'P', use:'U', break:'B', carry:'C'};
+const MODE_COLOUR = {place:'var(--gold)', use:'var(--tq)', break:'var(--vio)', carry:'var(--bad)'};
+const byId = id => ITEMS.find(i => i[1] === id);
+
+function icon(it) {
+  const c = it[4];
+  if (it[3] === 'item') {
+    return `<svg viewBox="0 0 12 12" aria-hidden="true"><rect x="5" y="1" width="2" height="7" fill="${c[1]}"/><rect x="3" y="7" width="6" height="4" fill="${c[0]}"/><rect x="4" y="8" width="2" height="1" fill="#fff" opacity=".6"/></svg>`;
+  }
+  return `<svg viewBox="0 0 12 12" aria-hidden="true"><polygon points="6,0.5 11.5,3.2 6,6 0.5,3.2" fill="${c[0]}"/><polygon points="0.5,3.2 6,6 6,11.5 0.5,8.8" fill="${c[1]}"/><polygon points="11.5,3.2 6,6 6,11.5 11.5,8.8" fill="${c[2]}"/></svg>`;
+}
+const strongest = rules => rules.carry ? 'carry' : rules.place ? 'place' : rules.use ? 'use' : rules.break ? 'break' : null;
+
+// Each option keeps its own banned list: id -> {place, use, break, carry}
+function startList() {
+  return new Map([
+    ['minecraft:tnt', {place:true, use:false, break:false, carry:true}],
+    ['create:mechanical_drill', {place:true, use:false, break:false, carry:false}],
+    ['minecraft:end_crystal', {place:true, use:true, break:false, carry:false}],
+    ['chunkloaders:basic_chunk_loader', {place:true, use:false, break:false, carry:false}],
+    ['minecraft:lava_bucket', {place:true, use:true, break:false, carry:false}],
+  ]);
+}
+
+function el(parent, html) { parent.insertAdjacentHTML('beforeend', html); return parent.lastElementChild; }
+
+// drag and drop shared by all three
+let dragging = null; // {id, from:'browser'|'list', opt}
+function makeDraggable(node, id, from, opt) {
+  node.draggable = true;
+  node.addEventListener('dragstart', e => { dragging = {id, from, opt}; e.dataTransfer.setData('text/plain', id); e.dataTransfer.effectAllowed = 'copyMove'; });
+  node.addEventListener('dragend', () => { dragging = null; });
+}
+function makeDropzone(node, onDrop) {
+  node.addEventListener('dragover', e => { e.preventDefault(); node.classList.add('over'); });
+  node.addEventListener('dragleave', () => node.classList.remove('over'));
+  node.addEventListener('drop', e => { e.preventDefault(); node.classList.remove('over'); if (dragging) onDrop(dragging); });
+}
+
+// the region screen's frame (left list + header) used by A
+function regionChrome(root, activeTab) {
+  el(root, `<div class="frame" style="left:0;top:0;width:420px;height:236px"></div>`);
+  el(root, `<div class="a t1 c-tq" style="left:8px;top:8px">REGIONS - OVERWORLD</div>`);
+  el(root, `<div class="in" style="left:8px;top:22px;width:130px;height:12px"><span class="a t8 c-hint" style="left:3px;top:2px">search regions</span></div>`);
+  ['ALL','PROT','CLAIM','MINE','SALE'].forEach((f,i)=> el(root, `<div class="chip${i==0?' on':''}" style="left:${8+i*26}px;top:38px;width:24px;height:10px">${f}</div>`));
+  const list = el(root, `<div class="in" style="left:8px;top:52px;width:130px;height:144px"></div>`);
+  [['__global__','W -','c-muted'],['spawn','P 10','c-tq'],['spawn_shops','P 5','c-tq'],['market_plots','O 2','c-gold'],['alex_bakery','C 3','c-vio'],['iron_mine','M 4','c-gold'],['arena','P 8','c-tq']]
+    .forEach((r,i)=> el(list, `<div class="a t8 ${r[2]}" style="left:4px;top:${3+i*12}px;width:120px;display:flex;${i==1?'background:rgba(25,211,176,.14);':''}"><span style="flex:1">${r[0]}</span><span class="t6">${r[1]}</span></div>`));
+  el(root, `<div class="chip on big" style="left:8px;top:202px;width:62px;height:14px">+ NEW</div>`);
+  el(root, `<div class="chip big" style="left:74px;top:202px;width:64px;height:14px">WAND</div>`);
+  el(root, `<div class="a t1 c-text" style="left:146px;top:8px">Spawn (spawn)</div>`);
+  el(root, `<div class="a t6 c-muted" style="left:146px;top:21px">protected - priority 10 - 160 x 160</div>`);
+  let x = 146;
+  [['MAP',22],['FLAGS',26],['ACCESS',30],['RANKS',26],['SALE',22],['MINE',22],['TELEPORT',36],['INFO',22],['BANNED',30]].forEach(([t,w])=>{
+    el(root, `<div class="chip big${t===activeTab?' bad':''}" style="left:${x}px;top:31px;width:${w}px;height:11px">${t}</div>`); x += w + 2; });
+}
+
+// ------------------------------------------------------------ option A: a tab in the pane
+(function optionA(){
+  const root = document.getElementById('optA');
+  regionChrome(root, 'BANNED');
+  const list = startList(); let selected = 'minecraft:tnt'; let tab = 'redstone';
+  el(root, `<div class="in" style="left:146px;top:46px;width:266px;height:150px"></div>`);
+  el(root, `<div class="a t6 c-bad" style="left:150px;top:50px">BANNED IN SPAWN</div>`);
+  el(root, `<div class="a t5 c-hint" style="left:214px;top:50px">drag here</div>`);
+  const grid = el(root, `<div class="grid dropzone" style="left:150px;top:58px;width:107px;height:86px;grid-template-columns:repeat(6,16px)"></div>`);
+  const sw = el(root, `<div class="a" style="left:150px;top:148px;width:110px;height:44px"></div>`);
+  el(root, `<div class="a" style="left:262px;top:48px;width:1px;height:146px;background:var(--line)"></div>`);
+  el(root, `<div class="in" style="left:266px;top:50px;width:142px;height:11px"><span class="a t6 c-hint" style="left:3px;top:2px">search blocks or a mod id</span></div>`);
+  const tabs = el(root, `<div class="a" style="left:266px;top:64px;width:142px;height:10px"></div>`);
+  const bgrid = el(root, `<div class="grid dropzone" style="left:266px;top:77px;width:125px;height:88px;grid-template-columns:repeat(7,16px)"></div>`);
+  el(root, `<div class="chip vio" style="left:266px;top:170px;width:66px;height:10px">BAN WHOLE MOD</div>`);
+  el(root, `<div class="a t5 c-hint" style="left:336px;top:170px;width:72px">drag a block left to ban it; back here to free it</div>`);
+  el(root, `<div class="a t8 c-muted" style="left:146px;top:222px">Changes save at once. Esc closes.</div>`);
+  el(root, `<div class="chip big" style="left:146px;top:202px;width:50px;height:14px">TELEPORT</div>`);
+
+  function draw() {
+    grid.innerHTML = '';
+    for (const [id, r] of list) {
+      const it = byId(id); const m = strongest(r);
+      const s = el(grid, `<div class="slot item mode-${m}${id===selected?' sel':''}" title="${it[2]}">${icon(it)}<span class="m" style="color:${MODE_COLOUR[m]}">${MODE_TXT[m]}</span></div>`);
+      s.addEventListener('click', () => { selected = id; draw(); });
+      makeDraggable(s, id, 'list', 'A');
+    }
+    for (let i = list.size; i < 30; i++) el(grid, `<div class="slot"></div>`);
+    sw.innerHTML = '';
+    const it = byId(selected); const r = list.get(selected);
+    if (it && r) {
+      el(sw, `<div class="a" style="left:0;top:0">${icon(it)}</div>`);
+      el(sw, `<div class="a t6 c-text" style="left:15px;top:2px">${it[2]}</div>`);
+      el(sw, `<div class="a t5 c-hint" style="left:15px;top:9px">${it[1]}</div>`);
+      MODES.forEach((m,i)=>{ const c = el(sw, `<div class="chip ${r[m] ? {place:'gold',use:'on',break:'vio',carry:'bad'}[m] : ''}" style="left:${i*27}px;top:22px;width:25px;height:10px">${m.toUpperCase()}</div>`);
+        c.addEventListener('click', ()=>{ r[m] = !r[m]; if (!strongest(r)) r.place = true; draw(); }); });
+      const x = el(sw, `<div class="chip" style="left:0;top:34px;width:52px;height:9px">x REMOVE</div>`);
+      x.addEventListener('click', ()=>{ list.delete(selected); selected = list.keys().next().value; draw(); });
+    }
+    tabs.innerHTML = '';
+    TABS.forEach(([k,t],i)=>{ const c = el(tabs, `<div class="chip${k===tab?' on':''}" style="left:${[0,25,52,82,105,132][i]}px;top:0;width:${[23,25,28,21,25,10][i]}px;height:9px;font-size:5px">${i==5?'+':t.slice(0, i==2?5:6)}</div>`);
+      c.addEventListener('click', ()=>{ tab = k; draw(); }); });
+    bgrid.innerHTML = '';
+    ITEMS.filter(i=>i[0]===tab).forEach(it=>{ const s = el(bgrid, `<div class="slot item${list.has(it[1])?' mode-'+strongest(list.get(it[1])):''}" title="${it[2]}">${icon(it)}</div>`); makeDraggable(s, it[1], 'browser', 'A'); });
+    for (let i = ITEMS.filter(i=>i[0]===tab).length; i < 35; i++) el(bgrid, `<div class="slot"></div>`);
+  }
+  makeDropzone(grid, d => { if (d.opt==='A' && d.from==='browser' && !list.has(d.id)) { list.set(d.id, {place:true,use:false,break:false,carry:false}); selected = d.id; draw(); } });
+  makeDropzone(bgrid, d => { if (d.opt==='A' && d.from==='list') { list.delete(d.id); selected = list.keys().next().value; draw(); } });
+  draw();
+})();
+
+// ------------------------------------------------------------ option B: full-width editor, one row per block
+(function optionB(){
+  const root = document.getElementById('optB');
+  const list = startList(); let tab = 'create';
+  el(root, `<div class="frame" style="left:0;top:0;width:420px;height:236px;border-color:var(--bad)"></div>`);
+  el(root, `<div class="chip big" style="left:8px;top:7px;width:40px;height:12px">&lt; BACK</div>`);
+  el(root, `<div class="a t1 c-bad" style="left:54px;top:8px">BANNED BLOCKS - spawn</div>`);
+  const count = el(root, `<div class="a t6 c-muted" style="left:300px;top:10px"></div>`);
+  el(root, `<div class="in" style="left:8px;top:24px;width:214px;height:186px"></div>`);
+  el(root, `<div class="a t5 c-hint" style="left:12px;top:27px;width:120px">BLOCK</div>`);
+  ['PLACE','USE','BREAK','CARRY'].forEach((t,i)=> el(root, `<div class="a t5" style="left:${133+i*21}px;top:27px;color:${MODE_COLOUR[MODES[i]]}">${t}</div>`));
+  const rows = el(root, `<div class="a dropzone" style="left:9px;top:34px;width:212px;height:175px;overflow:hidden"></div>`);
+  el(root, `<div class="a t5 c-hint" style="left:8px;top:213px;width:214px">Drag blocks in from the right. Click a switch to change it; CARRY also stops placing, using and breaking.</div>`);
+  // browser with tabs down the side
+  el(root, `<div class="in" style="left:228px;top:24px;width:184px;height:186px"></div>`);
+  el(root, `<div class="in" style="left:252px;top:28px;width:156px;height:11px"><span class="a t6 c-hint" style="left:3px;top:2px">search blocks or a mod id</span></div>`);
+  const side = el(root, `<div class="a" style="left:230px;top:28px;width:20px;height:170px"></div>`);
+  const tabName = el(root, `<div class="a t6 c-tq" style="left:253px;top:43px"></div>`);
+  const bgrid = el(root, `<div class="grid dropzone" style="left:252px;top:52px;width:156px;height:120px;grid-template-columns:repeat(9,16px)"></div>`);
+  el(root, `<div class="chip vio" style="left:252px;top:178px;width:70px;height:11px">BAN WHOLE MOD</div>`);
+  el(root, `<div class="a t5 c-hint" style="left:326px;top:177px;width:82px">hover a block, then press to ban every block of its mod</div>`);
+  el(root, `<div class="a t8 c-muted" style="left:228px;top:222px">Changes save at once.</div>`);
+
+  function draw() {
+    rows.innerHTML = '';
+    let y = 0;
+    for (const [id, r] of list) {
+      const it = byId(id);
+      const row = el(rows, `<div class="row" style="top:${y}px">${icon(it)}<div class="nm"><div class="t6 c-text">${it[2]}</div><div class="t5 c-hint" style="line-height:1">${it[1].split(':')[0]}</div></div></div>`);
+      MODES.forEach((m)=>{ const t = el(row, `<span class="tg ${r[m]?m[0]:''}" style="width:17px;text-align:center">${r[m]?'ON':'off'}</span>`);
+        t.addEventListener('click', ()=>{ r[m] = !r[m]; if (!strongest(r)) r.place = true; draw(); }); });
+      const x = el(row, `<span class="tg" style="margin-left:2px">x</span>`); x.addEventListener('click', ()=>{ list.delete(id); draw(); });
+      makeDraggable(row, id, 'list', 'B');
+      y += 19;
+    }
+    if (list.size === 0) el(rows, `<div class="a t6 c-hint" style="left:6px;top:6px">Nothing banned in this region. Drag a block here.</div>`);
+    count.textContent = `${list.size} banned - ${[...list.values()].filter(r=>r.carry).length} not allowed in at all`;
+    side.innerHTML = '';
+    TABS.forEach(([k],i)=>{ const it = ITEMS.find(x=>x[0]===k); const c = el(side, `<div class="slot item" style="position:absolute;left:0;top:${i*19}px;${k===tab?'border-color:var(--tq);':''}" title="${TABS[i][1]}">${icon(it)}</div>`);
+      c.addEventListener('click', ()=>{ tab = k; draw(); }); });
+    tabName.textContent = TABS.find(t=>t[0]===tab)[1];
+    bgrid.innerHTML = '';
+    const shown = ITEMS.filter(i=>i[0]===tab);
+    shown.forEach(it=>{ const s = el(bgrid, `<div class="slot item${list.has(it[1])?' mode-'+strongest(list.get(it[1])):''}" title="${it[2]}">${icon(it)}</div>`); makeDraggable(s, it[1], 'browser', 'B'); });
+    for (let i = shown.length; i < 63; i++) el(bgrid, `<div class="slot"></div>`);
+  }
+  makeDropzone(rows, d => { if (d.opt==='B' && d.from==='browser' && !list.has(d.id)) { list.set(d.id, {place:true,use:false,break:false,carry:false}); draw(); } });
+  makeDropzone(bgrid, d => { if (d.opt==='B' && d.from==='list') { list.delete(d.id); draw(); } });
+  draw();
+})();
+
+// ------------------------------------------------------------ option C: inventory style with a rule brush
+(function optionC(){
+  const root = document.getElementById('optC');
+  const list = startList(); let tab = 'redstone'; let brush = 'place'; let hover = 'minecraft:tnt';
+  el(root, `<div class="frame" style="left:0;top:0;width:420px;height:236px"></div>`);
+  el(root, `<div class="a t1 c-tq" style="left:8px;top:8px">spawn - BANNED BLOCKS</div>`);
+  el(root, `<div class="chip big" style="left:350px;top:6px;width:62px;height:12px">DONE</div>`);
+  el(root, `<div class="a t6 c-muted" style="left:8px;top:25px">DROP WITH RULE</div>`);
+  const bar = el(root, `<div class="a" style="left:62px;top:22px;width:118px;height:12px"></div>`);
+  // left: the unlimited chest grid
+  el(root, `<div class="in" style="left:8px;top:38px;width:168px;height:156px"></div>`);
+  const grid = el(root, `<div class="grid dropzone" style="left:12px;top:42px;width:155px;height:148px;grid-template-columns:repeat(9,16px)"></div>`);
+  el(root, `<div class="a" style="left:169px;top:42px;width:4px;height:148px;background:#171b22"></div><div class="a" style="left:169px;top:42px;width:4px;height:40px;background:var(--dim)"></div>`);
+  // hover card
+  const card = el(root, `<div class="a" style="left:8px;top:198px;width:168px;height:32px;border:1px solid var(--line);background:#0a0d12"></div>`);
+  // right: creative browser with tabs across the top
+  const tabs = el(root, `<div class="a" style="left:184px;top:22px;width:228px;height:17px"></div>`);
+  el(root, `<div class="in" style="left:184px;top:38px;width:228px;height:156px"></div>`);
+  el(root, `<div class="in" style="left:300px;top:41px;width:108px;height:10px"><span class="a t6 c-hint" style="left:3px;top:2px">search</span></div>`);
+  const tabName = el(root, `<div class="a t6 c-text" style="left:188px;top:43px"></div>`);
+  const bgrid = el(root, `<div class="grid dropzone" style="left:188px;top:55px;width:220px;height:136px;grid-template-columns:repeat(13,16px)"></div>`);
+  el(root, `<div class="chip vio" style="left:184px;top:200px;width:70px;height:11px">BAN WHOLE MOD</div>`);
+  el(root, `<div class="a t5 c-hint" style="left:258px;top:199px;width:154px">Drop blocks on the left. Right-click a slot to step through its rules. Drag it back here to free it.</div>`);
+  el(root, `<div class="a t8 c-muted" style="left:184px;top:222px">Changes save at once.</div>`);
+
+  function rulesFrom(m) { return {place: m!=='use' && m!=='break' ? true : false, use: m==='use', break: m==='break', carry: m==='carry'}; }
+  function draw() {
+    bar.innerHTML = '';
+    MODES.forEach((m,i)=>{ const c = el(bar, `<div class="chip ${m===brush?{place:'gold',use:'on',break:'vio',carry:'bad'}[m]:''}" style="left:${i*29}px;top:0;width:27px;height:11px">${m.toUpperCase()}</div>`);
+      c.addEventListener('click', ()=>{ brush = m; draw(); }); });
+    grid.innerHTML = '';
+    for (const [id, r] of list) {
+      const it = byId(id); const m = strongest(r);
+      const s = el(grid, `<div class="slot item mode-${m}" title="${it[2]}">${icon(it)}<span class="m" style="color:${MODE_COLOUR[m]}">${MODE_TXT[m]}</span></div>`);
+      s.addEventListener('mouseenter', ()=>{ hover = id; drawCard(); });
+      s.addEventListener('contextmenu', e=>{ e.preventDefault(); const next = MODES[(MODES.indexOf(m)+1)%4]; list.set(id, rulesFrom(next)); draw(); });
+      makeDraggable(s, id, 'list', 'C');
+    }
+    for (let i = list.size; i < 72; i++) el(grid, `<div class="slot"></div>`);
+    tabs.innerHTML = '';
+    TABS.forEach(([k],i)=>{ const it = ITEMS.find(x=>x[0]===k); const c = el(tabs, `<div class="slot item" style="position:absolute;left:${i*19}px;top:0;${k===tab?'border-color:var(--tq);border-bottom-color:var(--inset);height:18px;':''}" title="${TABS[i][1]}">${icon(it)}</div>`);
+      c.addEventListener('click', ()=>{ tab = k; draw(); }); });
+    tabName.textContent = TABS.find(t=>t[0]===tab)[1];
+    bgrid.innerHTML = '';
+    const shown = ITEMS.filter(i=>i[0]===tab);
+    shown.forEach(it=>{ const s = el(bgrid, `<div class="slot item${list.has(it[1])?' mode-'+strongest(list.get(it[1])):''}" title="${it[2]}">${icon(it)}</div>`); makeDraggable(s, it[1], 'browser', 'C'); });
+    for (let i = shown.length; i < 104; i++) el(bgrid, `<div class="slot"></div>`);
+    drawCard();
+  }
+  function drawCard() {
+    card.innerHTML = '';
+    const it = byId(hover); const r = list.get(hover);
+    if (!it || !r) { el(card, `<div class="a t5 c-hint" style="left:4px;top:4px">Hover a banned block to see its rules.</div>`); return; }
+    el(card, `<div class="a" style="left:3px;top:3px">${icon(it)}</div>`);
+    el(card, `<div class="a t6 c-text" style="left:18px;top:3px">${it[2]}</div><div class="a t5 c-hint" style="left:18px;top:10px">${it[1]}</div>`);
+    MODES.forEach((m,i)=>{ const c = el(card, `<div class="chip ${r[m]?{place:'gold',use:'on',break:'vio',carry:'bad'}[m]:''}" style="left:${4+i*28}px;top:20px;width:26px;height:9px;font-size:5.5px">${m.toUpperCase()}</div>`);
+      c.addEventListener('click', ()=>{ r[m] = !r[m]; if (!strongest(r)) r.place = true; draw(); }); });
+    const x = el(card, `<div class="chip" style="left:120px;top:20px;width:44px;height:9px;font-size:5.5px">x REMOVE</div>`);
+    x.addEventListener('click', ()=>{ list.delete(hover); draw(); });
+  }
+  makeDropzone(grid, d => { if (d.opt==='C' && d.from==='browser' && !list.has(d.id)) { list.set(d.id, rulesFrom(brush)); hover = d.id; draw(); } });
+  makeDropzone(bgrid, d => { if (d.opt==='C' && d.from==='list') { list.delete(d.id); draw(); } });
+  draw();
+})();
+
+// ------------------------------------------------------------ the player's window
+(function popup(){
+  const root = document.getElementById('popup');
+  el(root, `<div class="a" style="left:0;top:0;width:320px;height:150px;background:repeating-linear-gradient(135deg, transparent 0 6px, rgba(255,107,92,.18) 6px 8px)"></div>`);
+  el(root, `<div class="frame" style="left:40px;top:12px;width:240px;height:126px;border-color:var(--bad)"></div>`);
+  el(root, `<div class="a t1 c-bad" style="left:40px;width:240px;top:20px;text-align:center">YOU CAN'T BRING THESE INTO SPAWN</div>`);
+  const row = el(root, `<div class="a" style="left:40px;width:240px;top:36px;display:flex;justify-content:center;gap:6px"></div>`);
+  [['minecraft:tnt','x 12'],['minecraft:lava_bucket','in a backpack']].forEach(([id,n])=>{
+    const it = byId(id);
+    el(row, `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;width:62px"><div class="slot" style="width:26px;height:26px;border-color:var(--bad)">${icon(it).replace('aria-hidden','style="width:20px;height:20px" aria-hidden')}</div><span class="t6 c-text">${it[2]}</span><span class="t5 c-hint">${n}</span></div>`);
+  });
+  el(root, `<div class="a t8 c-text" style="left:40px;width:240px;top:86px;text-align:center">Remove them from your inventory to enter.</div>`);
+  el(root, `<div class="a t6 c-muted" style="left:40px;width:240px;top:97px;text-align:center">A chest outside the region will keep them safe.</div>`);
+  el(root, `<div class="chip big on" style="left:130px;top:112px;width:60px;height:15px">OK</div>`);
+})();
+</script>

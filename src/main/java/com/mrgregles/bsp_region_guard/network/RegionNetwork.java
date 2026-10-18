@@ -10,7 +10,7 @@ import net.minecraftforge.network.simple.SimpleChannel;
 
 /** The mod's channel: {@code bsp_region_guard:main}. The server decides, the client displays. */
 public final class RegionNetwork {
-    private static final String PROTOCOL = "4"; // 2: edge-link travel pop-up; 3: server switcher; 4: claim wipe in the screen
+    private static final String PROTOCOL = "5"; // 2: edge-link travel pop-up; 3: server switcher; 4: claim wipe in the screen; 5: banned items pop-up
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             ResourceLocation.fromNamespaceAndPath(BSPRegionGuard.MODID, "main"), () -> PROTOCOL, PROTOCOL::equals, PROTOCOL::equals);
 
@@ -46,6 +46,9 @@ public final class RegionNetwork {
         CHANNEL.messageBuilder(ClaimWipePacket.class, id++, NetworkDirection.PLAY_TO_CLIENT)
                 .encoder(ClaimWipePacket::encode).decoder(ClaimWipePacket::decode)
                 .consumerMainThread(ClaimWipePacket::handle).add();
+        CHANNEL.messageBuilder(BannedPopupPacket.class, id++, NetworkDirection.PLAY_TO_CLIENT)
+                .encoder(BannedPopupPacket::encode).decoder(BannedPopupPacket::decode)
+                .consumerMainThread(BannedPopupPacket::handle).add();
     }
 
     public static void sendTo(ServerPlayer player, Object packet) {

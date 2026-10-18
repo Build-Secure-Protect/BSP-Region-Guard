@@ -5,6 +5,7 @@
   "compatibilityLevel": "JAVA_16",
   "refmap": "bsp_region_guard.refmap.json",
   "mixins": [
+    "AbstractContainerMenuMixin",
     "BiomeMixin",
     "BuddingAmethystBlockMixin",
     "CoralBlockMixin",

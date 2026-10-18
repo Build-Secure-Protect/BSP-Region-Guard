@@ -49,6 +49,10 @@ public final class BlockProtection {
             event.setCanceled(true);
             return;
         }
+        if (BannedBlocks.refuses(level, event.getPos(), BannedBlocks.Rule.BREAK, event.getState(), null, event.getPlayer())) {
+            event.setCanceled(true);
+            return;
+        }
         // a mine's shell: only the mine's own blocks may be dug (the flag is set on the shell region)
         if (RegionQuery.explicit(level, event.getPos(), Flags.MINE_ONLY_BREAK).orElse(null) == com.mrgregles.bsp_region_guard.flag.State.ALLOW
                 && com.mrgregles.bsp_region_guard.mine.Mines.mineAt(RegionStore.get(level), event.getPos()) == null
@@ -75,9 +79,16 @@ public final class BlockProtection {
                     return;
                 }
             }
+            if (BannedBlocks.refuses(level, event.getPos(), BannedBlocks.Rule.PLACE, event.getPlacedBlock(), null, player)) {
+                event.setCanceled(true);
+            }
             return;
         }
         if (!Protection.checkPlayer(level, event.getPos(), Flags.BLOCK_PLACE, player)) {
+            event.setCanceled(true);
+            return;
+        }
+        if (BannedBlocks.refuses(level, event.getPos(), BannedBlocks.Rule.PLACE, event.getPlacedBlock(), null, player)) {
             event.setCanceled(true);
             return;
         }
@@ -99,6 +110,21 @@ public final class BlockProtection {
         BlockPos pos = event.getPos();
         ItemStack stack = event.getItemStack();
         BlockState state = level.getBlockState(pos);
+
+        // Banned blocks and items (D53): using the item in hand, placing it, or using the block clicked.
+        if (!stack.isEmpty() && BannedBlocks.refuses(level, pos, BannedBlocks.Rule.USE, null, stack, player)) {
+            deny(event);
+            return;
+        }
+        if (stack.getItem() instanceof BlockItem bi
+                && BannedBlocks.refuses(level, pos.relative(event.getFace()), BannedBlocks.Rule.PLACE, bi.getBlock().defaultBlockState(), null, player)) {
+            deny(event);
+            return;
+        }
+        if (BannedBlocks.refuses(level, pos, BannedBlocks.Rule.USE, state, null, player)) {
+            deny(event);
+            return;
+        }
 
         // The item in hand first: some items act on the block in front, not the one clicked.
         StateFlag itemFlag = itemFlag(stack);
@@ -181,6 +207,10 @@ public final class BlockProtection {
         if (level == null) {
             return;
         }
+        if (BannedBlocks.refuses(level, event.getEntity().blockPosition(), BannedBlocks.Rule.USE, null, event.getItemStack(), event.getEntity())) {
+            event.setCanceled(true);
+            return;
+        }
         var item = event.getItemStack().getItem();
         if (item instanceof BoatItem || item instanceof MinecartItem) {
             // Boats are placed by ray trace on use, not on a clicked block.
@@ -211,6 +241,10 @@ public final class BlockProtection {
         boolean emptying = !(event.getEmptyBucket().getItem() instanceof BucketItem b) || b != net.minecraft.world.item.Items.BUCKET;
         BlockPos pos = emptying ? hit.getBlockPos().relative(hit.getDirection()) : hit.getBlockPos();
         if (!Protection.checkPlayer(level, pos, emptying ? Flags.BLOCK_PLACE : Flags.BLOCK_BREAK, event.getEntity())) {
+            event.setCanceled(true);
+            return;
+        }
+        if (emptying && BannedBlocks.refuses(level, pos, BannedBlocks.Rule.PLACE, null, event.getEmptyBucket(), event.getEntity())) {
             event.setCanceled(true);
         }
     }

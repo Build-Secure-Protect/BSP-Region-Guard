@@ -77,6 +77,14 @@ public final class RegionClient {
         }
     }
 
+    /** The banned items pop-up (D54): turned away from a region for carrying banned things. */
+    public static void receive(com.mrgregles.bsp_region_guard.network.BannedPopupPacket msg) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player != null && !(mc.screen instanceof net.minecraft.client.gui.screens.ChatScreen) && !(mc.screen instanceof BannedPopupScreen)) {
+            mc.setScreen(new BannedPopupScreen(msg));
+        }
+    }
+
     /** The claim wipe's state and the server's answer, for the admin screen (D45). */
     public static void receive(com.mrgregles.bsp_region_guard.network.ClaimWipePacket msg) {
         if (Minecraft.getInstance().screen instanceof RegionScreen screen) {

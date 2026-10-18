@@ -42,6 +42,7 @@ public final class RegionGuardConfig {
     public static final ForgeConfigSpec.BooleanValue MIXIN_FALLING_BLOCKS;
     public static final ForgeConfigSpec.BooleanValue MIXIN_EGGS;
     public static final ForgeConfigSpec.BooleanValue MIXIN_HUNGER;
+    public static final ForgeConfigSpec.BooleanValue MIXIN_CONTAINERS;
 
     static {
         ForgeConfigSpec.Builder b = new ForgeConfigSpec.Builder();
@@ -124,6 +125,7 @@ public final class RegionGuardConfig {
         MIXIN_FALLING_BLOCKS = b.comment("falling-blocks").define("fallingBlocks", true);
         MIXIN_EGGS = b.comment("block-trampling for turtle eggs").define("eggs", true);
         MIXIN_HUNGER = b.comment("natural-hunger-drain, natural-health-regen").define("hunger", true);
+        MIXIN_CONTAINERS = b.comment("deny-carry: inside the region, banned items cannot be taken out of any container, the ender chest included").define("containers", true);
         b.pop();
 
         SPEC = b.build();

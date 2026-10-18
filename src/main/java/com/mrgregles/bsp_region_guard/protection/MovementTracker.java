@@ -110,6 +110,7 @@ public final class MovementTracker {
         if (event.getEntity() instanceof ServerPlayer sp) {
             restoreGameMode(sp);
             TRACKED.remove(sp.getUUID());
+            BannedBlocks.forget(sp.getUUID());
         }
     }
 
@@ -202,6 +203,18 @@ public final class MovementTracker {
         t.dimension = level.dimension();
         t.pos = pos;
 
+        // deny-carry for players already inside: logged in there, given items, or the ban was added later
+        if ((gameTime + player.getId()) % BannedBlocks.CARRY_CHECK_TICKS == 0 && BannedBlocks.moveOutIfCarrying(player)) {
+            t.pos = player.position();
+            t.regions.clear();
+            for (Region r : store.at(player.blockPosition())) {
+                if (!r.isGlobal()) {
+                    t.regions.add(r.id());
+                }
+            }
+            return;
+        }
+
         if (!RegionQuery.bypasses(player)) {
             gameMode(player, level, blockPos);
         }
@@ -230,6 +243,14 @@ public final class MovementTracker {
         boolean memberHere = isMemberOfAny(player, here);
 
         if (!entered.isEmpty()) {
+            // deny-carry applies to members too (D55)
+            if (BannedBlocks.carryApplies(level, pos, player)) {
+                var carried = BannedBlocks.carried(level, pos, player);
+                if (!carried.isEmpty()) {
+                    BannedBlocks.tellCarried(player, carried);
+                    return BannedBlocks.carryMessage(carried);
+                }
+            }
             if (!bypass && !memberHere && !RegionQuery.isExempt(level, pos, Flags.ENTRY, player)) {
                 if (RegionQuery.explicit(level, pos, Flags.ENTRY).orElse(State.ALLOW) == State.DENY) {
                     String m = RegionQuery.value(level, pos, Flags.ENTRY_DENY_MESSAGE);
