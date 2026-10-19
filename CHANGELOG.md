@@ -8,6 +8,9 @@ All notable changes to BSP Region Guard. Format follows Keep a Changelog; versio
 
 Banned blocks per region. Built against BSP Core 1.3.0 (requires 1.1.0 or newer). Network protocol 5: servers and players need this version together.
 
+### Fixed (2026-10-19)
+- The banned blocks editor's two hints beside BAN WHOLE MOD ran off the right edge of the screen; they now wrap in the space beside the button.
+
 ### Added (2026-10-19, banned items pop-up)
 - A player turned away for carrying banned things now gets a **window** ("YOU CAN'T BRING THESE INTO SPAWN") showing a picture and the name of each banned thing they carry and where it is ("x 12", "in Shulker Box"), with "Remove them from your inventory to enter." and an OK button. Up to six are shown, the rest counted. It opens at most every 5 seconds; the action-bar line still shows each time. The same window opens when someone holding a banned item is moved out from inside. Network protocol 5 (players need the new jar). One GameTest (80 in all).
 

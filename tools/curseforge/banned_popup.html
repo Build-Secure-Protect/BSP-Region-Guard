@@ -1,0 +1,32 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="size" content="340x190"><link rel="stylesheet" href="holo.css">
+<style>
+/* Laid out from client/BannedPopupScreen.java: 240 x 126, cells 22 in columns of 38 at y+24, OK 60 x 15. */
+.wall { position: absolute; inset: 0; background: repeating-linear-gradient(135deg, transparent 0 6px, rgba(255,107,92,.16) 6px 8px); }
+.cell { position: absolute; width: 22px; height: 22px; background: var(--inset); border: 1px solid var(--bad); }
+.cell svg { position: absolute; left: 3px; top: 3px; width: 16px; height: 16px; }
+.c { position: absolute; text-align: center; width: 38px; }
+</style></head>
+<body>
+<div class="world"></div><div class="wall"></div>
+<div class="screen" style="left:50px;top:32px;width:240px;height:126px;border-color:var(--bad)" id="p">
+    <div class="abs t1 bad" style="left:0;width:240px;top:8px;text-align:center">YOU CAN'T BRING THESE INTO SPAWN</div>
+    <div class="abs t75 text" style="left:0;width:240px;top:76px;text-align:center">Remove them from your inventory to enter.</div>
+    <div class="abs t6 muted" style="left:0;width:240px;top:87px;text-align:center">A chest outside the region will keep them safe.</div>
+    <div class="btn tq" style="left:90px;top:103px;width:60px;height:15px">OK</div>
+</div>
+<script>
+const items=[['TNT','x 12',['#e8e8e8','#d23a2e','#b02c22']],['Lava Bucket','in Shulker Box',['item','#ff8a2a','#b9bcc2']],['Mechanical Drill','in Backpack',['#c9a35a','#a5813f','#8a6a30']]];
+function icon(c){
+  if(c[0]==='item') return `<svg viewBox="0 0 12 12"><rect x="5" y="1" width="2" height="7" fill="${c[2]}"/><rect x="3" y="7" width="6" height="4" fill="${c[1]}"/><rect x="4" y="8" width="2" height="1" fill="#fff" opacity=".6"/></svg>`;
+  return `<svg viewBox="0 0 12 12"><polygon points="6,0.5 11.5,3.2 6,6 0.5,3.2" fill="${c[0]}"/><polygon points="0.5,3.2 6,6 6,11.5 0.5,8.8" fill="${c[1]}"/><polygon points="11.5,3.2 6,6 6,11.5 11.5,8.8" fill="${c[2]}"/></svg>`;
+}
+const p=document.getElementById('p'); const start=(240-items.length*38)/2;
+items.forEach((it,i)=>{
+  const cx=start+i*38+8;
+  p.insertAdjacentHTML('beforeend',`<div class="cell" style="left:${cx}px;top:24px">${icon(it[2])}</div>`);
+  p.insertAdjacentHTML('beforeend',`<div class="c t5 text" style="left:${start+i*38}px;top:50px">${it[0]}</div>`);
+  p.insertAdjacentHTML('beforeend',`<div class="c t5 hint" style="left:${start+i*38}px;top:57px;font-size:5px">${it[1]}</div>`);
+});
+</script>
+</body></html>

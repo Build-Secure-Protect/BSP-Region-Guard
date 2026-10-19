@@ -312,8 +312,18 @@ public class BannedBlocksScreen extends HoloScreen {
                 ban("@" + id.substring(0, id.indexOf(':')), brush);
             }
         });
-        text(g, Tr.t("banned_hint_1"), x + 258, y + 200, HINT, 0.5f);
-        text(g, Tr.t("banned_hint_2"), x + 258, y + 206, HINT, 0.5f);
+        // the two hints wrap to the space right of the button (154 units), so they never run off the screen
+        int hy = y + 199;
+        for (String hint : new String[]{Tr.t("banned_hint_1"), Tr.t("banned_hint_2")}) {
+            for (var line : font.split(Component.literal(hint), (int) (154 / 0.5f))) {
+                g.pose().pushPose();
+                g.pose().translate(x + 258, hy, 0);
+                g.pose().scale(0.5f, 0.5f, 1f);
+                g.drawString(font, line, 0, 0, HINT, false);
+                g.pose().popPose();
+                hy += 5;
+            }
+        }
         text(g, status.isEmpty() ? Tr.t("changes_save_at_once_esc_closes") : status, x + 184, y + 222, MUTED, 0.6f);
 
         super.draw(g, mouseX, mouseY, partial);

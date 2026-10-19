@@ -1,0 +1,91 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="size" content="452x268"><link rel="stylesheet" href="holo.css">
+<style>
+/* Laid out from client/BannedBlocksScreen.java: list at (12,42) 9 x 8, browser at (188,55) 13 x 8, cells 17, tabs at (184,21). */
+.slot { position: absolute; width: 16px; height: 16px; background: #171b22; outline: 1px solid #262b35; }
+.slot svg { position: absolute; left: 2px; top: 2px; width: 12px; height: 12px; }
+.badge { position: absolute; left: 11px; top: 11px; width: 6px; height: 6px; background: #000; font-size: 5px; line-height: 6px; text-align: center; }
+.star { position: absolute; left: 1px; top: 0; font-size: 6px; color: var(--text); }
+.tabicon { position: absolute; width: 18px; height: 18px; background: #171b22; outline: 1px solid #262b35; }
+.tabicon svg { position: absolute; left: 3px; top: 3px; width: 12px; height: 12px; }
+</style></head>
+<body>
+<div class="world"></div>
+<div class="screen" style="left:16px;top:16px;width:420px;height:236px" id="s">
+    <div class="abs t1 tq" style="left:8px;top:8px">spawn - BANNED BLOCKS</div>
+    <div class="chip big" style="left:350px;top:6px;width:62px;height:12px;color:var(--text)">DONE</div>
+    <div class="abs t6 muted" style="left:8px;top:25px">DROP WITH RULE</div>
+    <div class="chip" style="left:62px;top:22px;width:27px;height:11px;font-size:5.5px">PLACE</div>
+    <div class="chip" style="left:91px;top:22px;width:27px;height:11px;font-size:5.5px">USE</div>
+    <div class="chip" style="left:120px;top:22px;width:27px;height:11px;font-size:5.5px">BREAK</div>
+    <div class="chip bad" style="left:149px;top:22px;width:27px;height:11px;font-size:5.5px">CARRY</div>
+    <div class="inset" style="left:8px;top:38px;width:168px;height:156px"></div>
+    <div class="abs" style="left:169px;top:42px;width:4px;height:136px;background:#171b22"></div>
+    <div class="abs" style="left:169px;top:42px;width:4px;height:136px;background:#4a5060"></div>
+    <!-- hover card -->
+    <div class="abs" style="left:8px;top:198px;width:168px;height:32px;background:#0a0d12;outline:1px solid var(--line);outline-offset:-1px"></div>
+    <div class="abs t6 text" style="left:28px;top:201px">TNT</div>
+    <div class="abs t5 hint" style="left:28px;top:208px">minecraft:tnt</div>
+    <div class="chip" style="left:12px;top:218px;width:26px;height:9px;font-size:5px;color:var(--gold);border-color:var(--gold);background:rgba(255,210,58,.12)">PLACE</div>
+    <div class="chip" style="left:40px;top:218px;width:26px;height:9px;font-size:5px;color:var(--tq);border-color:var(--tq);background:rgba(25,211,176,.12)">USE</div>
+    <div class="chip" style="left:68px;top:218px;width:26px;height:9px;font-size:5px;color:var(--vio);border-color:var(--vio);background:rgba(181,140,255,.12)">BREAK</div>
+    <div class="chip bad" style="left:96px;top:218px;width:26px;height:9px;font-size:5px">CARRY</div>
+    <div class="chip" style="left:128px;top:218px;width:44px;height:9px;font-size:5px">x REMOVE</div>
+    <!-- browser -->
+    <div class="inset" style="left:184px;top:38px;width:228px;height:156px"></div>
+    <div class="abs" style="left:298px;top:40px;width:112px;height:12px;background:#050608"></div>
+    <div class="abs t6 text" style="left:300px;top:43px">@create</div>
+    <div class="abs t6 text" style="left:188px;top:43px">14 found</div>
+    <div class="chip vio" style="left:184px;top:200px;width:70px;height:11px;font-size:5.5px">BAN WHOLE MOD</div>
+    <div class="abs t5 hint" style="left:258px;top:199px;width:154px;white-space:normal;line-height:5px">Drop blocks on the left (shift-click works too). Right-click a slot to step through its rules.</div>
+    <div class="abs t5 hint" style="left:258px;top:209px;width:154px;white-space:normal;line-height:5px">Drag a banned block back here, or press x, to allow it again.</div>
+    <div class="abs t6 muted" style="left:184px;top:222px">Mechanical Drill: CARRY</div>
+</div>
+<script>
+const C = { // drawn icons: [top, left, right] for blocks, [main, accent] for items
+  tnt:['#e8e8e8','#d23a2e','#b02c22'], drill:['#c9a35a','#a5813f','#8a6a30'], saw:['#b8bcc4','#a5813f','#8a6a30'],
+  deployer:['#c9a35a','#6d5a3a','#57472d'], harvester:['#c9a35a','#6aa84e','#57472d'], controls:['#4b4b4b','#c9a35a','#8a6a30'],
+  cog:['#a5813f','#7d6431','#6a5429'], shaft:['#9a9a9a','#7d7d7d','#6b6b6b'], casing:['#b0aea2','#8f8d83','#7a786f'],
+  belt:['#3b3b3b','#2a2a2a','#202020'], press:['#c9a35a','#9a9a9a','#7d7d7d'], fan:['#9a9a9a','#4b4b4b','#3b3b3b'],
+  basin:['#8a8a8a','#6e6e6e','#5c5c5c'], mixer:['#c9a35a','#7d7d7d','#6b6b6b'], gearbox:['#a5813f','#b0aea2','#8f8d83'],
+  miner:['#d8dde4','#3c8fd6','#2c6fa8'], chunk:['#6a4a8a','#4a3266','#3a2650'], anchor:['#3a2a55','#24183a','#7b3fd0'],
+  crystal:['item','#e8a3ff','#9b5bd6'], lava:['item','#ff8a2a','#b9bcc2'], flint:['item','#8a8a8a','#3b3b3b'],
+  stone:['#9a9a9a','#7d7d7d','#6b6b6b'], redstone:['#d23a2e','#a12a24','#8e241f'], grass:['#6aa84e','#8a6a42','#7a5c38'],
+  apple:['item','#d23a2e','#5c8a2e'], sword:['item','#d8dde4','#8a6a42'], egg:['item','#6aa84e','#2d4a22'], wrench:['item','#c9a35a','#6d5a3a'],
+  shulker:['#9b6bb0','#7d548f','#6a4779'],
+};
+function icon(k){
+  const c=C[k];
+  if(c[0]==='item') return `<svg viewBox="0 0 12 12"><rect x="5" y="1" width="2" height="7" fill="${c[2]}"/><rect x="3" y="7" width="6" height="4" fill="${c[1]}"/><rect x="4" y="8" width="2" height="1" fill="#fff" opacity=".6"/></svg>`;
+  return `<svg viewBox="0 0 12 12"><polygon points="6,0.5 11.5,3.2 6,6 0.5,3.2" fill="${c[0]}"/><polygon points="0.5,3.2 6,6 6,11.5 0.5,8.8" fill="${c[1]}"/><polygon points="11.5,3.2 6,6 6,11.5 11.5,8.8" fill="${c[2]}"/></svg>`;
+}
+const COL={P:'var(--gold)',U:'var(--tq)',B:'var(--vio)',C:'var(--bad)'};
+const s=document.getElementById('s');
+// left: the banned list
+const banned=[['tnt','C'],['drill','C'],['crystal','U'],['chunk','P'],['lava','C'],['miner','P'],['anchor','B'],['flint','U'],['drill','P','*'],['shulker','C']];
+for(let i=0;i<72;i++){
+  const x=12+(i%9)*17, y=42+Math.floor(i/9)*17, e=banned[i];
+  let h=`<div class="slot" style="left:${x}px;top:${y}px;${e?`outline-color:${COL[e[1]]}`:''}${i===0?';outline-color:#fff':''}">`;
+  if(e){ h+=icon(e[0])+`<div class="badge" style="color:${COL[e[1]]}">${e[1]}</div>`+(e[2]?`<div class="star">*</div>`:''); }
+  s.insertAdjacentHTML('beforeend',h+'</div>');
+}
+s.insertAdjacentHTML('beforeend',`<div class="abs" style="left:10px;top:200px">${icon('tnt').replace('<svg','<svg width="16" height="16"')}</div>`);
+// tabs: arrows, then ten tabs
+s.insertAdjacentHTML('beforeend',`<div class="chip" style="left:184px;top:21px;width:9px;height:18px;color:var(--text)">&lt;</div><div class="chip" style="left:393px;top:21px;width:9px;height:18px;color:var(--text)">&gt;</div>`);
+['grass','stone','redstone','apple','sword','egg','drill','miner','chunk','wrench'].forEach((k,i)=>{
+  s.insertAdjacentHTML('beforeend',`<div class="tabicon" style="left:${194+i*19}px;top:21px">${icon(k)}</div>`);
+});
+// right: @create results
+const create=['drill','saw','deployer','harvester','controls','cog','shaft','casing','belt','press','fan','basin','mixer','gearbox'];
+for(let i=0;i<104;i++){
+  const x=188+(i%13)*17, y=55+Math.floor(i/13)*17, k=create[i];
+  const banned = k==='drill';
+  let h=`<div class="slot" style="left:${x}px;top:${y}px;${banned?'outline-color:var(--bad)':''}">`;
+  if(k) h+=icon(k);
+  s.insertAdjacentHTML('beforeend',h+'</div>');
+}
+// a block being dragged across, with its path
+s.insertAdjacentHTML('beforeend',`<svg class="abs" style="left:0;top:0" width="420" height="236"><path d="M225 72 C 200 110, 170 120, 128 118" fill="none" stroke="#fff" stroke-width="0.8" stroke-dasharray="2 2" opacity=".8"/><polygon points="128,118 133,115 132,121" fill="#fff" opacity=".8"/></svg>`);
+s.insertAdjacentHTML('beforeend',`<div class="abs" style="left:116px;top:108px;width:16px;height:16px">${icon('saw').replace('<svg','<svg width="16" height="16"')}</div>`);
+</script>
+</body></html>

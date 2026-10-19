@@ -2,10 +2,10 @@
 
 # BSP Region Guard
 
-**World protection, land claims, automated mines and linked servers for Minecraft 1.20.1, all run from in-game screens.**
+**World protection, banned blocks, land claims, automated mines and linked servers for Minecraft 1.20.1, all run from in-game screens.**
 
 BSP Region Guard looks after the world on a Build Secure Protect server:
-- Admins draw regions and decide what may happen inside them.
+- Admins draw regions and decide what may happen inside them, down to which blocks and items may be placed, used, broken or even carried in.
 - Players buy land and run their own plots.
 - Mines refill themselves on a timer.
 - Several servers share regions, and players can walk from one server's world into the next.
@@ -14,7 +14,7 @@ It takes WorldGuard's ideas to Forge and drives them from screens rather than lo
 
 It is made for the [Build Secure Protect](https://www.curseforge.com/minecraft/modpacks/build-secure-protect) modpack and works closely with its sister mods: **BSP-Core** (required), and **BSP-Teleport** and **BSP-RankUp** (optional).
 
-> The screens in this description are drawn from the mod's own layout and colours, as illustrations.
+> Version 0.2.0. The screens in this description are drawn from the mod's own layout and colours, as illustrations.
 
 ---
 
@@ -24,7 +24,7 @@ It is made for the [Build Secure Protect](https://www.curseforge.com/minecraft/m
 |---|---|
 | **Minecraft** | 1.20.1, Forge 47.4.10 or newer; runs on Mohist |
 | **Install on** | the server **and** every player (the screens and in-world drawing are client side) |
-| **Requires** | [BSP-Core](https://github.com/Build-Secure-Protect/BSP-Core) 1.1.0 or newer |
+| **Requires** | [BSP-Core](https://github.com/Build-Secure-Protect/BSP-Core) 1.1.0 or newer (tested with 1.3.0) |
 | **Works with** | [BSP-Teleport](https://github.com/Build-Secure-Protect/BSP-Teleport), BSP-RankUp, [LuckPerms](https://luckperms.net/) (Forge mod or the Bukkit plugin on Mohist) |
 | **Optional** | MySQL and Redis, only for several servers |
 
@@ -48,7 +48,7 @@ Admins always see them. Players press **B** to see their own claims.
 
 ## 2. The admin screen
 
-Open it with `/rg gui`, or sneak and right-click with the wand. Every region in the world is listed on the left, with a search box and filters (protected, claims, mines, for sale). The **MAP** tab shows them from above: click a region on the map to pick it, and use the wheel to zoom.
+Open it with `/rg gui`, or sneak and right-click with the wand. Every region in the world is listed on the left, with a search box and filters (protected, claims, mines, for sale). The **MAP** tab shows them from above: click a region on the map to pick it, and use the wheel to zoom. The other tabs hold the picked region's settings: FLAGS, ACCESS, RANKS, SALE, MINE, TELEPORT, INFO, and BANNED for its banned blocks (sections 3 to 9 below).
 
 ![The admin screen, MAP tab](https://raw.githubusercontent.com/Build-Secure-Protect/BSP-Region-Guard/main/docs/curseforge/images/admin_map.png)
 
@@ -73,7 +73,7 @@ When regions overlap, the one with the **higher priority** decides. A region lef
 
 ![How a rule is decided](https://raw.githubusercontent.com/Build-Secure-Protect/BSP-Region-Guard/main/docs/curseforge/images/flags_diagram.png)
 
-### The 110 flags
+### The 114 flags
 
 | Group | Flags |
 |---|---|
@@ -84,6 +84,7 @@ When regions overlap, the one with the **higher priority** decides. A region lef
 | **Coming and going** | `entry`, `exit`, `exit-via-teleport`, `exit-override`, `entry-deny-message`, `exit-deny-message`, `greeting`, `farewell`, `greeting-title`, `farewell-title`, `notify-enter`, `notify-leave`, `enderpearl`, `chorus-fruit-teleport`, `teleport`, `spawn`, `teleport-message`, `allowed-ranks` |
 | **Map making** | `item-pickup`, `item-drop`, `exp-drops`, `deny-message`, `game-mode`, `time-lock`, `weather-lock`, `natural-health-regen`, `natural-hunger-drain`, `heal-delay`, `heal-amount`, `heal-min-health`, `heal-max-health`, `feed-delay`, `feed-amount`, `feed-min-hunger`, `feed-max-hunger`, `blocked-cmds`, `allowed-cmds`, `send-chat`, `receive-chat` |
 | **BSP** | `border-warning`, `border-message`, `teleport-in`, `teleport-out`, `set-home`, `totem-place`, `totem-drop`, `mine-only-break` |
+| **Banned blocks** (section 6) | `deny-place`, `deny-use`, `deny-break`, `deny-carry` |
 
 Where Forge has no event to cancel (fire spreading, water flowing in, snow forming, grass spreading, dispensers, falling sand), Region Guard uses 28 small server-side patches. Each group can be switched off in the server config.
 
@@ -113,7 +114,51 @@ It also holds the world's **border**, a square set with `/rg border set <width>`
 
 Without RankUp, give groups by hand in LuckPerms and everything works the same.
 
-## 6. Land for players: claims
+## 6. Banned blocks: keep chosen blocks and items out
+
+Some things don't belong in some places: TNT at spawn, a quarry in the market, a chunk loader in a claim, lava buckets in the arena. Each region can ban chosen blocks and items, with its own rules for each one.
+
+![The four rules of a banned block](https://raw.githubusercontent.com/Build-Secure-Protect/BSP-Region-Guard/main/docs/curseforge/images/banned_rules.png)
+
+| Rule | What happens in the region |
+|---|---|
+| **PLACE** | It can't be placed; it stays in the player's hand, and they may still store it in a chest inside. Banned buckets can't be emptied. |
+| **USE** | It can't be right-clicked, and a banned item does nothing in hand (flint and steel, end crystals, a machine's screen). |
+| **BREAK** | It can't be broken. |
+| **CARRY** | It isn't allowed in at all (this covers the other three). |
+
+**Banning blocks: the BANNED tab.** The admin screen's last tab opens the banned blocks editor:
+- **The grid on the left** holds the region's banned blocks, each framed in its rule's colour.
+- **Minecraft's own creative tabs** are on the right, vanilla and modded.
+- **To ban something:** pick a rule on the bar (PLACE, USE, BREAK or CARRY), then drag blocks across, or shift-click them.
+- **To change or remove one:**
+  - right-click a banned block to step through its rules
+  - hover it for its four switches
+  - drag it back, or press x, to allow it again
+- **Search** works as in JEI: `@create` lists only Create's blocks, `@create drill` narrows that down, and plain words search every name and id.
+- **BAN WHOLE MOD** bans every block of the mod you last pointed at, as one entry.
+
+Every change saves at once.
+
+![The banned blocks editor](https://raw.githubusercontent.com/Build-Secure-Protect/BSP-Region-Guard/main/docs/curseforge/images/banned_editor.png)
+
+**Carrying banned things in.** With a CARRY ban:
+- **At the edge:** a player carrying the item is turned back, and a window shows a picture of each banned thing they hold and where it is ("x 12", "in Shulker Box"), with OK to close.
+- **What's checked:** their inventory, armour, off-hand and Curios slots, and anything packed inside carried shulker boxes, bundles and backpacks.
+- **Teleports:** teleporting in with one is refused too.
+- **Inside the region:**
+  - banned items lying on the ground can't be picked up
+  - no chest or other container hands one out, **the ender chest included**
+  - anyone found holding one (they logged in there, or were given one) is moved just outside
+
+![What a player sees at the edge](https://raw.githubusercontent.com/Build-Secure-Protect/BSP-Region-Guard/main/docs/curseforge/images/banned_popup.png)
+
+**Who and where:**
+- **Who:** bans apply to everyone, a region's owners and members included. Only BSP-Core admins with bypass on pass, and the Shatter Totem rule still keeps a steal possible.
+- **Where:** bans add up. A block banned by a region, its parent or the world default is banned everywhere beneath, so banning TNT on the world default bans it in the whole world, and a smaller region can't lift it.
+- **By command:** `/rg flag spawn deny-carry minecraft:tnt,@create`. Entries are ids, whole mods (`@create` or `create:*`) or tags (`#minecraft:beds`).
+
+## 7. Land for players: claims
 
 Admins sell land in two ways:
 - **Plots for sale:** an admin outlines a plot and sets its price. The admin also picks which rules the buyer may change.
@@ -143,7 +188,7 @@ Plots for sale are bought at the Land Office block too.
 
 **Starting a new season:** admins can wipe one world's claims from the admin screen or `/rg claims wipe`. You type back a one-time code, a backup is written first (`/rg claims restore` brings it back), and every admin online is told. Other worlds and servers are never touched.
 
-## 7. Mines that refill themselves
+## 8. Mines that refill themselves
 
 Any region can become a **mine**:
 - **Fill table:** list blocks with weights (stone 90, iron ore 8, diamond ore 1...). The heaviest block fills the mine and the others grow as fresh veins at every reset, so no two resets look alike.
@@ -153,13 +198,13 @@ Any region can become a **mine**:
 
 ![The admin screen, MINE tab](https://raw.githubusercontent.com/Build-Secure-Protect/BSP-Region-Guard/main/docs/curseforge/images/admin_mine.png)
 
-## 8. Region triggers: move players automatically
+## 9. Region triggers: move players automatically
 
 A region can move players when they **enter**, **leave**, **stay a while** (every so many seconds) or when the **server shuts down**. The destination can be a spot on the same server, or a world on another server; use the latter to send everyone to a lobby before a restart. Set triggers from the **TELEPORT** tab or `/rg trigger add`, with tab completion.
 
 Same-server moves work on their own. **BSP-Teleport** carries out cross-server moves through the proxy.
 
-## 9. Many servers, one network
+## 10. Many servers, one network
 
 On a network of servers, turn on the optional **shared storage**:
 - **MySQL:** every server keeps its own regions and can see everyone else's.
@@ -194,7 +239,7 @@ When a player reaches a linked edge, a window asks whether to travel:
 - **Shatter Totems:** regions never stop a steal near another player's placed totem. BSP-Core's Anti Totem zones and Region Guard regions work together for totem placing, teleports and homes.
 
 ### BSP-Teleport (optional)
-- **Teleport rules:** BSP-Teleport asks Region Guard's `teleport-in`, `teleport-out` and `set-home` flags, so admins can keep teleports out of an arena or homes out of spawn.
+- **Teleport rules:** BSP-Teleport asks Region Guard's `teleport-in`, `teleport-out` and `set-home` flags, so admins can keep teleports out of an arena or homes out of spawn. A player carrying a CARRY-banned item can't teleport into that region.
 - **`/rtp`:** stays inside Region Guard's world border.
 - **Cross-server moves:** BSP-Teleport carries out cross-server region triggers and **edge-link travel**, and Region Guard lands the player on solid ground.
 
@@ -216,6 +261,7 @@ When a player reaches a linked edge, a window asks whether to travel:
 | `/rg wand` | the Region Wand |
 | `/rg define <id>`, `/rg redefine <id>`, `/rg remove <id>` | make, move or delete a region from the wand outline |
 | `/rg flag <id> <flag> <value>` | set a flag (`clear` removes it) |
+| `/rg flag <id> deny-carry minecraft:tnt,@create` | banned blocks by command (also `deny-place`, `deny-use`, `deny-break`) |
 | `/rg addowner`, `/rg removeowner`, `/rg addmember`, `/rg removemember` | owners and members |
 | `/rg addrank`, `/rg removerank` | the LuckPerms groups that may enter |
 | `/rg priority`, `/rg parent`, `/rg type`, `/rg rename`, `/rg info`, `/rg list` | region details |
@@ -243,6 +289,6 @@ Full reference in [`docs/API.md`](https://github.com/Build-Secure-Protect/BSP-Re
 
 ---
 
-**Early release:** 0.1.0 is the first public version and has not yet run on a large live network. Please report problems on the [issue tracker](https://github.com/Build-Secure-Protect/BSP-Region-Guard/issues).
+**Early release:** 0.2.0 is an early version and has not yet run on a large live network. Please report problems on the [issue tracker](https://github.com/Build-Secure-Protect/BSP-Region-Guard/issues).
 
 Source: [github.com/Build-Secure-Protect/BSP-Region-Guard](https://github.com/Build-Secure-Protect/BSP-Region-Guard) · MIT licence · Made for [Build Secure Protect](https://www.curseforge.com/minecraft/modpacks/build-secure-protect)
