@@ -508,14 +508,18 @@ public class RegionScreen extends HoloScreen {
             });
             return;
         }
-        button(g, x + LIST_X, y + 204, 62, 14, inputMode == Input.NEW_ID ? Tr.t("cancel") : Tr.t("new"), TQ, () -> {
+        button(g, x + LIST_X, y + 204, 40, 14, inputMode == Input.NEW_ID ? Tr.t("cancel") : Tr.t("new"), TQ, () -> {
             if (inputMode == Input.NEW_ID) {
                 closeInput();
             } else {
                 openInput(Input.NEW_ID, "", Tr.t("new_region_id_enter_to_create_from_the_wand_sele"));
             }
         });
-        button(g, x + LIST_X + 66, y + 204, 64, 14, Tr.t("wand"), MUTED, () -> send(RegionActionPacket.of(RegionActionPacket.WAND, "")));
+        button(g, x + LIST_X + 43, y + 204, 40, 14, Tr.t("wand"), MUTED, () -> send(RegionActionPacket.of(RegionActionPacket.WAND, "")));
+        // the plot map (D57): copy, move and find plots on a full-window map
+        button(g, x + LIST_X + 86, y + 204, 44, 14, Tr.t("plot_map_button"), GOLD, () -> com.mrgregles.bsp_region_guard.network.RegionNetwork.CHANNEL.sendToServer(
+                com.mrgregles.bsp_region_guard.network.PlotMapActionPacket.simple(com.mrgregles.bsp_region_guard.network.PlotMapActionPacket.VIEW,
+                        minecraft == null || minecraft.level == null ? "" : minecraft.level.dimension().location().toString(), true)));
     }
 
     /** The right pane as the wipe's confirmation (D45): what goes, the code to type back, the backups. */

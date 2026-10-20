@@ -1,0 +1,377 @@
+<title>Plot Map Mock-ups</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=VT323&family=IBM+Plex+Sans:wght@400;600&display=swap">
+<style>
+/* Layout: notes column, then each option as a 16:9 window in its own scroller. Single dark look: these are game screens. */
+:root {
+    color-scheme: dark;
+    --page: #0b0e13; --panel: rgba(16,21,28,.94); --inset: #0c0e12; --line: #2a2f3a;
+    --tq: #19d3b0; --vio: #b58cff; --gold: #ffd23a; --bad: #ff6b5c; --text: #e6eaf2; --muted: #9aa3b5; --hint: #6f7788;
+    --mc: "VT323", ui-monospace, Menlo, monospace; --ui: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+body { background: var(--page); color: var(--text); font-family: var(--ui); }
+.wrap { max-width: 1020px; margin: 0 auto; padding-block: 28px 64px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1 { font-family: var(--mc); font-weight: normal; font-size: 2.6rem; color: var(--tq); margin: 0 0 4px; text-wrap: balance; }
+h2 { font-family: var(--mc); font-weight: normal; font-size: 1.9rem; margin: 40px 0 6px; text-wrap: balance; }
+h2 .tag { color: var(--muted); font-size: 1.2rem; margin-left: 8px; }
+p, li { line-height: 1.55; color: var(--muted); max-width: 70ch; }
+p strong, li strong { color: var(--text); font-weight: 600; }
+.lede { color: var(--text); }
+.try { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: .86rem; color: var(--muted); margin: 10px 0; }
+.try b { color: var(--text); font-weight: 600; }
+.scroller { overflow-x: auto; margin-top: 12px; padding-bottom: 6px; }
+.win { position: relative; width: 960px; height: 540px; background: #000; font-family: var(--mc); overflow: hidden; user-select: none; }
+.win canvas { position: absolute; left: 0; top: 0; }
+.notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px 28px; margin-top: 10px; }
+.notes div { min-width: 0; }
+.notes h3 { font-family: var(--mc); font-weight: normal; font-size: 1.25rem; margin: 6px 0 2px; color: var(--text); }
+.notes p { margin: 0; font-size: .9rem; }
+ol.dec li { margin: 4px 0; font-size: .93rem; }
+.pill { font-family: var(--mc); font-size: 1.05rem; padding: 0 6px; border: 1px solid var(--line); color: var(--muted); }
+
+/* in-game chrome */
+.pnl { position: absolute; background: var(--panel); border: 1px solid var(--line); color: var(--text); }
+.pnl.tq { border-color: var(--tq); } .pnl.gold { border-color: var(--gold); }
+.lbl { font-size: 15px; color: var(--muted); }
+.ttl { font-size: 20px; color: var(--tq); }
+.btn { display: inline-flex; align-items: center; justify-content: center; height: 24px; padding: 0 10px; font-family: var(--mc); font-size: 16px;
+    background: var(--inset); border: 1px solid var(--line); color: var(--muted); cursor: pointer; white-space: nowrap; }
+.btn:hover { color: var(--text); }
+.btn.on { color: var(--tq); border-color: var(--tq); background: rgba(25,211,176,.13); }
+.btn.go { color: var(--tq); border-color: var(--tq); background: rgba(25,211,176,.18); }
+.btn.no { color: var(--bad); border-color: var(--bad); background: rgba(255,107,92,.1); }
+.btn.gold { color: var(--gold); border-color: var(--gold); background: rgba(255,210,58,.12); }
+.btn[disabled] { opacity: .35; cursor: not-allowed; }
+.btn:focus-visible { outline: 1px solid #fff; }
+.field { height: 24px; background: #050608; border: 1px solid var(--line); color: var(--text); font-family: var(--mc); font-size: 16px; padding: 0 6px; }
+.field:focus { outline: none; border-color: var(--tq); }
+.list { overflow-y: auto; }
+.row { display: flex; align-items: center; gap: 6px; padding: 3px 8px; font-size: 17px; cursor: pointer; border-left: 2px solid transparent; }
+.row:hover { background: rgba(255,255,255,.04); }
+.row.sel { background: rgba(25,211,176,.12); border-left-color: var(--tq); }
+.row .k { font-size: 13px; color: var(--hint); margin-left: auto; }
+.sw { width: 9px; height: 9px; border: 1px solid; flex: none; }
+.chips { display: flex; gap: 4px; flex-wrap: wrap; }
+.chip { font-size: 14px; padding: 1px 6px; border: 1px solid var(--line); color: var(--muted); cursor: pointer; }
+.chip.on { color: var(--tq); border-color: var(--tq); }
+.hud { position: absolute; font-size: 16px; color: var(--text); background: rgba(5,6,8,.75); padding: 2px 8px; pointer-events: none; }
+.status { font-size: 16px; }
+.ok { color: var(--tq); } .bad { color: var(--bad); } .muted { color: var(--muted); } .gold { color: var(--gold); } .vio { color: var(--vio); }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 1px 10px; font-size: 16px; }
+.kv span:nth-child(odd) { color: var(--muted); }
+.lock { font-size: 15px; }
+</style>
+
+<div class="wrap">
+  <h1>PLOT MAP</h1>
+  <p class="lede">Three layouts for the new full-window plot map (D57 to D64). Each one below is live: drag the empty map to pan, scroll to zoom (up to 16 pixels a block, with a block grid), pick a plot in the list or on the map, then <strong>COPY</strong> it and drag the copy into place, or <strong>UNLOCK</strong> it and move it. A copy or a moved plot turns red where it would partly overlap another, and green when it is clear or sits wholly inside a plot of lower priority.</p>
+  <div class="try"><span><b>Drag</b> map: pan</span><span><b>Wheel</b>: zoom</span><span><b>R</b>: rotate the copy</span><span><b>Click</b> a plot: pick it</span><span>Terrain is made up for the mock-up; the real map uses the server's world.</span></div>
+
+  <h2>A. List on the left <span class="tag">a slim panel, a bar under the map while placing</span></h2>
+  <div class="scroller"><div class="win" id="A"></div></div>
+  <div class="notes">
+    <div><h3>How it works</h3><p>The map fills the window. A slim list on the left has search, type filters and every plot; clicking one snaps the map to it. The picked plot's actions (COPY, UNLOCK) sit at the foot of the list. While placing, a bar along the bottom holds the name, priority, height, ROTATE, CONFIRM and CANCEL.</p></div>
+    <div><h3>Good for</h3><p>Finding plots fast: the list is always there. The map keeps almost the whole window.</p></div>
+    <div><h3>Watch out</h3><p>The bar covers a strip of the map's foot while placing.</p></div>
+  </div>
+
+  <h2>B. Floating cards <span class="tag">the map is everything, cards float over it</span></h2>
+  <div class="scroller"><div class="win" id="B"></div></div>
+  <div class="notes">
+    <div><h3>How it works</h3><p>The whole window is map. The plot list is a card in the top-left corner that folds away; the picked plot gets a small card beside it on the map with COPY and the padlock. While placing, a toolbar follows the copy.</p></div>
+    <div><h3>Good for</h3><p>The most map. Controls appear where you are looking.</p></div>
+    <div><h3>Watch out</h3><p>Cards can sit over the spot you want to see; fold the list or drag the map.</p></div>
+  </div>
+
+  <h2>C. Inspector on the right <span class="tag">list and details in one column</span></h2>
+  <div class="scroller"><div class="win" id="C"></div></div>
+  <div class="notes">
+    <div><h3>How it works</h3><p>The map takes about three quarters of the window. A column on the right lists the plots above and shows the picked plot's details below: size, priority, flags and banned blocks counted, owner, lock. Placement controls appear in the same column.</p></div>
+    <div><h3>Good for</h3><p>Seeing what a plot carries before copying it, and reading every number while placing.</p></div>
+    <div><h3>Watch out</h3><p>A narrower map than A or B.</p></div>
+  </div>
+
+  <h2>To decide</h2>
+  <ol class="dec">
+    <li><strong>Which layout:</strong> A, B or C, or a mix. <span class="pill">default A</span></li>
+    <li><strong>Placing a copy:</strong> it follows the mouse until you click to drop it, then you can keep dragging it before CONFIRM. <span class="pill">default yes</span></li>
+    <li><strong>Snapping:</strong> plots move a whole block at a time, and hold SHIFT to line a copy's edge up with a neighbour's. <span class="pill">default yes</span></li>
+    <li><strong>Other worlds:</strong> a world switch at the top shows another world read-only (a gold frame, as the server switcher does). <span class="pill">default yes</span></li>
+    <li><strong>Undo:</strong> after CONFIRM, an UNDO button for ten seconds puts the plot back. <span class="pill">default yes</span></li>
+  </ol>
+  <p>Already decided: a copy carries size, height range, flags, banned blocks, the buyer's allowed flags, price, messages, triggers and priority, never owners or members, and becomes a new plot for sale with a new name; plots are locked until unlocked; a claim someone owns asks before it moves; partial overlaps are refused, a plot wholly inside another needs a higher priority; only the world you stand in can be edited.</p>
+</div>
+
+<script>
+// ------------------------------------------------------------------ the shared map engine
+const COLOURS = { tq: '#19d3b0', vio: '#b58cff', gold: '#ffd23a', bad: '#ff6b5c', muted: '#9aa3b5' };
+const TYPES = { protected: ['protected', 'tq'], claim: ['claim', 'vio'], sale: ['for sale', 'gold'], open: ['open area', 'gold'] };
+function samplePlots() {
+  return [
+    { id: 'spawn', type: 'protected', x: 54, z: 30, w: 52, d: 40, prio: 10, locked: true, owner: null, y: '60 to 320' },
+    { id: 'market_plots', type: 'open', x: 118, z: 20, w: 46, d: 34, prio: 2, locked: true, owner: null, y: 'full height' },
+    { id: 'plot_east_1', type: 'sale', x: 122, z: 24, w: 12, d: 10, prio: 3, locked: true, owner: null, y: '62 to 90', price: '48,000' },
+    { id: 'plot_east_2', type: 'sale', x: 136, z: 24, w: 12, d: 10, prio: 3, locked: true, owner: null, y: '62 to 90', price: '48,000' },
+    { id: 'alex_bakery', type: 'claim', x: 122, z: 38, w: 16, d: 12, prio: 3, locked: true, owner: 'Alex', y: '62 to 90' },
+    { id: 'sam_workshop', type: 'claim', x: 142, z: 40, w: 14, d: 10, prio: 3, locked: true, owner: 'Sam', y: '62 to 90' },
+    { id: 'shop_stall_a', type: 'sale', x: 64, z: 58, w: 6, d: 6, prio: 11, locked: true, owner: null, y: '64 to 72', price: '9,000' },
+    { id: 'arena', type: 'protected', x: 12, z: 18, w: 30, d: 30, prio: 8, locked: true, owner: null, y: 'full height' },
+  ];
+}
+// made-up terrain: a little value noise, coloured like a map, shaded by height
+function hash(x, z) { let h = x * 374761393 + z * 668265263; h = (h ^ (h >> 13)) * 1274126177; return ((h ^ (h >> 16)) >>> 0) / 4294967295; }
+function smooth(x, z, s) { const xi = Math.floor(x / s), zi = Math.floor(z / s), fx = x / s - xi, fz = z / s - zi;
+  const a = hash(xi, zi), b = hash(xi + 1, zi), c = hash(xi, zi + 1), d = hash(xi + 1, zi + 1);
+  const u = fx * fx * (3 - 2 * fx), v = fz * fz * (3 - 2 * fz); return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v; }
+function height(x, z) { return smooth(x, z, 28) * 0.65 + smooth(x + 99, z, 9) * 0.3 + hash(x, z) * 0.05; }
+const TERRAIN = new Map();
+function blockColour(x, z) {
+  const key = x + ',' + z; if (TERRAIN.has(key)) return TERRAIN.get(key);
+  const h = height(x, z), shade = (height(x, z - 1) - h) * 260;
+  let r, g, b;
+  if (h < 0.22) { r = 52; g = 92; b = 170; }
+  else if (h < 0.25) { r = 214; g = 200; b = 140; }
+  else if (h > 0.8) { r = 140; g = 140; b = 140; }
+  else { const t = hash(x * 3, z * 7); r = 96 + t * 18; g = 150 + t * 22; b = 64 + t * 10; }
+  // paths across spawn and the market
+  if ((Math.abs(z - 50) < 2 && x > 40 && x < 170) || (Math.abs(x - 80) < 2 && z > 10 && z < 90)) { r = 160; g = 132; b = 92; }
+  const k = h < 0.22 ? 0 : shade;
+  const c = `rgb(${Math.max(0, Math.min(255, r - k))},${Math.max(0, Math.min(255, g - k))},${Math.max(0, Math.min(255, b - k))})`;
+  TERRAIN.set(key, c); return c;
+}
+
+function makeMap(host, opts) {
+  const S = { plots: samplePlots(), sel: 'plot_east_1', scale: 6, ox: 70, oz: 6, ghost: null, moving: null, filter: 'all', search: '',
+              mx: 0, mz: 0, dragging: null, msg: '' };
+  const cv = document.createElement('canvas'); host.appendChild(cv);
+  const ctx = cv.getContext('2d');
+  const area = opts.area; // {x,y,w,h} in window pixels
+  cv.width = area.w; cv.height = area.h; cv.style.left = area.x + 'px'; cv.style.top = area.y + 'px';
+  const hud = document.createElement('div'); hud.className = 'hud'; host.appendChild(hud);
+  Object.assign(hud.style, opts.hud || { left: (area.x + 8) + 'px', top: (area.y + 8) + 'px' });
+
+  const toScreen = (bx, bz) => [(bx - S.ox) * S.scale, (bz - S.oz) * S.scale];
+  const toBlock = (px, py) => [Math.floor(px / S.scale + S.ox), Math.floor(py / S.scale + S.oz)];
+  const find = id => S.plots.find(p => p.id === id);
+  const active = () => S.ghost || S.moving;
+
+  // D59: clear, or wholly inside a plot of lower priority; partial overlaps refused
+  function check(r) {
+    for (const p of S.plots) {
+      if (S.moving && p.id === S.moving.id) continue;
+      const ix = r.x < p.x + p.w && r.x + r.w > p.x && r.z < p.z + p.d && r.z + r.d > p.z;
+      if (!ix) continue;
+      const inside = r.x >= p.x && r.z >= p.z && r.x + r.w <= p.x + p.w && r.z + r.d <= p.z + p.d;
+      if (inside && r.prio > p.prio) continue;
+      if (inside) return { ok: false, why: `priority ${r.prio} must be above ${p.id}'s ${p.prio}` };
+      return { ok: false, why: `partly overlaps ${p.id}` };
+    }
+    const outer = S.plots.filter(p => !(S.moving && p.id === S.moving.id) && r.x >= p.x && r.z >= p.z && r.x + r.w <= p.x + p.w && r.z + r.d <= p.z + p.d);
+    return { ok: true, why: outer.length ? `inside ${outer.map(p => p.id).join(', ')}` : 'clear' };
+  }
+
+  function draw() {
+    const W = cv.width, H = cv.height, s = S.scale;
+    const bx0 = Math.floor(S.ox), bz0 = Math.floor(S.oz), bx1 = Math.ceil(S.ox + W / s), bz1 = Math.ceil(S.oz + H / s);
+    for (let x = bx0; x <= bx1; x++) for (let z = bz0; z <= bz1; z++) {
+      const [px, py] = toScreen(x, z); ctx.fillStyle = blockColour(x, z); ctx.fillRect(px, py, Math.ceil(s), Math.ceil(s));
+    }
+    if (s >= 8) { ctx.strokeStyle = 'rgba(0,0,0,.18)'; ctx.lineWidth = 1; ctx.beginPath();
+      for (let x = bx0; x <= bx1; x++) { const [px] = toScreen(x, 0); ctx.moveTo(px + .5, 0); ctx.lineTo(px + .5, H); }
+      for (let z = bz0; z <= bz1; z++) { const [, py] = toScreen(0, z); ctx.moveTo(0, py + .5); ctx.lineTo(W, py + .5); } ctx.stroke(); }
+    for (const p of S.plots) {
+      if (S.moving && p.id === S.moving.id) continue;
+      rect(p, COLOURS[TYPES[p.type][1]], p.id === S.sel, p.type === 'open');
+    }
+    const a = active();
+    if (a) { const c = check(a); rect(a, c.ok ? COLOURS.tq : COLOURS.bad, true, false, true); S.msg = c; }
+    // cursor block
+    const [cx, cy] = toScreen(S.mx, S.mz); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.strokeRect(cx + .5, cy + .5, s - 1, s - 1);
+    hud.textContent = `x ${S.mx}  z ${S.mz}   ${s} px a block`;
+    opts.refresh && opts.refresh(S);
+  }
+  function rect(p, col, picked, dashed, ghost) {
+    const [x, y] = toScreen(p.x, p.z), w = p.w * S.scale, h = p.d * S.scale;
+    ctx.fillStyle = col + (ghost ? '44' : '22'); ctx.fillRect(x, y, w, h);
+    ctx.setLineDash(dashed ? [6, 4] : []); ctx.lineWidth = picked ? 2 : 1; ctx.strokeStyle = picked ? '#ffffff' : col;
+    ctx.strokeRect(x + .5, y + .5, w - 1, h - 1); ctx.setLineDash([]);
+    if (picked && !ghost) { ctx.strokeStyle = col; ctx.lineWidth = 1; ctx.strokeRect(x + 2.5, y + 2.5, w - 5, h - 5); }
+    if (S.scale >= 4) { ctx.font = '15px VT323, monospace'; ctx.fillStyle = col; ctx.fillText((ghost ? (p.id || 'copy') : p.id) + (p.locked === false && !ghost ? '  unlocked' : ''), x + 4, y + 14); }
+  }
+
+  // ------------------------------------------------ input on the map
+  cv.addEventListener('mousemove', e => {
+    const r = cv.getBoundingClientRect(); const px = e.clientX - r.left, py = e.clientY - r.top;
+    [S.mx, S.mz] = toBlock(px, py);
+    if (S.dragging === 'pan') { S.ox -= e.movementX / S.scale; S.oz -= e.movementY / S.scale; }
+    else if (S.dragging && active()) { const a = active(); a.x = S.mx - S.dragging.dx; a.z = S.mz - S.dragging.dz; }
+    else if (S.ghost && S.ghost.following) { S.ghost.x = S.mx - Math.floor(S.ghost.w / 2); S.ghost.z = S.mz - Math.floor(S.ghost.d / 2); }
+    draw();
+  });
+  cv.addEventListener('mousedown', e => {
+    const a = active();
+    if (a && a.following) { a.following = false; draw(); return; }
+    if (a && S.mx >= a.x && S.mx < a.x + a.w && S.mz >= a.z && S.mz < a.z + a.d) { S.dragging = { dx: S.mx - a.x, dz: S.mz - a.z }; return; }
+    const hit = [...S.plots].reverse().find(p => S.mx >= p.x && S.mx < p.x + p.w && S.mz >= p.z && S.mz < p.z + p.d && p.prio >= 0);
+    const smallest = S.plots.filter(p => S.mx >= p.x && S.mx < p.x + p.w && S.mz >= p.z && S.mz < p.z + p.d).sort((p, q) => p.w * p.d - q.w * q.d)[0];
+    if (smallest && !a) { S.sel = smallest.id; draw(); }
+    S.dragging = 'pan';
+  });
+  window.addEventListener('mouseup', () => { S.dragging = null; });
+  cv.addEventListener('wheel', e => { e.preventDefault();
+    const r = cv.getBoundingClientRect(); const px = e.clientX - r.left, py = e.clientY - r.top;
+    const before = [px / S.scale + S.ox, py / S.scale + S.oz];
+    S.scale = Math.max(2, Math.min(16, S.scale + (e.deltaY < 0 ? 1 : -1)));
+    S.ox = before[0] - px / S.scale; S.oz = before[1] - py / S.scale; draw(); }, { passive: false });
+  host.tabIndex = 0;
+  host.addEventListener('keydown', e => { if ((e.key === 'r' || e.key === 'R') && S.ghost) { api.rotate(); } });
+
+  // ------------------------------------------------ actions the panels call
+  const api = {
+    S, draw,
+    snap(id) { const p = find(id); if (!p) return; S.sel = id; S.scale = Math.max(S.scale, 8);
+      S.ox = p.x + p.w / 2 - cv.width / S.scale / 2; S.oz = p.z + p.d / 2 - cv.height / S.scale / 2; draw(); },
+    copy() { const p = find(S.sel); if (!p || active()) return;
+      S.ghost = { ...p, id: p.id + '_2', type: 'sale', owner: null, locked: true, following: true }; host.focus(); draw(); },
+    unlock() { const p = find(S.sel); if (!p || active()) return; p.locked = false;
+      S.moving = { ...p, origin: { x: p.x, z: p.z } }; draw(); },
+    rotate() { const a = active(); if (!a) return; [a.w, a.d] = [a.d, a.w]; draw(); },
+    prio(d) { const a = active(); if (a) { a.prio = Math.max(0, a.prio + d); draw(); } },
+    rename(v) { if (S.ghost) S.ghost.id = v; },
+    confirm() { const a = active(); if (!a || !check(a).ok) return;
+      if (S.ghost) { const id = S.ghost.id || 'plot_copy'; S.plots.push({ ...S.ghost, id, following: false }); S.sel = id; S.ghost = null; }
+      else { const p = find(S.moving.id); p.x = S.moving.x; p.z = S.moving.z; p.w = S.moving.w; p.d = S.moving.d; p.prio = S.moving.prio; p.locked = true; S.moving = null; }
+      draw(); },
+    cancel() { if (S.moving) find(S.moving.id).locked = true; S.ghost = null; S.moving = null; draw(); },
+    visible() { return S.plots.filter(p => (S.filter === 'all' || p.type === S.filter) && p.id.includes(S.search.toLowerCase())); },
+  };
+  return api;
+}
+
+function listRows(map, el) {
+  const S = map.S;
+  el.innerHTML = map.visible().map(p => `<div class="row${p.id === S.sel ? ' sel' : ''}" data-id="${p.id}"><i class="sw" style="border-color:${COLOURS[TYPES[p.type][1]]};background:${COLOURS[TYPES[p.type][1]]}33"></i>${p.id}<span class="k">${p.locked ? 'locked' : 'UNLOCKED'}</span></div>`).join('');
+  el.querySelectorAll('.row').forEach(r => r.onclick = () => map.snap(r.dataset.id));
+}
+function filterChips(map, el) {
+  const S = map.S;
+  el.innerHTML = [['all', 'ALL'], ['sale', 'FOR SALE'], ['claim', 'CLAIMS'], ['open', 'OPEN']].map(([k, t]) => `<span class="chip${S.filter === k ? ' on' : ''}" data-k="${k}">${t}</span>`).join('');
+  el.querySelectorAll('.chip').forEach(c => c.onclick = () => { S.filter = c.dataset.k; map.draw(); });
+}
+function statusLine(S) {
+  if (!S.ghost && !S.moving) return '';
+  const c = S.msg || { ok: true, why: '' };
+  return `<span class="${c.ok ? 'ok' : 'bad'}">${c.ok ? 'OK' : 'NO'}: ${c.why}</span>`;
+}
+function worldBar(host, left) {
+  const b = document.createElement('div'); b.className = 'pnl'; Object.assign(b.style, { left: left + 'px', top: '8px', padding: '3px 8px', display: 'flex', gap: '8px', alignItems: 'center' });
+  b.innerHTML = `<span class="lbl">WORLD</span><span class="btn" style="height:20px">&lt;</span><span style="font-size:17px">overworld</span><span class="btn" style="height:20px">&gt;</span><span class="lbl">survival-1 - editable</span>`;
+  host.appendChild(b);
+}
+
+// ------------------------------------------------------------------ option A: list on the left, bar while placing
+(function () {
+  const host = document.getElementById('A');
+  const side = document.createElement('div'); side.className = 'pnl tq';
+  Object.assign(side.style, { left: '0', top: '0', width: '210px', height: '540px', display: 'flex', flexDirection: 'column', gap: '6px', padding: '8px' });
+  side.innerHTML = `<div class="ttl">PLOT MAP</div><input class="field" id="Asearch" placeholder="search plots" aria-label="search plots"><div class="chips" id="Achips"></div>
+    <div class="list" id="Alist" style="flex:1;border:1px solid var(--line);background:var(--inset)"></div>
+    <div id="Asel" class="kv"></div><div style="display:flex;gap:6px"><span class="btn gold" id="Acopy">COPY</span><span class="btn" id="Aunlock">UNLOCK</span></div>
+    <div class="btn" style="width:100%">BACK TO REGIONS</div>`;
+  host.appendChild(side);
+  const bar = document.createElement('div'); bar.className = 'pnl tq';
+  Object.assign(bar.style, { left: '210px', top: '488px', width: '750px', height: '52px', display: 'none', alignItems: 'center', gap: '8px', padding: '0 10px' });
+  bar.innerHTML = `<span class="lbl">NAME</span><input class="field" id="Aname" style="width:150px" aria-label="name"><span class="lbl">PRIORITY</span><span class="btn" id="Apd">-</span><span id="Ap" style="font-size:18px">0</span><span class="btn" id="Apu">+</span>
+    <span class="lbl">HEIGHT</span><span class="btn">&#9650;</span><span class="btn">&#9660;</span><span class="btn" id="Arot">ROTATE</span><span class="status" id="Ast" style="flex:1"></span><span class="btn go" id="Aok">CONFIRM</span><span class="btn no" id="Ano">CANCEL</span>`;
+  host.appendChild(bar);
+  const map = makeMap(host, { area: { x: 210, y: 0, w: 750, h: 540 }, hud: { left: '218px', top: '40px' }, refresh: S => {
+    listRows(map, host.querySelector('#Alist')); filterChips(map, host.querySelector('#Achips'));
+    const p = S.plots.find(q => q.id === S.sel);
+    host.querySelector('#Asel').innerHTML = p ? `<span>picked</span><span>${p.id}</span><span>size</span><span>${p.w} x ${p.d}, y ${p.y}</span><span>priority</span><span>${p.prio}</span><span>owner</span><span>${p.owner || 'none'}</span>` : '';
+    const a = S.ghost || S.moving;
+    bar.style.display = a ? 'flex' : 'none';
+    if (a) { host.querySelector('#Ap').textContent = a.prio; host.querySelector('#Ast').innerHTML = statusLine(S);
+      host.querySelector('#Aname').disabled = !S.ghost; if (document.activeElement !== host.querySelector('#Aname')) host.querySelector('#Aname').value = S.ghost ? S.ghost.id : S.moving.id; }
+  }});
+  worldBar(host, 560);
+  host.querySelector('#Asearch').oninput = e => { map.S.search = e.target.value; map.draw(); };
+  host.querySelector('#Acopy').onclick = () => map.copy(); host.querySelector('#Aunlock').onclick = () => map.unlock();
+  host.querySelector('#Arot').onclick = () => map.rotate(); host.querySelector('#Apu').onclick = () => map.prio(1); host.querySelector('#Apd').onclick = () => map.prio(-1);
+  host.querySelector('#Aname').oninput = e => map.rename(e.target.value);
+  host.querySelector('#Aok').onclick = () => map.confirm(); host.querySelector('#Ano').onclick = () => map.cancel();
+  map.draw();
+})();
+
+// ------------------------------------------------------------------ option B: floating cards
+(function () {
+  const host = document.getElementById('B');
+  const map = makeMap(host, { area: { x: 0, y: 0, w: 960, h: 540 }, hud: { right: '8px', bottom: '8px' }, refresh: S => {
+    listRows(map, host.querySelector('#Blist')); filterChips(map, host.querySelector('#Bchips'));
+    const p = S.plots.find(q => q.id === S.sel); const a = S.ghost || S.moving;
+    const card = host.querySelector('#Bcard'), tool = host.querySelector('#Btool');
+    if (p && !a) { const x = (p.x + p.w - S.ox) * S.scale + 8, y = (p.z - S.oz) * S.scale;
+      card.style.display = 'block'; card.style.left = Math.min(820, Math.max(240, x)) + 'px'; card.style.top = Math.min(470, Math.max(40, y)) + 'px';
+      card.querySelector('#Bwho').innerHTML = `${p.id}<br><span class="muted" style="font-size:14px">${p.w} x ${p.d} - prio ${p.prio}</span>`; }
+    else card.style.display = 'none';
+    if (a) { const x = (a.x - S.ox) * S.scale, y = (a.z + a.d - S.oz) * S.scale + 6;
+      tool.style.display = 'flex'; tool.style.left = Math.min(560, Math.max(240, x)) + 'px'; tool.style.top = Math.min(500, Math.max(40, y)) + 'px';
+      host.querySelector('#Bp').textContent = a.prio; host.querySelector('#Bst').innerHTML = statusLine(S); }
+    else tool.style.display = 'none';
+  }});
+  const list = document.createElement('div'); list.className = 'pnl tq';
+  Object.assign(list.style, { left: '8px', top: '8px', width: '220px', padding: '6px', display: 'flex', flexDirection: 'column', gap: '5px' });
+  list.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center"><span class="ttl">PLOTS</span><span class="btn" id="Bfold" style="height:20px">FOLD</span></div>
+    <div id="Bbody" style="display:flex;flex-direction:column;gap:5px"><input class="field" placeholder="search plots" aria-label="search plots" id="Bsearch"><div class="chips" id="Bchips"></div>
+    <div class="list" id="Blist" style="max-height:300px;border:1px solid var(--line);background:var(--inset)"></div></div>`;
+  host.appendChild(list);
+  const card = document.createElement('div'); card.className = 'pnl'; card.id = 'Bcard';
+  Object.assign(card.style, { padding: '6px 8px', width: '130px' });
+  card.innerHTML = `<div id="Bwho" style="font-size:17px"></div><div style="display:flex;gap:4px;margin-top:5px"><span class="btn gold" id="Bcopy">COPY</span><span class="btn" id="Bunlock">&#128274;</span></div>`;
+  host.appendChild(card);
+  const tool = document.createElement('div'); tool.className = 'pnl tq'; tool.id = 'Btool';
+  Object.assign(tool.style, { display: 'none', alignItems: 'center', gap: '5px', padding: '4px 6px' });
+  tool.innerHTML = `<span class="lbl">P</span><span class="btn" id="Bpd">-</span><span id="Bp">0</span><span class="btn" id="Bpu">+</span><span class="btn">&#9650;</span><span class="btn">&#9660;</span><span class="btn" id="Brot">&#8635;</span><span class="status" id="Bst"></span><span class="btn go" id="Bok">&#10003;</span><span class="btn no" id="Bno">&#10005;</span>`;
+  host.appendChild(tool);
+  worldBar(host, 600);
+  host.querySelector('#Bfold').onclick = () => { const b = host.querySelector('#Bbody'); b.hidden = !b.hidden; };
+  host.querySelector('#Bsearch').oninput = e => { map.S.search = e.target.value; map.draw(); };
+  host.querySelector('#Bcopy').onclick = () => map.copy(); host.querySelector('#Bunlock').onclick = () => map.unlock();
+  host.querySelector('#Brot').onclick = () => map.rotate(); host.querySelector('#Bpu').onclick = () => map.prio(1); host.querySelector('#Bpd').onclick = () => map.prio(-1);
+  host.querySelector('#Bok').onclick = () => map.confirm(); host.querySelector('#Bno').onclick = () => map.cancel();
+  map.draw();
+})();
+
+// ------------------------------------------------------------------ option C: inspector on the right
+(function () {
+  const host = document.getElementById('C');
+  const col = document.createElement('div'); col.className = 'pnl tq';
+  Object.assign(col.style, { left: '720px', top: '0', width: '240px', height: '540px', padding: '8px', display: 'flex', flexDirection: 'column', gap: '6px' });
+  col.innerHTML = `<div class="ttl">PLOT MAP</div><input class="field" placeholder="search plots" aria-label="search plots" id="Csearch"><div class="chips" id="Cchips"></div>
+    <div class="list" id="Clist" style="height:150px;border:1px solid var(--line);background:var(--inset)"></div>
+    <div style="border-top:1px solid var(--line);padding-top:6px" class="kv" id="Cinfo"></div>
+    <div style="display:flex;gap:6px" id="Cacts"><span class="btn gold" id="Ccopy">COPY</span><span class="btn" id="Cunlock">&#128274; UNLOCK</span></div>
+    <div id="Cplace" style="display:none;flex-direction:column;gap:6px;border-top:1px solid var(--line);padding-top:6px">
+      <div style="display:flex;gap:6px;align-items:center"><span class="lbl">NAME</span><input class="field" id="Cname" style="flex:1;min-width:0" aria-label="name"></div>
+      <div style="display:flex;gap:6px;align-items:center"><span class="lbl">PRIORITY</span><span class="btn" id="Cpd">-</span><span id="Cp" style="font-size:18px">0</span><span class="btn" id="Cpu">+</span></div>
+      <div style="display:flex;gap:6px;align-items:center"><span class="lbl">HEIGHT</span><span class="btn">&#9650;</span><span class="btn">&#9660;</span><span class="btn" id="Crot">ROTATE</span></div>
+      <div class="status" id="Cst"></div><div style="display:flex;gap:6px"><span class="btn go" id="Cok">CONFIRM</span><span class="btn no" id="Cno">CANCEL</span></div></div>`;
+  host.appendChild(col);
+  const map = makeMap(host, { area: { x: 0, y: 0, w: 720, h: 540 }, hud: { left: '8px', bottom: '8px' }, refresh: S => {
+    listRows(map, host.querySelector('#Clist')); filterChips(map, host.querySelector('#Cchips'));
+    const p = S.plots.find(q => q.id === S.sel); const a = S.ghost || S.moving;
+    host.querySelector('#Cinfo').innerHTML = p ? `<span>plot</span><span>${p.id}</span><span>type</span><span class="${TYPES[p.type][1]}">${TYPES[p.type][0]}</span><span>size</span><span>${p.w} x ${p.d}</span><span>height</span><span>y ${p.y}</span><span>priority</span><span>${p.prio}</span><span>flags</span><span>9 set</span><span>banned</span><span>3 blocks</span><span>price</span><span>${p.price || '-'}</span><span>owner</span><span>${p.owner || 'none'}</span><span>lock</span><span>${p.locked ? 'locked' : 'UNLOCKED'}</span>` : '';
+    host.querySelector('#Cacts').style.display = a ? 'none' : 'flex';
+    const pl = host.querySelector('#Cplace'); pl.style.display = a ? 'flex' : 'none';
+    if (a) { host.querySelector('#Cp').textContent = a.prio; host.querySelector('#Cst').innerHTML = statusLine(S); host.querySelector('#Cname').disabled = !S.ghost;
+      if (document.activeElement !== host.querySelector('#Cname')) host.querySelector('#Cname').value = S.ghost ? S.ghost.id : S.moving.id; }
+  }});
+  worldBar(host, 360);
+  host.querySelector('#Csearch').oninput = e => { map.S.search = e.target.value; map.draw(); };
+  host.querySelector('#Ccopy').onclick = () => map.copy(); host.querySelector('#Cunlock').onclick = () => map.unlock();
+  host.querySelector('#Crot').onclick = () => map.rotate(); host.querySelector('#Cpu').onclick = () => map.prio(1); host.querySelector('#Cpd').onclick = () => map.prio(-1);
+  host.querySelector('#Cname').oninput = e => map.rename(e.target.value);
+  host.querySelector('#Cok').onclick = () => map.confirm(); host.querySelector('#Cno').onclick = () => map.cancel();
+  map.draw();
+})();
+</script>

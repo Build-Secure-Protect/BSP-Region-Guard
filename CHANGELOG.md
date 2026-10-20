@@ -4,6 +4,41 @@ All notable changes to BSP Region Guard. Format follows Keep a Changelog; versio
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-20
+
+The plot map: copy, move, back up and find plots on a full-window map. Network protocol 6: servers and players need this version together.
+
+### Fixed (2026-10-20)
+- The plot map's PLOTS card drew its filter buttons over the search box; they now sit below it.
+
+### Added (2026-10-20, moving a plot's blocks)
+- **MOVE BLOCKS / COPY BLOCKS** on the plot map's toolbar (owner decisions D67 to D70). A plot's blocks travel with it when it is moved or pasted:
+  - **What goes:** chest contents, signs and other block entities, plus item frames, armour stands, paintings and animals. Blocks turn with a turned plot.
+  - **Batches:** large plots move a little each tick against a time budget, with a progress line. Players standing inside go along.
+  - **The old spot** is rebuilt as natural ground from the world's generator: its shape, water and caves, with the biome's grass, sand, deepslate and bedrock. Trees, ores and structures don't regrow.
+  - **Backups first:** both spots are saved to `world/bsp_region_guard/backups/plots/` before anything is overwritten, and UNDO puts both back from them.
+  - Copying a plot with its blocks copies chest contents too.
+- **BACKUP and BACKUPS on a plot's card:** save a plot's blocks at any time, list its backups, and click one twice to restore it. By command: `/rg plot backup <plot>`, `/rg plot backups <plot>`, `/rg plot restore <file>`.
+- Two GameTests (89 in all).
+
+### Added (2026-10-20, the plot map screen)
+- **The plot map** (owner decisions D57 to D66, mock-up option B): `/rg plotmap` or PLOT MAP under the admin screen's region list.
+- **The map:** the whole window is a map of the world, from one pixel a block up to 16 with a block grid and the x/z under the cursor. It shows plots for sale, claims and open areas.
+- **Finding plots:** a folding PLOTS card searches and filters them; click one to snap to it.
+- **Copying:** the picked plot's card has COPY. The copy follows the mouse until a click drops it, then drags.
+- **Moving:** the card's UNLOCK lets the plot move the same way; cancelling locks it again.
+- **The toolbar under a copy or moved plot:** the copy's name, priority, height ▲/▼, ROTATE (or R), SNAP (lines edges up with neighbours; SHIFT flips it), CONFIRM and CANCEL. It shows red with the reason where it would partly overlap a plot or needs a higher priority.
+- **Claims someone owns** ask before they move.
+- **UNDO and REDO** take back or redo the last 15 actions.
+- **Other worlds** can be viewed with the world switch (gold frame, read-only); only the world you stand in can be edited.
+- One GameTest (87 in all). Network protocol 6.
+
+### Added (2026-10-20, plot map terrain)
+- The plot map's terrain (D61): the server colours chunks as a Minecraft map would (top block, shaded by slope, water by depth), answering loaded chunks at once and loading finished chunks from disk a few per tick. Ground that was never generated comes back empty and is never generated. Colours are cached per world and refreshed on request. Admins only. Network protocol 6. Two GameTests (86 in all).
+
+### Added (2026-10-20, plot map, server side)
+- The groundwork for the plot map (owner decisions D57 to D65): copying a plot to a new plot for sale (size, height span, flags and banned blocks, the buyer's allowed flags, price, messages, triggers and priority; never owners or members; turned 90 degrees if wanted; teleport and respawn points move with it), moving a plot once unlocked (plots are locked until an admin unlocks them, and lock again after a move; a claim someone owns moves only after the admin confirms), the nesting rule (a plot may sit wholly inside a plot, claim or open area of lower priority; never partly overlap one or cover one), and undo/redo of each admin's last 15 pastes and moves. Admins only, in the world they stand in. The map screen follows. Four GameTests (84 in all).
+
 ## [0.2.0] - 2026-10-19
 
 Banned blocks per region. Built against BSP Core 1.3.0 (requires 1.1.0 or newer). Network protocol 5: servers and players need this version together.

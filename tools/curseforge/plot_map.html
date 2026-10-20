@@ -1,0 +1,91 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="size" content="640x360"><link rel="stylesheet" href="holo.css">
+<style>
+/* Laid out from client/PlotMapScreen.java: the whole window is map; PLOTS card at (8,8) 170 wide, search at y 26,
+   filters at y 42, rows from y 66 (11 high); world bar top right; UNDO/REDO top centre; toolbar under the copy. */
+canvas { position: absolute; left: 0; top: 0; image-rendering: pixelated; }
+.card { position: absolute; background: rgba(16,21,28,.94); border: 1px solid var(--line); border-radius: 0; padding: 0; }
+.ch { position: absolute; display: flex; align-items: center; justify-content: center; font-size: 8px; line-height: 1; white-space: nowrap;
+    background: var(--inset); border: 1px solid var(--line); color: var(--muted); }
+.ch.on { color: var(--tq); border-color: var(--tq); background: rgba(25,211,176,.15); }
+.ch.gold { color: var(--gold); border-color: var(--gold); background: rgba(255,210,58,.15); }
+.ch.bad { color: var(--bad); border-color: var(--bad); }
+.t { position: absolute; font-size: 9px; line-height: 1; white-space: nowrap; }
+.row { position: absolute; left: 4px; width: 162px; height: 11px; }
+.row i { position: absolute; left: 3px; top: 3px; width: 5px; height: 5px; }
+.row b { position: absolute; left: 12px; top: 1px; font-weight: normal; font-size: 9px; color: var(--text); }
+.row s { position: absolute; right: 4px; top: 1px; text-decoration: none; font-size: 9px; color: var(--bad); }
+</style></head>
+<body>
+<canvas id="c" width="1920" height="1080" style="width:640px;height:360px"></canvas>
+<div id="ui"></div>
+<script>
+// ---- made-up terrain, top-down, coloured like a Minecraft map (8 px a block, 80 x 45 blocks)
+function hash(x, z) { let h = x * 374761393 + z * 668265263; h = (h ^ (h >> 13)) * 1274126177; return ((h ^ (h >> 16)) >>> 0) / 4294967295; }
+function smooth(x, z, s) { const xi = Math.floor(x / s), zi = Math.floor(z / s), fx = x / s - xi, fz = z / s - zi;
+  const a = hash(xi, zi), b = hash(xi + 1, zi), c = hash(xi, zi + 1), d = hash(xi + 1, zi + 1);
+  const u = fx * fx * (3 - 2 * fx), v = fz * fz * (3 - 2 * fz); return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v; }
+const H = (x, z) => smooth(x + 40, z + 7, 16) * 0.7 + smooth(x, z + 50, 6) * 0.3 + 0.18;
+const S = 8, ctx = document.getElementById('c').getContext('2d'); ctx.scale(3, 3);
+for (let x = 0; x < 80; x++) for (let z = 0; z < 45; z++) {
+  const h = H(x, z), n = H(x, z - 1); let col;
+  if (h < 0.28) col = [64, 96, 168];
+  else if (h < 0.32) col = [214, 200, 140];
+  else { const t = hash(x * 3, z * 5); col = [104 + t * 16, 152 + t * 18, 70 + t * 8]; }
+  if ((z === 22 || z === 23) && x > 4) col = [150, 128, 96]; // a path
+  if ((x === 30 || x === 31) && z < 40) col = [150, 128, 96];
+  const k = h < 0.28 ? 0 : (h > n ? 14 : h < n ? -14 : 0);
+  ctx.fillStyle = `rgb(${col[0] + k},${col[1] + k},${col[2] + k})`; ctx.fillRect(x * S, z * S, S, S);
+}
+ctx.fillStyle = 'rgba(0,0,0,.19)';
+for (let x = 0; x <= 80; x++) ctx.fillRect(x * S, 0, 1, 360);
+for (let z = 0; z <= 45; z++) ctx.fillRect(0, z * S, 640, 1);
+// ---- plots: [id, x, z, w, d, colour, filled]
+const GOLD = '#ffd23a', VIO = '#b58cff', TQ = '#19d3b0';
+const plots = [['market_plots', 34, 4, 38, 17, GOLD, false], ['plot_east_1', 36, 6, 7, 6, GOLD, true], ['plot_east_2', 45, 6, 7, 6, GOLD, true],
+  ['alex_bakery', 54, 6, 8, 6, VIO, true], ['sam_workshop', 36, 14, 8, 5, VIO, true], ['plot_east_3', 46, 14, 7, 6, TQ, true]];
+for (const [id, x, z, w, d, c, filled] of plots) {
+  if (filled) { ctx.fillStyle = c + (c === TQ ? '55' : '33'); ctx.fillRect(x * S, z * S, w * S, d * S); }
+  ctx.strokeStyle = id === 'plot_east_3' ? '#fff' : c; ctx.lineWidth = 1; ctx.strokeRect(x * S + .5, z * S + .5, w * S - 1, d * S - 1);
+  if (id === 'plot_east_3') { ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.strokeRect(x * S - .5, z * S - .5, w * S + 1, d * S + 1); }
+  ctx.font = '9px VT323, monospace'; ctx.fillStyle = c; if (id !== 'plot_east_3') ctx.fillText(id, x * S + 3, z * S + 9);
+}
+// cursor block
+ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.strokeRect(49 * S + .5, 16 * S + .5, S - 1, S - 1);
+
+// ---- the cards
+const ui = document.getElementById('ui');
+const add = h => ui.insertAdjacentHTML('beforeend', h);
+// PLOTS card
+add(`<div class="card" style="left:8px;top:8px;width:170px;height:150px;border-color:var(--tq)"></div>`);
+add(`<div class="t tq" style="left:14px;top:14px">PLOTS</div><div class="ch" style="left:138px;top:12px;width:34px;height:12px">FOLD</div>`);
+add(`<div class="abs" style="left:14px;top:26px;width:158px;height:12px;background:#000;border:1px solid #a0a0a0"></div><div class="t text" style="left:17px;top:28px">east</div>`);
+[['ALL', 26, true], ['SALE', 32], ['CLAIM', 38], ['OPEN', 32]].reduce((x, [t, w, on]) => { add(`<div class="ch${on ? ' on' : ''}" style="left:${x}px;top:42px;width:${w}px;height:12px">${t}</div>`); return x + w + 3; }, 14);
+add(`<div class="abs" style="left:12px;top:65px;width:162px;height:${7 * 11 + 2}px;background:var(--inset)"></div>`);
+[['plot_east_1', GOLD], ['plot_east_2', GOLD], ['plot_east_3', GOLD, false, true], ['alex_bakery', VIO], ['sam_workshop', VIO, true], ['east_market', GOLD], ['east_gate', GOLD]]
+  .forEach(([id, c, unlocked, sel], i) => add(`<div class="row" style="left:12px;top:${66 + i * 11}px;${sel ? 'background:rgba(25,211,176,.2)' : ''}"><i style="background:${c}"></i><b>${id}</b>${unlocked ? '<s>UNLOCKED</s>' : ''}</div>`));
+// world bar
+add(`<div class="card" style="left:446px;top:8px;width:186px;height:20px;border-color:var(--tq)"></div>`);
+add(`<div class="ch" style="left:450px;top:12px;width:12px;height:12px;color:var(--text)">&lt;</div><div class="t text" style="left:466px;top:14px">overworld</div>`);
+add(`<div class="ch" style="left:506px;top:12px;width:12px;height:12px;color:var(--text)">&gt;</div><div class="t muted" style="left:522px;top:14px">you are here - editable</div>`);
+add(`<div class="ch" style="left:606px;top:12px;width:22px;height:12px">&#8635;</div>`);
+// undo / redo
+add(`<div class="card" style="left:264px;top:6px;width:110px;height:20px"></div>`);
+add(`<div class="ch on" style="left:268px;top:10px;width:48px;height:12px">UNDO (3)</div><div class="ch" style="left:322px;top:10px;width:48px;height:12px;color:#4a5060">REDO (0)</div>`);
+// toolbar under the copy
+const tx = 132, ty = 20 * S + 6;
+add(`<div class="card" style="left:${tx}px;top:${ty}px;width:504px;height:34px;border-color:var(--tq)"></div>`);
+add(`<div class="abs" style="left:${tx + 5}px;top:${ty + 4}px;width:110px;height:12px;background:#000;border:1px solid #a0a0a0"></div><div class="t text" style="left:${tx + 8}px;top:${ty + 6}px">plot_east_3</div>`);
+const cx = tx + 121;
+add(`<div class="t text" style="left:${cx}px;top:${ty + 6}px">P 3</div>`);
+add(`<div class="ch" style="left:${cx + 28}px;top:${ty + 4}px;width:12px;height:12px;color:var(--text)">-</div><div class="ch" style="left:${cx + 42}px;top:${ty + 4}px;width:12px;height:12px;color:var(--text)">+</div>`);
+add(`<div class="ch" style="left:${cx + 60}px;top:${ty + 4}px;width:14px;height:12px;color:var(--text)">&#9650;</div><div class="ch" style="left:${cx + 76}px;top:${ty + 4}px;width:14px;height:12px;color:var(--text)">&#9660;</div>`);
+add(`<div class="ch" style="left:${cx + 94}px;top:${ty + 4}px;width:44px;height:12px;color:var(--text)">ROTATE</div><div class="ch on" style="left:${cx + 142}px;top:${ty + 4}px;width:36px;height:12px">SNAP</div>`);
+add(`<div class="ch gold" style="left:${cx + 182}px;top:${ty + 4}px;width:74px;height:12px">COPY BLOCKS</div>`);
+add(`<div class="ch on" style="left:${cx + 260}px;top:${ty + 4}px;width:54px;height:12px">CONFIRM</div><div class="ch bad" style="left:${cx + 318}px;top:${ty + 4}px;width:48px;height:12px">CANCEL</div>`);
+add(`<div class="t muted" style="left:${tx + 5}px;top:${ty + 21}px">fits at x 412, z -210, y 64 to 72 - inside market_plots, priority 3 above its 2</div>`);
+// HUD and message
+add(`<div class="abs" style="left:478px;top:344px;width:158px;height:12px;background:rgba(5,6,8,.75)"></div><div class="t text" style="left:482px;top:346px">x 413  z -204   8 px a block</div>`);
+add(`<div class="abs" style="left:4px;top:344px;width:300px;height:12px;background:rgba(5,6,8,.75)"></div><div class="t tq" style="left:6px;top:346px">plot_east_2 is pasted: a copy of plot_east_1, for sale at 48,000 pieces.</div>`);
+</script>
+</body></html>

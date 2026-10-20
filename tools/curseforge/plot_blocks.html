@@ -1,0 +1,45 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="size" content="580x190"><link rel="stylesheet" href="holo.css">
+<style>
+.panel { position: absolute; top: 44px; width: 170px; height: 112px; border: 1px solid var(--line); background: #10151c; }
+.panel h4 { position: absolute; left: 6px; top: 4px; margin: 0; font-family: VT323; font-weight: normal; font-size: 11px; }
+.panel canvas { position: absolute; left: 6px; top: 20px; image-rendering: pixelated; }
+.panel p { position: absolute; left: 6px; bottom: 4px; margin: 0; width: 158px; font-family: "IBM Plex Sans"; font-size: 5.6px; color: var(--muted); line-height: 1.4; }
+</style></head>
+<body style="background:#0c1016">
+<div class="abs" style="left:20px;top:14px;font-size:16px;color:var(--gold)">MOVE BLOCKS: THE BUILD GOES WITH THE PLOT</div>
+<div class="abs cap" style="left:20px;top:32px;font-size:7px;color:var(--muted)">Switch MOVE BLOCKS (or COPY BLOCKS when pasting) on in the toolbar before CONFIRM.</div>
+<div class="panel" style="left:20px"><h4 class="text">1 BEFORE</h4><canvas id="a" width="158" height="62"></canvas><p>A claim with a build: a shop, a chest of stock, a sign, a sheep.</p></div>
+<div class="arrow" style="left:194px;top:90px">&#8594;</div>
+<div class="panel" style="left:210px"><h4 class="tq">2 MOVED AND TURNED</h4><canvas id="b" width="158" height="62"></canvas><p>Blocks, chest contents, signs, frames and animals arrive turned with the plot. The old spot is natural ground again, rebuilt from the world seed.</p></div>
+<div class="arrow" style="left:384px;top:90px">&#8594;</div>
+<div class="panel" style="left:400px;border-color:var(--gold)"><h4 class="gold">3 SAFE TO UNDO</h4>
+<div class="abs" style="left:6px;top:20px;width:158px;height:62px;background:var(--inset)"></div>
+<div class="chip" style="left:9px;top:24px;width:152px;height:12px;font-size:6px">alex_bakery ... before-from.nbt</div>
+<div class="chip" style="left:9px;top:40px;width:152px;height:12px;font-size:6px">alex_bakery ... before-to.nbt</div>
+<div class="chip on" style="left:9px;top:58px;width:60px;height:14px;font-size:8px">UNDO (1)</div>
+<p>Both spots were backed up first. UNDO puts everything back; BACKUP and RESTORE work any time.</p></div>
+<script>
+function draw(id, plots) {
+  const ctx = document.getElementById(id).getContext('2d'), S = 6;
+  for (let x = 0; x < 27; x++) for (let z = 0; z < 11; z++) { const t = ((x * 7 + z * 13) % 5) / 5; ctx.fillStyle = `rgb(${104 + t * 16},${152 + t * 18},${70 + t * 8})`; ctx.fillRect(x * S, z * S, S, S); }
+  for (const p of plots) {
+    if (p.build) {
+      ctx.fillStyle = '#8a6a42'; ctx.fillRect(p.x * S, p.z * S, p.w * S, p.d * S);
+      ctx.fillStyle = '#b07a3a'; ctx.fillRect((p.x + 1) * S, (p.z + 1) * S, (p.w - 2) * S, (p.d - 2) * S);
+      ctx.fillStyle = '#c8a050'; ctx.fillRect((p.cx) * S, (p.cz) * S, S, S); // chest
+      ctx.fillStyle = '#eee'; ctx.fillRect((p.sx) * S + 1, (p.sz) * S + 1, S - 2, S - 2); // sheep
+    }
+    ctx.strokeStyle = p.c; ctx.lineWidth = 1; ctx.strokeRect(p.x * S + .5, p.z * S + .5, p.w * S - 1, p.d * S - 1);
+  }
+}
+draw('a', [{ x: 3, z: 2, w: 8, d: 6, c: '#b58cff', build: true, cx: 4, cz: 3, sx: 8, sz: 5 }]);
+draw('b', [{ x: 3, z: 2, w: 8, d: 6, c: 'rgba(181,140,255,.35)' }, { x: 16, z: 1, w: 6, d: 8, c: '#19d3b0', build: true, cx: 20, cz: 2, sx: 18, sz: 6 }]);
+(function () { return; const ctx = null;
+  ctx.fillStyle = '#0c0e12'; ctx.fillRect(0, 0, 158, 62);
+  ctx.font = '9px VT323, monospace';
+  [['alex_bakery__20261020__before-from.nbt', '#9aa3b5'], ['alex_bakery__20261020__before-to.nbt', '#9aa3b5'], ['UNDO (1)', '#19d3b0']].forEach(([t, c], i) => {
+    ctx.strokeStyle = c; ctx.strokeRect(3.5, 5.5 + i * 18, 151, 13); ctx.fillStyle = c; ctx.fillText(t, 7, 15 + i * 18); });
+})();
+</script>
+</body></html>

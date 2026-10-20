@@ -49,6 +49,15 @@ import java.util.UUID;
  * <p>Every command works on the world the player stands in. Region ids are per world.
  */
 public final class RegionCommands {
+    private static int plotResult(CommandSourceStack src, com.mrgregles.bsp_region_guard.claim.PlotMap.Result r) {
+        if (r.ok()) {
+            src.sendSuccess(() -> Component.literal(r.message()), false);
+            return 1;
+        }
+        src.sendFailure(Component.literal(r.message()));
+        return 0;
+    }
+
     private static final SimpleCommandExceptionType NOT_A_PLAYER = new SimpleCommandExceptionType(Component.literal("Only a player can do that."));
 
     private static final SuggestionProvider<CommandSourceStack> REGION_IDS = (ctx, b) ->
@@ -213,6 +222,27 @@ public final class RegionCommands {
             }
             return ok(ctx.getSource(), sb.toString());
         })));
+        rg.then(Commands.literal("plotmap").executes(ctx -> {
+            ServerPlayer p = player(ctx.getSource());
+            if (!com.mrgregles.bsp_region_guard.compat.BspCore.isAdmin(p)) {
+                ctx.getSource().sendFailure(Component.literal("Only BSP-Core admins can use the plot map."));
+                return 0;
+            }
+            com.mrgregles.bsp_region_guard.network.PlotMapSync.open(p);
+            return 1;
+        }));
+        // D69: backups of a plot's blocks
+        rg.then(Commands.literal("plot")
+                .then(Commands.literal("backup").then(id().executes(ctx -> plotResult(ctx.getSource(),
+                        com.mrgregles.bsp_region_guard.claim.PlotMap.backup(player(ctx.getSource()), id(ctx))))))
+                .then(Commands.literal("backups").then(id().executes(ctx -> {
+                    var files = com.mrgregles.bsp_region_guard.claim.PlotBlocks.backups(ctx.getSource().getServer(), id(ctx));
+                    ctx.getSource().sendSuccess(() -> Component.literal(files.isEmpty() ? "No backups of " + id(ctx) + " yet."
+                            : "Backups of " + id(ctx) + ", newest first:\n  " + String.join("\n  ", files)), false);
+                    return files.size();
+                })))
+                .then(Commands.literal("restore").then(Commands.argument("file", StringArgumentType.string()).executes(ctx -> plotResult(ctx.getSource(),
+                        com.mrgregles.bsp_region_guard.claim.PlotMap.restore(player(ctx.getSource()), StringArgumentType.getString(ctx, "file")))))));
         rg.then(Commands.literal("gui").executes(ctx -> {
             com.mrgregles.bsp_region_guard.network.RegionSync.open(player(ctx.getSource()));
             return 1;

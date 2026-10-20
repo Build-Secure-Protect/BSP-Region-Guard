@@ -1,0 +1,38 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="size" content="380x200"><link rel="stylesheet" href="holo.css">
+<style>
+/* The picked plot's card from client/PlotMapScreen.java (150 x 78) and its BACKUPS list (two clicks restore). */
+canvas { position: absolute; left: 0; top: 0; image-rendering: pixelated; }
+.card { position: absolute; background: rgba(16,21,28,.94); border: 1px solid var(--line); border-radius: 0; padding: 0; }
+.ch { position: absolute; display: flex; align-items: center; justify-content: center; font-size: 8px; line-height: 1; white-space: nowrap;
+    background: var(--inset); border: 1px solid var(--line); color: var(--muted); }
+.ch.on { color: var(--tq); border-color: var(--tq); background: rgba(25,211,176,.15); }
+.ch.gold { color: var(--gold); border-color: var(--gold); background: rgba(255,210,58,.18); }
+.ch.bad { color: var(--bad); border-color: var(--bad); background: rgba(255,107,92,.15); }
+.t { position: absolute; font-size: 9px; line-height: 1; white-space: nowrap; }
+</style></head>
+<body>
+<canvas id="c" width="380" height="200"></canvas>
+<div id="ui"></div>
+<script>
+function hash(x, z) { let h = x * 374761393 + z * 668265263; h = (h ^ (h >> 13)) * 1274126177; return ((h ^ (h >> 16)) >>> 0) / 4294967295; }
+const ctx = document.getElementById('c').getContext('2d'), S = 8;
+for (let x = 0; x < 48; x++) for (let z = 0; z < 25; z++) { const t = hash(x * 3, z * 5); ctx.fillStyle = `rgb(${104 + t * 16},${152 + t * 18},${70 + t * 8})`; ctx.fillRect(x * S, z * S, S, S); }
+ctx.fillStyle = 'rgba(0,0,0,.19)'; for (let x = 0; x <= 48; x++) ctx.fillRect(x * S, 0, 1, 200); for (let z = 0; z <= 25; z++) ctx.fillRect(0, z * S, 380, 1);
+ctx.fillStyle = '#b58cff33'; ctx.fillRect(2 * S, 3 * S, 8 * S, 6 * S); ctx.strokeStyle = '#fff'; ctx.strokeRect(2 * S + .5, 3 * S + .5, 8 * S - 1, 6 * S - 1);
+ctx.font = '9px VT323, monospace'; ctx.fillStyle = '#b58cff'; ctx.fillText('alex_bakery', 2 * S + 3, 3 * S + 9);
+const ui = document.getElementById('ui'), add = h => ui.insertAdjacentHTML('beforeend', h);
+const x = 88, y = 24;
+add(`<div class="card" style="left:${x}px;top:${y}px;width:150px;height:78px;border-color:var(--vio)"></div>`);
+add(`<div class="t text" style="left:${x + 5}px;top:${y + 5}px">Alex's Bakery (alex_bakery)</div>`);
+add(`<div class="t muted" style="left:${x + 5}px;top:${y + 17}px">8 x 6, y 62 to 90, priority 3</div>`);
+add(`<div class="t muted" style="left:${x + 5}px;top:${y + 29}px">owned by Alex</div>`);
+add(`<div class="ch gold" style="left:${x + 5}px;top:${y + 44}px;width:50px;height:13px">COPY</div><div class="ch" style="left:${x + 60}px;top:${y + 44}px;width:70px;height:13px">UNLOCK</div>`);
+add(`<div class="ch" style="left:${x + 5}px;top:${y + 60}px;width:50px;height:13px">BACKUP</div><div class="ch on" style="left:${x + 60}px;top:${y + 60}px;width:70px;height:13px">BACKUPS</div>`);
+const ly = y + 80;
+add(`<div class="card" style="left:${x}px;top:${ly}px;width:210px;height:${8 + 4 * 12}px"></div>`);
+[['20261020-171204  backup', true], ['20261019-091533  before-from'], ['20261019-091533  before-to'], ['20261012-200110  backup']]
+  .forEach(([l, armed], i) => add(`<div class="ch${armed ? ' bad' : ''}" style="left:${x + 4}px;top:${ly + 4 + i * 12}px;width:202px;height:11px">${armed ? 'SURE? RESTORE ' + l : l}</div>`));
+add(`<div class="t muted" style="left:${x + 214}px;top:${ly + 8}px;width:70px;white-space:normal;line-height:10px">click a backup<br>twice to put it back</div>`);
+</script>
+</body></html>

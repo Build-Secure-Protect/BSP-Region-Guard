@@ -2,11 +2,11 @@
 
 # BSP Region Guard
 
-**World protection, banned blocks, land claims, automated mines and linked servers for Minecraft 1.20.1, all run from in-game screens.**
+**World protection, banned blocks, land claims with a plot map, automated mines and linked servers for Minecraft 1.20.1, all run from in-game screens.**
 
 BSP Region Guard looks after the world on a Build Secure Protect server:
 - Admins draw regions and decide what may happen inside them, down to which blocks and items may be placed, used, broken or even carried in.
-- Players buy land and run their own plots.
+- Players buy land and run their own plots, and admins copy, move and back up plots on a full-window map.
 - Mines refill themselves on a timer.
 - Several servers share regions, and players can walk from one server's world into the next.
 
@@ -14,7 +14,7 @@ It takes WorldGuard's ideas to Forge and drives them from screens rather than lo
 
 It is made for the [Build Secure Protect](https://www.curseforge.com/minecraft/modpacks/build-secure-protect) modpack and works closely with its sister mods: **BSP-Core** (required), and **BSP-Teleport** and **BSP-RankUp** (optional).
 
-> Version 0.2.0. The screens in this description are drawn from the mod's own layout and colours, as illustrations.
+> Version 0.3.0. The screens in this description are drawn from the mod's own layout and colours, as illustrations.
 
 ---
 
@@ -48,9 +48,11 @@ Admins always see them. Players press **B** to see their own claims.
 
 ## 2. The admin screen
 
-Open it with `/rg gui`, or sneak and right-click with the wand. Every region in the world is listed on the left, with a search box and filters (protected, claims, mines, for sale). The **MAP** tab shows them from above: click a region on the map to pick it, and use the wheel to zoom. The other tabs hold the picked region's settings: FLAGS, ACCESS, RANKS, SALE, MINE, TELEPORT, INFO, and BANNED for its banned blocks (sections 3 to 9 below).
+Open it with `/rg gui`, or sneak and right-click with the wand. Every region in the world is listed on the left, with a search box and filters (protected, claims, mines, for sale). The **MAP** tab shows them from above: click a region on the map to pick it, and use the wheel to zoom. The other tabs hold the picked region's settings: FLAGS, ACCESS, RANKS, SALE, MINE, TELEPORT, INFO, and BANNED for its banned blocks (sections 3 to 10 below).
 
 ![The admin screen, MAP tab](https://raw.githubusercontent.com/Build-Secure-Protect/BSP-Region-Guard/main/docs/curseforge/images/admin_map.png)
+
+Under the region list, **+ NEW** makes a region from the wand outline, **WAND** gives you a wand, and **PLOT MAP** opens the plot map (section 8).
 
 The buttons under the pane:
 - **TELEPORT:** go to the picked region.
@@ -188,7 +190,44 @@ Plots for sale are bought at the Land Office block too.
 
 **Starting a new season:** admins can wipe one world's claims from the admin screen or `/rg claims wipe`. You type back a one-time code, a backup is written first (`/rg claims restore` brings it back), and every admin online is told. Other worlds and servers are never touched.
 
-## 8. Mines that refill themselves
+## 8. The plot map: copy, move and back up plots
+
+Setting up a street of shops one plot at a time is slow. The **plot map** lets you make one plot just right, then copy it as often as you need. Open it with `/rg plotmap` or **PLOT MAP** under the admin screen's region list.
+
+![The plot map](https://raw.githubusercontent.com/Build-Secure-Protect/BSP-Region-Guard/main/docs/curseforge/images/plot_map.png)
+
+**The map:**
+- **What it shows:** the whole window is the world, drawn the way a Minecraft map draws it, with plots for sale, claims and open areas on top.
+- **Zoom:** from 1 pixel a block up to 16, with a block grid and the exact x/z under the cursor, so placing is accurate to the block.
+- **Far-away ground:** places you've never visited are read from the saved world; ground that was never generated stays dark and is never generated.
+- **Finding plots:** the folding **PLOTS** card searches and filters plots; click one to snap the map to it.
+
+**Copying a plot:**
+1. Click a plot, then **COPY** on its card. The copy follows your mouse.
+2. Click to drop it, then drag it into place. **ROTATE** (or R) turns it, ▲/▼ shift its height, and **SNAP** lines its edges up with its neighbours (hold SHIFT to place freely).
+3. Give it a new name and press **CONFIRM**.
+
+The copy becomes a new **plot for sale** with the original's size, flags, banned blocks, the buyer's allowed flags, price, messages, triggers and priority. Owners and members are never copied.
+
+**Moving a plot:** plots are **locked** so nothing moves by accident. Press **UNLOCK**, drag the plot to its new place and CONFIRM; it locks again. A claim someone owns asks before it moves.
+
+**Plots inside plots:** a plot may sit **wholly inside** another plot, claim or open area when its priority is higher, and there its own flags win, like a market stall inside a market. A plot may never *partly* overlap another; the copy turns red, with the reason, until it fits.
+
+**UNDO and REDO** take back or redo your last 15 pastes and moves. Other worlds can be viewed read-only (gold frame); only the world you stand in can be edited.
+
+**Moving the build too.** Switch **MOVE BLOCKS** (or **COPY BLOCKS** when pasting) on in the toolbar, and the plot's build goes with it:
+- **What goes:** blocks, chest contents, signs, item frames, armour stands and animals, all turned with the plot.
+- **Big plots** move a little each tick, so the server keeps running, and players standing inside go along.
+- **The old spot** is rebuilt as natural ground from the world's generator: its shape, water and caves, with the biome's surface. Trees, ores and structures don't regrow.
+- **Backups first:** both spots are backed up before anything is overwritten, so UNDO puts everything back.
+
+![Moving a plot with its build](https://raw.githubusercontent.com/Build-Secure-Protect/BSP-Region-Guard/main/docs/curseforge/images/plot_blocks.png)
+
+**Backups any time:** a plot's card has **BACKUP** (save its blocks now) and **BACKUPS** (list them). Click a backup twice to put it back.
+
+![A plot's card and its backups](https://raw.githubusercontent.com/Build-Secure-Protect/BSP-Region-Guard/main/docs/curseforge/images/plot_map_card.png)
+
+## 9. Mines that refill themselves
 
 Any region can become a **mine**:
 - **Fill table:** list blocks with weights (stone 90, iron ore 8, diamond ore 1...). The heaviest block fills the mine and the others grow as fresh veins at every reset, so no two resets look alike.
@@ -198,13 +237,13 @@ Any region can become a **mine**:
 
 ![The admin screen, MINE tab](https://raw.githubusercontent.com/Build-Secure-Protect/BSP-Region-Guard/main/docs/curseforge/images/admin_mine.png)
 
-## 9. Region triggers: move players automatically
+## 10. Region triggers: move players automatically
 
 A region can move players when they **enter**, **leave**, **stay a while** (every so many seconds) or when the **server shuts down**. The destination can be a spot on the same server, or a world on another server; use the latter to send everyone to a lobby before a restart. Set triggers from the **TELEPORT** tab or `/rg trigger add`, with tab completion.
 
 Same-server moves work on their own. **BSP-Teleport** carries out cross-server moves through the proxy.
 
-## 10. Many servers, one network
+## 11. Many servers, one network
 
 On a network of servers, turn on the optional **shared storage**:
 - **MySQL:** every server keeps its own regions and can see everyone else's.
@@ -262,6 +301,8 @@ When a player reaches a linked edge, a window asks whether to travel:
 | `/rg define <id>`, `/rg redefine <id>`, `/rg remove <id>` | make, move or delete a region from the wand outline |
 | `/rg flag <id> <flag> <value>` | set a flag (`clear` removes it) |
 | `/rg flag <id> deny-carry minecraft:tnt,@create` | banned blocks by command (also `deny-place`, `deny-use`, `deny-break`) |
+| `/rg plotmap` | the plot map |
+| `/rg plot backup <id>`, `/rg plot backups <id>`, `/rg plot restore <file>` | back up a plot's blocks, list its backups, restore one |
 | `/rg addowner`, `/rg removeowner`, `/rg addmember`, `/rg removemember` | owners and members |
 | `/rg addrank`, `/rg removerank` | the LuckPerms groups that may enter |
 | `/rg priority`, `/rg parent`, `/rg type`, `/rg rename`, `/rg info`, `/rg list` | region details |
@@ -289,6 +330,6 @@ Full reference in [`docs/API.md`](https://github.com/Build-Secure-Protect/BSP-Re
 
 ---
 
-**Early release:** 0.2.0 is an early version and has not yet run on a large live network. Please report problems on the [issue tracker](https://github.com/Build-Secure-Protect/BSP-Region-Guard/issues).
+**Early release:** 0.3.0 is an early version and has not yet run on a large live network. Please report problems on the [issue tracker](https://github.com/Build-Secure-Protect/BSP-Region-Guard/issues).
 
 Source: [github.com/Build-Secure-Protect/BSP-Region-Guard](https://github.com/Build-Secure-Protect/BSP-Region-Guard) · MIT licence · Made for [Build Secure Protect](https://www.curseforge.com/minecraft/modpacks/build-secure-protect)

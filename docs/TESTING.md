@@ -343,3 +343,29 @@ The new jar on the server **and** the client (network protocol 5). A region with
 - [ ] Carry seven different banned things: six pictures and "and 1 more".
 - [ ] Stand inside, get TNT (as an admin with bypass, `/give`, then `/rg bypass` off): you're moved out and the window opens.
 
+## 2026-10-20: the plot map (T10.2)
+
+The new jar on the server **and** the client (network protocol 6). As a BSP Core admin, in a world with a few plots for sale, a claim someone owns, and an open area.
+
+- [ ] `/rg plotmap` (or PLOT MAP under the admin screen's list) opens a full-window map centred on you. Terrain fills in around you, then further out as you pan (drag) and zoom (wheel, 1 to 16 pixels a block). From 8 pixels a block a block grid shows; the x and z under the cursor show bottom right.
+- [ ] Pan far into ground you have never visited: it fills in from the saved world. Ground never generated stays black (and is not generated: check the world folder's size or fly there).
+- [ ] The PLOTS card: search, the four filters, clicking a row snaps the map to that plot. FOLD hides it.
+- [ ] Click a plot for sale on the map: its card shows size, height, priority. COPY: a teal box follows the mouse; click to drop it; drag it; ROTATE or R turns it; ▲/▼ shift its height; P -/+ its priority. Over another plot it turns red with the reason; wholly inside the open area with a higher priority it turns teal.
+- [ ] SNAP on: edges line up with a neighbour's within two blocks; SHIFT held, or SNAP off, places freely.
+- [ ] CONFIRM with a new name: the plot appears, `/rg info <name>` shows the original's flags, banned blocks, price and buyer flags, no owner; UNDO (1) takes it away, REDO (1) brings it back.
+- [ ] UNLOCK a plot for sale, drag it, CONFIRM: it moves and shows locked again. CANCEL instead: it stays and locks. Try a claim someone owns: a red question asks first.
+- [ ] Do 16 actions: UNDO goes back 15.
+- [ ] The world switch (< >) shows another world in a gold frame, READ-ONLY, with no COPY, UNLOCK or UNDO.
+
+## 2026-10-20: moving a plot's blocks (T10.3)
+
+On a copy of the world, in the plot map, with a plot for sale that has a small build inside (a chest with items, a sign, an item frame, stairs, a sheep).
+
+- [ ] UNLOCK it, turn it once (ROTATE), switch MOVE BLOCKS on, drop it somewhere clear and CONFIRM: a progress line counts up; the build appears at the new spot turned a quarter (stairs and the chest face the new way), the chest keeps its items, the sign its text, the frame and the sheep come along; nothing is dropped on the ground.
+- [ ] The old spot is natural ground again: the right height, grass or sand on top as the biome has it, no build. (No trees or ores: expected.)
+- [ ] Stand inside the plot while it moves: you arrive at the same spot in the new place.
+- [ ] UNDO: both spots go back as they were (the build at the old spot, the new spot as it was before).
+- [ ] COPY a plot with COPY BLOCKS on: the copy has the build, the original keeps its own.
+- [ ] Move a full-height 64 x 64 plot: the server keeps ticking (watch TPS); it finishes within a minute or two.
+- [ ] BACKUP on a plot's card, change something inside, BACKUPS, click the newest twice (SURE? RESTORE): the change is undone. `/rg plot backups <plot>` lists the files; they are in `world/bsp_region_guard/backups/plots/`.
+
