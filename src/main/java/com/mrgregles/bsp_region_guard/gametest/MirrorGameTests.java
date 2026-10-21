@@ -193,4 +193,20 @@ public class MirrorGameTests {
         h.assertTrue(backend.messages() == 5, "all 5 queued messages are sent before the mirror stops, got " + backend.messages());
         h.succeed();
     }
+
+    /**
+     * Plain Forge with BSP Core's full jar: Region Guard bundles no MySQL driver and asks DriverManager for any, so the
+     * driver BSP Core ships (under its own package name) must be found from Region Guard's code.
+     */
+    @GameTest(template = EMPTY)
+    public void a_mysql_driver_is_found_without_bundling_one(GameTestHelper h) {
+        try {
+            java.sql.Driver d = java.sql.DriverManager.getDriver("jdbc:mysql://127.0.0.1:3306/bsp");
+            h.assertTrue(d != null, "a MySQL driver answers");
+            BSPRegionGuard.LOGGER.info("MySQL driver found for Region Guard: {}", d.getClass().getName());
+        } catch (java.sql.SQLException e) {
+            h.fail("no MySQL driver visible to Region Guard: " + e.getMessage());
+        }
+        h.succeed();
+    }
 }
