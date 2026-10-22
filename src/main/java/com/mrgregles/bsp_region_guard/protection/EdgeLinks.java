@@ -246,8 +246,11 @@ public final class EdgeLinks {
     private static final Map<String, World> NETWORK = new HashMap<>();
     private static long lastRefreshTick = Long.MIN_VALUE;
 
+    /** Other servers' worlds, in the same order on every server (by server, then world). */
     public static List<World> network() {
-        return new ArrayList<>(NETWORK.values());
+        List<World> out = new ArrayList<>(NETWORK.values());
+        out.sort(java.util.Comparator.comparing(World::server).thenComparing(World::dimension));
+        return out;
     }
 
     /** Reads every server's world defaults from the shared storage (in the background) and rebuilds the cache. */

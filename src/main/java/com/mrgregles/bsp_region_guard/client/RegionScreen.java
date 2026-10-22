@@ -29,6 +29,7 @@ import java.util.Locale;
  * as a {@link RegionActionPacket} and the screen redraws from the packets that come back.
  */
 public class RegionScreen extends HoloScreen {
+    /** The smallest size, in screen units; the screen fills the window beyond it (D80). */
     static final int W = 420, H = 236;
     static final int BG = 0xF010151C, INSET = 0xFF0C0E12, LINE = 0xFF2A2F3A, TQ = 0xFF19D3B0, VIO = 0xFFB58CFF, GOLD = 0xFFFFD23A,
             BAD = 0xFFFF6B5C, TEXT = 0xFFE6EAF2, MUTED = 0xFF9AA3B5;
@@ -40,6 +41,10 @@ public class RegionScreen extends HoloScreen {
     private static final String[] FILTERS = {"ALL", "PROT", "CLAIM", "MINE", "SALE"};
     private static final int LIST_X = 8, LIST_Y = 52, LIST_W = 130, LIST_H = 144, ROW = 12;
     private static final int PANE_X = 146, PANE_W = 266, CONTENT_Y = 62, CONTENT_H = 134;
+    /** Drawn at 80% of {@code ui.scale} (D80). */
+    private static final float SIZE = 0.8f;
+    /** The screen's size and its parts' sizes now: the minimum ({@link #W} by {@link #H}) grown to fill the window. */
+    private int winW = W, winH = H, listH = LIST_H, paneW = PANE_W, contentH = CONTENT_H;
 
     /** A clickable rectangle registered while drawing and consumed by the next click. */
     private record Hit(int x, int y, int w, int h, Runnable action) {
@@ -78,6 +83,13 @@ public class RegionScreen extends HoloScreen {
     private final RegionMap map = RegionMap.create();
     private EditBox search;
     private EditBox input;
+    /** The INFO tab's six corner fields (D75, D80): from x y z, to x y z. */
+    private final EditBox[] sizeBox = new EditBox[6];
+    /** The region and box the corner fields were last filled from, so a change from the server refills them. */
+    @Nullable
+    private String sizeFor;
+    @Nullable
+    private Cuboid sizeFrom;
     private Input inputMode = Input.NONE;
     @Nullable
     private String editingFlag;
@@ -195,7 +207,18 @@ public class RegionScreen extends HoloScreen {
     // ------------------------------------------------------------------ setup
 
     @Override
+    protected float sizeFactor() {
+        return SIZE;
+    }
+
+    @Override
     protected void layout() {
+        winW = Math.max(W, width - 8);
+        winH = Math.max(H, height - 8);
+        listH = winH - (H - LIST_H);
+        paneW = winW - (W - PANE_W);
+        contentH = winH - (H - CONTENT_H);
+        map.size(paneW - 4, contentH - 16);
         int x = left(), y = top();
         search = new EditBox(font, x + LIST_X + 3, y + 24, LIST_W - 6, 10, Component.literal(Tr.t("search_label")));
         search.setBordered(false);
@@ -203,20 +226,30 @@ public class RegionScreen extends HoloScreen {
         search.setHint(Component.literal(Tr.t("search_regions")).withStyle(s -> s.withColor(0x9AA3B5)));
         search.setResponder(t -> listScroll = 0);
         addRenderableWidget(search);
-        input = new EditBox(font, x + PANE_X + 7, y + CONTENT_Y + CONTENT_H - 15, PANE_W - 80, 10, Component.literal(Tr.t("value_label")));
+        input = new EditBox(font, x + PANE_X + 7, y + CONTENT_Y + contentH - 15, paneW - 80, 10, Component.literal(Tr.t("value_label")));
         input.setBordered(false);
         input.setMaxLength(1000);
         input.setVisible(false);
         addRenderableWidget(input);
+        String[] labels = {Tr.t("size_field_0"), Tr.t("size_field_1"), Tr.t("size_field_2"), Tr.t("size_field_3"), Tr.t("size_field_4"), Tr.t("size_field_5")};
+        for (int i = 0; i < sizeBox.length; i++) {
+            EditBox b = new EditBox(font, 0, 0, 34, 10, Component.literal(labels[i]));
+            b.setBordered(false);
+            b.setMaxLength(9);
+            b.setFilter(t -> t.matches("-?\\d*"));
+            b.setVisible(false);
+            sizeBox[i] = addRenderableWidget(b);
+        }
+        sizeFor = null;
         frameMap();
     }
 
     private int left() {
-        return (width - W) / 2;
+        return (width - winW) / 2;
     }
 
     private int top() {
-        return (height - H) / 2;
+        return (height - winH) / 2;
     }
 
     @Override
@@ -395,9 +428,9 @@ public class RegionScreen extends HoloScreen {
         hits.clear();
         renderBackground(g);
         int x = left(), y = top();
-        g.fill(x, y, x + W, y + H, BG);
+        g.fill(x, y, x + winW, y + winH, BG);
         boolean ro = remote();
-        frame(g, x, y, W, H, ro ? GOLD : TQ);
+        frame(g, x, y, winW, winH, ro ? GOLD : TQ);
         RegionListPacket l = list();
         String world = l == null ? "" : l.dimension().getPath().toUpperCase(Locale.ROOT);
         text(g, Tr.t("regions_in", world), x + 10, y + 8, ro ? GOLD : TQ, 1f);
@@ -416,8 +449,11 @@ public class RegionScreen extends HoloScreen {
             text(g, Tr.t("server_index", l.servers().indexOf(shown) + 1, l.servers().size()), sx, y + 9, MUTED, 0.6f);
         }
         String count = ro ? Tr.t("read_only") : l == null ? Tr.t("loading") : Tr.n("region_count", l.regions().size());
-        text(g, count, x + W - 10 - (int) (font.width(count) * 0.75f), y + 9, ro ? GOLD : MUTED, 0.75f);
+        text(g, count, x + winW - 10 - (int) (font.width(count) * 0.75f), y + 9, ro ? GOLD : MUTED, 0.75f);
 
+        for (EditBox b : sizeBox) {
+            b.setVisible(false); // the INFO tab shows them again
+        }
         drawList(g, x, y, mouseX, mouseY);
         drawPane(g, x, y, mouseX, mouseY);
         super.draw(g, mouseX, mouseY, partial);
@@ -464,9 +500,9 @@ public class RegionScreen extends HoloScreen {
             });
             cx += 26;
         }
-        inset(g, x + LIST_X, y + LIST_Y, LIST_W, LIST_H);
+        inset(g, x + LIST_X, y + LIST_Y, LIST_W, listH);
         List<RegionListPacket.Summary> rows = filtered();
-        int visible = LIST_H / ROW;
+        int visible = listH / ROW;
         listScroll = Mth.clamp(listScroll, 0, Math.max(0, rows.size() - visible));
         for (int i = 0; i < visible && i + listScroll < rows.size(); i++) {
             RegionListPacket.Summary s = rows.get(i + listScroll);
@@ -480,19 +516,27 @@ public class RegionScreen extends HoloScreen {
                 g.fill(x + LIST_X + 1, ry, x + LIST_X + LIST_W - 1, ry + ROW, 0x14FFFFFF);
             }
             String label = s.parent() != null ? "  " + s.id() : s.id();
-            text(g, font.plainSubstrByWidth(label, 96), x + LIST_X + 6, ry + 2, sel ? TEXT : MUTED, 1f);
+            boolean noCorners = Region.noCorners(s.bounds());
+            text(g, font.plainSubstrByWidth(label, noCorners ? 70 : 96), x + LIST_X + 6, ry + 2, sel ? TEXT : MUTED, 1f);
             int colour = 0xFF000000 | typeColour(s.type());
-            text(g, typeLetter(s.type()), x + LIST_X + LIST_W - 22, ry + 2, colour, 1f);
-            String prio = s.bounds() == null ? "-" : String.valueOf(s.priority());
-            text(g, prio, x + LIST_X + LIST_W - 6 - (int) (font.width(prio) * 0.75f), ry + 3, MUTED, 0.75f);
+            if (!noCorners) {
+                text(g, typeLetter(s.type()), x + LIST_X + LIST_W - 22, ry + 2, colour, 1f);
+            }
+            if (Region.noCorners(s.bounds())) { // D73: made without corners, applies nowhere yet
+                String none = Tr.t("no_corners_short");
+                text(g, none, x + LIST_X + LIST_W - 6 - (int) (font.width(none) * 0.5f), ry + 4, GOLD, 0.5f);
+            } else {
+                String prio = s.bounds() == null ? "-" : String.valueOf(s.priority());
+                text(g, prio, x + LIST_X + LIST_W - 6 - (int) (font.width(prio) * 0.75f), ry + 3, MUTED, 0.75f);
+            }
             hits.add(new Hit(x + LIST_X, ry, LIST_W, ROW, () -> select(s.id())));
         }
         if (rows.isEmpty()) {
             text(g, list() == null ? Tr.t("waiting_for_the_server") : Tr.t("no_regions_match"), x + LIST_X + 6, y + LIST_Y + 6, MUTED, 0.75f);
         }
         if (rows.size() > visible) {
-            int barH = Math.max(6, LIST_H * visible / rows.size());
-            int barY = y + LIST_Y + 1 + (LIST_H - 2 - barH) * listScroll / Math.max(1, rows.size() - visible);
+            int barH = Math.max(6, listH * visible / rows.size());
+            int barY = y + LIST_Y + 1 + (listH - 2 - barH) * listScroll / Math.max(1, rows.size() - visible);
             g.fill(x + LIST_X + LIST_W - 3, barY, x + LIST_X + LIST_W - 1, barY + barH, LINE);
         }
         if (remote()) {
@@ -502,22 +546,22 @@ public class RegionScreen extends HoloScreen {
         long claims = all == null ? 0 : all.regions().stream().filter(r -> r.type().equals("claim")).count();
         if (filter == 2 && claims > 0 && (search == null || search.getValue().isBlank())) {
             // D45: the wipe sits under the list of claims; it always takes every claim in this world, so it only shows unfiltered
-            button(g, x + LIST_X, y + 204, LIST_W, 14, Tr.n("wipe_all", claims), BAD, () -> {
+            button(g, x + LIST_X, y + winH - 32, LIST_W, 14, Tr.n("wipe_all", claims), BAD, () -> {
                 closeInput();
                 send(RegionActionPacket.of(RegionActionPacket.WIPE_REQUEST, ""));
             });
             return;
         }
-        button(g, x + LIST_X, y + 204, 40, 14, inputMode == Input.NEW_ID ? Tr.t("cancel") : Tr.t("new"), TQ, () -> {
+        button(g, x + LIST_X, y + winH - 32, 40, 14, inputMode == Input.NEW_ID ? Tr.t("cancel") : Tr.t("new"), TQ, () -> {
             if (inputMode == Input.NEW_ID) {
                 closeInput();
             } else {
                 openInput(Input.NEW_ID, "", Tr.t("new_region_id_enter_to_create_from_the_wand_sele"));
             }
         });
-        button(g, x + LIST_X + 43, y + 204, 40, 14, Tr.t("wand"), MUTED, () -> send(RegionActionPacket.of(RegionActionPacket.WAND, "")));
+        button(g, x + LIST_X + 43, y + winH - 32, 40, 14, Tr.t("wand"), MUTED, () -> send(RegionActionPacket.of(RegionActionPacket.WAND, "")));
         // the plot map (D57): copy, move and find plots on a full-window map
-        button(g, x + LIST_X + 86, y + 204, 44, 14, Tr.t("plot_map_button"), GOLD, () -> com.mrgregles.bsp_region_guard.network.RegionNetwork.CHANNEL.sendToServer(
+        button(g, x + LIST_X + 86, y + winH - 32, 44, 14, Tr.t("plot_map_button"), GOLD, () -> com.mrgregles.bsp_region_guard.network.RegionNetwork.CHANNEL.sendToServer(
                 com.mrgregles.bsp_region_guard.network.PlotMapActionPacket.simple(com.mrgregles.bsp_region_guard.network.PlotMapActionPacket.VIEW,
                         minecraft == null || minecraft.level == null ? "" : minecraft.level.dimension().location().toString(), true)));
     }
@@ -540,7 +584,7 @@ public class RegionScreen extends HoloScreen {
             text(g, Tr.t("wipe_type"), px, y + 64, MUTED, 0.75f);
             text(g, w.code(), px + 30, y + 59, GOLD, 2f);
             text(g, Tr.t("wipe_then"), px + 90, y + 64, MUTED, 0.75f);
-            text(g, Tr.t("wipe_left", left), px + PANE_W - 50, y + 64, GOLD, 0.75f);
+            text(g, Tr.t("wipe_left", left), px + paneW - 50, y + 64, GOLD, 0.75f);
         } else if (w.claims() > 0) {
             if (inputMode == Input.WIPE_CODE) {
                 closeInput(); // the code ran out
@@ -548,7 +592,7 @@ public class RegionScreen extends HoloScreen {
             button(g, px, y + 58, 100, 14, Tr.t("wipe_ask"), BAD, () -> send(RegionActionPacket.of(RegionActionPacket.WIPE_REQUEST, "")));
         }
         if (!w.message().isEmpty()) {
-            text(g, font.plainSubstrByWidth(w.message(), (int) (PANE_W / 0.6f)), px, y + 84, TEXT, 0.6f);
+            text(g, font.plainSubstrByWidth(w.message(), (int) (paneW / 0.6f)), px, y + 84, TEXT, 0.6f);
         }
         text(g, Tr.t("wipe_backups"), px, y + 98, TQ, 0.6f);
         int ry = y + 108;
@@ -558,12 +602,12 @@ public class RegionScreen extends HoloScreen {
         for (int i = 0; i < w.backups().size() && i < 6; i++) {
             String file = w.backups().get(i);
             text(g, font.plainSubstrByWidth(file, 330), px, ry + 1, TEXT, 0.6f);
-            chip(g, px + PANE_W - 50, ry - 1, 48, 10, Tr.t("restore"), false, TQ, 0.5f,
+            chip(g, px + paneW - 50, ry - 1, 48, 10, Tr.t("restore"), false, TQ, 0.5f,
                     () -> send(new RegionActionPacket(RegionActionPacket.WIPE_RESTORE, "", file, "")));
             ry += 11;
         }
-        button(g, px, y + 204, 56, 14, Tr.t("close"), MUTED, this::closeWipe);
-        text(g, Tr.t("wipe_footer"), px + 62, y + 208, MUTED, 0.6f);
+        button(g, px, y + winH - 32, 56, 14, Tr.t("close"), MUTED, this::closeWipe);
+        text(g, Tr.t("wipe_footer"), px + 62, y + winH - 28, MUTED, 0.6f);
         drawInput(g, x, y);
     }
 
@@ -584,9 +628,9 @@ public class RegionScreen extends HoloScreen {
         text(g, s.name().equals(s.id()) ? s.id() : s.name() + "  (" + s.id() + ")", px, y + 22, TEXT, 1f);
         String meta = Tr.t("type." + s.type()) + (s.bounds() == null ? "" : Tr.t("meta_priority", s.priority())) + (s.parent() == null ? "" : Tr.t("meta_parent", s.parent()));
         text(g, meta, px, y + 33, MUTED, 0.75f);
-        String where = s.bounds() == null ? Tr.t("the_whole_world") : Tr.t("where", s.bounds(), s.bounds().sizeX(), s.bounds().sizeY(), s.bounds().sizeZ(),
+        String where = s.bounds() == null ? Tr.t("the_whole_world") : Region.noCorners(s.bounds()) ? Tr.t("no_corners_where", Tr.n("owner_count", s.owners()), Tr.n("member_count", s.members())) : Tr.t("where", s.bounds(), s.bounds().sizeX(), s.bounds().sizeY(), s.bounds().sizeZ(),
                 Tr.n("owner_count", s.owners()), Tr.n("member_count", s.members()));
-        text(g, where, px, y + 41, MUTED, 0.75f);
+        text(g, where, px, y + 41, Region.noCorners(s.bounds()) ? GOLD : MUTED, 0.75f);
 
         boolean global = s.type().equals("global");
         // the world default can be neither sold nor a mine, so it shows BORDER instead of SALE and MINE (and the row fits)
@@ -607,7 +651,7 @@ public class RegionScreen extends HoloScreen {
         }
         // the row must fit the pane: narrow the padding when there are many tabs
         int pad = 8;
-        while (pad > 3 && textWidth + visible.size() * (pad + 2) > PANE_W) {
+        while (pad > 3 && textWidth + visible.size() * (pad + 2) > paneW) {
             pad--;
         }
         int tx = px;
@@ -636,7 +680,7 @@ public class RegionScreen extends HoloScreen {
             });
             tx += w + 2;
         }
-        inset(g, px, y + CONTENT_Y, PANE_W, CONTENT_H);
+        inset(g, px, y + CONTENT_Y, paneW, contentH);
         switch (tab) {
             case 0 -> drawMap(g, x, y, mouseX, mouseY, s);
             case 1 -> drawFlags(g, x, y, d);
@@ -653,15 +697,14 @@ public class RegionScreen extends HoloScreen {
         if (remote()) {
             RegionListPacket l2 = list();
             String home = l2 == null || l2.servers().isEmpty() ? "" : l2.servers().get(0);
-            button(g, px, y + 204, 110, 14, Tr.t("back_to", home), TQ, () -> send(new RegionActionPacket(RegionActionPacket.VIEW_SERVER, "", "", "")));
-            text(g, Tr.t("read_only_hint"), px + 116, y + 208, MUTED, 0.6f);
+            button(g, px, y + winH - 32, 110, 14, Tr.t("back_to", home), TQ, () -> send(new RegionActionPacket(RegionActionPacket.VIEW_SERVER, "", "", "")));
+            text(g, Tr.t("read_only_hint"), px + 116, y + winH - 28, MUTED, 0.6f);
             return;
         }
-        button(g, px, y + 204, 56, 14, Tr.t("teleport"), TQ, () -> act(RegionActionPacket.TELEPORT, ""));
-        button(g, px + 60, y + 204, 68, 14, Tr.t("redefine"), MUTED, () -> act(RegionActionPacket.REDEFINE, ""));
-        button(g, px + 132, y + 204, 50, 14, Tr.t("select"), MUTED, () -> act(RegionActionPacket.SELECT_BOUNDS, ""));
+        button(g, px, y + winH - 32, 56, 14, Tr.t("teleport"), TQ, () -> act(RegionActionPacket.TELEPORT, ""));
+        button(g, px + 60, y + winH - 32, 50, 14, Tr.t("select"), MUTED, () -> act(RegionActionPacket.SELECT_BOUNDS, ""));
         if (!s.type().equals("global")) {
-            button(g, x + W - 8 - 58, y + 204, 58, 14, confirmDelete ? Tr.t("sure") : Tr.t("delete"), BAD, () -> {
+            button(g, x + winW - 8 - 58, y + winH - 32, 58, 14, confirmDelete ? Tr.t("sure") : Tr.t("delete"), BAD, () -> {
                 if (confirmDelete) {
                     act(RegionActionPacket.DELETE, "");
                     confirmDelete = false;
@@ -670,7 +713,7 @@ public class RegionScreen extends HoloScreen {
                 }
             });
         }
-        text(g, Tr.t("changes_save_at_once_esc_closes"), px, y + 223, MUTED, 0.75f);
+        text(g, Tr.t("changes_save_at_once_esc_closes"), px, y + winH - 13, MUTED, 0.75f);
     }
 
     private void drawInput(GuiGraphics g, int x, int y) {
@@ -678,20 +721,20 @@ public class RegionScreen extends HoloScreen {
             input.setVisible(false);
             return;
         }
-        int ix = x + PANE_X + 4, iy = y + CONTENT_Y + CONTENT_H - 18;
-        g.fill(ix, iy, ix + PANE_W - 8, iy + 16, BG);
-        inset(g, ix, iy, PANE_W - 72, 16);
+        int ix = x + PANE_X + 4, iy = y + CONTENT_Y + contentH - 18;
+        g.fill(ix, iy, ix + paneW - 8, iy + 16, BG);
+        inset(g, ix, iy, paneW - 72, 16);
         input.setX(ix + 4);
         input.setY(iy + 4);
-        input.setWidth(PANE_W - 80);
+        input.setWidth(paneW - 80);
         input.setVisible(true);
         if (inputMode == Input.PLAYER) {
-            button(g, ix + PANE_W - 70, iy + 1, 30, 14, Tr.t("own"), TQ, () -> addPerson(RegionActionPacket.ADD_OWNER));
-            button(g, ix + PANE_W - 38, iy + 1, 30, 14, Tr.t("mem"), VIO, () -> addPerson(RegionActionPacket.ADD_MEMBER));
+            button(g, ix + paneW - 70, iy + 1, 30, 14, Tr.t("own"), TQ, () -> addPerson(RegionActionPacket.ADD_OWNER));
+            button(g, ix + paneW - 38, iy + 1, 30, 14, Tr.t("mem"), VIO, () -> addPerson(RegionActionPacket.ADD_MEMBER));
         } else {
             boolean wiping = inputMode == Input.WIPE_CODE;
-            button(g, ix + PANE_W - 70, iy + 1, 30, 14, wiping ? Tr.t("wipe_button") : Tr.t("ok"), wiping ? BAD : TQ, this::submitInput);
-            button(g, ix + PANE_W - 38, iy + 1, 30, 14, inputMode == Input.FLAG_VALUE ? Tr.t("clear") : "X", inputMode == Input.FLAG_VALUE ? BAD : MUTED, () -> {
+            button(g, ix + paneW - 70, iy + 1, 30, 14, wiping ? Tr.t("wipe_button") : Tr.t("ok"), wiping ? BAD : TQ, this::submitInput);
+            button(g, ix + paneW - 38, iy + 1, 30, 14, inputMode == Input.FLAG_VALUE ? Tr.t("clear") : "X", inputMode == Input.FLAG_VALUE ? BAD : MUTED, () -> {
                 if (inputMode == Input.FLAG_VALUE && editingFlag != null && selected != null) {
                     send(new RegionActionPacket(RegionActionPacket.FLAG, selected, editingFlag, ""));
                 }
@@ -730,7 +773,7 @@ public class RegionScreen extends HoloScreen {
         }
         RegionListPacket.Summary hovered = map.draw(g, font, mx, my, drawn, selected, minecraft.player.blockPosition(), mouseX, mouseY);
         RegionListPacket.Summary target = hovered;
-        hits.add(new Hit(mx, my, RegionMap.W, RegionMap.H, () -> {
+        hits.add(new Hit(mx, my, map.w, map.h, () -> {
             long now = System.currentTimeMillis();
             if (target != null) {
                 if (target.id().equals(lastMapClickId) && now - lastMapClick < 350) {
@@ -745,13 +788,13 @@ public class RegionScreen extends HoloScreen {
             lastMapClick = now;
         }));
         String scale = Tr.n("map_scale", map.bpp);
-        text(g, scale, mx + 2, my + RegionMap.H + 2, MUTED, 0.6f);
+        text(g, scale, mx + 2, my + map.h + 2, MUTED, 0.6f);
         if (l.remote()) {
-            chip(g, mx + RegionMap.W - 70, my + 2, 68, 10, Tr.t("this_server_overlay"), overlayHere, MUTED, 0.5f, () -> overlayHere = !overlayHere);
+            chip(g, mx + map.w - 70, my + 2, 68, 10, Tr.t("this_server_overlay"), overlayHere, MUTED, 0.5f, () -> overlayHere = !overlayHere);
         }
         if (hovered != null) {
             String tip = hovered.id() + " - " + Tr.t("type." + hovered.type()) + Tr.t("meta_priority", hovered.priority());
-            text(g, tip, mx + RegionMap.W - 2 - (int) (font.width(tip) * 0.6f), my + RegionMap.H + 2, TEXT, 0.6f);
+            text(g, tip, mx + map.w - 2 - (int) (font.width(tip) * 0.6f), my + map.h + 2, TEXT, 0.6f);
         }
     }
 
@@ -784,10 +827,10 @@ public class RegionScreen extends HoloScreen {
         List<Object> rows = flagRows(d);
         boolean hints = width >= 440;
         int rowH = hints ? 16 : 12;
-        int listTop = cy + 15, listH = CONTENT_H - 17 - (inputMode == Input.FLAG_VALUE ? 18 : 0);
+        int listTop = cy + 15, listH = contentH - 17 - (inputMode == Input.FLAG_VALUE ? 18 : 0);
         int visible = listH / rowH;
         flagScroll = Mth.clamp(flagScroll, 0, Math.max(0, rows.size() - visible));
-        HoloScreen.scissor(g, px + 1, listTop, px + PANE_W - 1, listTop + listH);
+        HoloScreen.scissor(g, px + 1, listTop, px + paneW - 1, listTop + listH);
         for (int i = 0; i < visible && i + flagScroll < rows.size(); i++) {
             Object row = rows.get(i + flagScroll);
             int ry = listTop + i * rowH;
@@ -800,7 +843,7 @@ public class RegionScreen extends HoloScreen {
             String inherited = d == null ? null : d.inherited().get(f.name());
             boolean editing = f.name().equals(editingFlag);
             if (editing) {
-                g.fill(px + 1, ry, px + PANE_W - 1, ry + rowH, 0x2219D3B0);
+                g.fill(px + 1, ry, px + paneW - 1, ry + rowH, 0x2219D3B0);
             }
             text(g, f.name(), px + 6, ry + 2, value != null ? TEXT : MUTED, 0.75f);
             if (hints) {
@@ -810,15 +853,15 @@ public class RegionScreen extends HoloScreen {
             if (remote()) {
                 String shown = value != null ? value : inherited != null ? inherited : Tr.t("not_set");
                 String clipped = font.plainSubstrByWidth(shown, 110);
-                text(g, clipped, px + PANE_W - 6 - (int) (font.width(clipped) * 0.6f), ry + 3, value != null ? TEXT : MUTED, 0.6f);
+                text(g, clipped, px + paneW - 6 - (int) (font.width(clipped) * 0.6f), ry + 3, value != null ? TEXT : MUTED, 0.6f);
             } else if (f instanceof StateFlag) {
-                stateSwitch(g, px + PANE_W - 78, ry + 1, value, f.name());
+                stateSwitch(g, px + paneW - 78, ry + 1, value, f.name());
             } else {
                 String shown = value != null ? value : inherited != null ? inherited : f.defaultValue() != null ? format(f) : Tr.t("not_set");
                 int colour = value != null ? TEXT : MUTED;
                 String clipped = font.plainSubstrByWidth(shown, 110);
-                text(g, clipped, px + PANE_W - 80 - (int) (font.width(clipped) * 0.6f) + 72 - 40, ry + 3, colour, 0.6f);
-                chip(g, px + PANE_W - 34, ry + 1, 30, 11, Tr.t("edit"), editing, TQ, 0.6f, () -> {
+                text(g, clipped, px + paneW - 80 - (int) (font.width(clipped) * 0.6f) + 72 - 40, ry + 3, colour, 0.6f);
+                chip(g, px + paneW - 34, ry + 1, 30, 11, Tr.t("edit"), editing, TQ, 0.6f, () -> {
                     editingFlag = f.name();
                     openInput(Input.FLAG_VALUE, value == null ? "" : value, f.hint());
                 });
@@ -828,7 +871,7 @@ public class RegionScreen extends HoloScreen {
         if (rows.size() > visible) {
             int barH = Math.max(6, listH * visible / rows.size());
             int barY = listTop + (listH - barH) * flagScroll / Math.max(1, rows.size() - visible);
-            g.fill(px + PANE_W - 3, barY, px + PANE_W - 1, barY + barH, LINE);
+            g.fill(px + paneW - 3, barY, px + paneW - 1, barY + barH, LINE);
         }
     }
 
@@ -838,7 +881,7 @@ public class RegionScreen extends HoloScreen {
     }
 
     private void drawAccess(GuiGraphics g, int x, int y, @Nullable RegionDetailPacket d) {
-        int px = x + PANE_X, cy = y + CONTENT_Y, half = PANE_W / 2;
+        int px = x + PANE_X, cy = y + CONTENT_Y, half = paneW / 2;
         text(g, Tr.t("owners"), px + 6, cy + 5, TQ, 0.6f);
         text(g, Tr.t("members"), px + half + 6, cy + 5, VIO, 0.6f);
         text(g, Tr.t("may_edit_the_region_and_build"), px + 6, cy + 12, 0xFF6F7788, 0.5f);
@@ -848,7 +891,7 @@ public class RegionScreen extends HoloScreen {
             people(g, px + half + 4, cy + 20, half - 8, d.members(), RegionActionPacket.REMOVE_MEMBER);
         }
         if (inputMode != Input.PLAYER) {
-            button(g, px + 4, cy + CONTENT_H - 18, 100, 14, Tr.t("add_a_player"), TQ, () -> openInput(Input.PLAYER, "", Tr.t("player_name_then_own_or_mem")));
+            button(g, px + 4, cy + contentH - 18, 100, 14, Tr.t("add_a_player"), TQ, () -> openInput(Input.PLAYER, "", Tr.t("player_name_then_own_or_mem")));
         }
     }
 
@@ -899,7 +942,7 @@ public class RegionScreen extends HoloScreen {
             }
         }
         if (inputMode != Input.RANK) {
-            button(g, px + 4, cy + CONTENT_H - 18, 90, 14, Tr.t("type_a_rank"), VIO, () -> openInput(Input.RANK, "", Tr.t("luckperms_group_name_enter_to_add")));
+            button(g, px + 4, cy + contentH - 18, 90, 14, Tr.t("type_a_rank"), VIO, () -> openInput(Input.RANK, "", Tr.t("luckperms_group_name_enter_to_add")));
         }
     }
 
@@ -985,10 +1028,10 @@ public class RegionScreen extends HoloScreen {
             default -> "east";
         };
         text(g, Tr.t("edge_leads_to", Tr.t("side." + side)), px + 6, cy + 4, GOLD, 0.6f);
-        chip(g, px + PANE_W - 44, cy + 2, 38, 10, Tr.t("cancel"), false, MUTED, 0.5f, () -> pickSide = null);
+        chip(g, px + paneW - 44, cy + 2, 38, 10, Tr.t("cancel"), false, MUTED, 0.5f, () -> pickSide = null);
         int ry = cy + 16, shown = 0;
         java.util.List<String[]> rows = new java.util.ArrayList<>();
-        for (int i = 1; i <= 50; i++) {
+        for (int i = 1; ; i++) { // every entry: a fixed cap hid worlds past it (bug B5)
             String net = data.get("net." + i);
             if (net == null) {
                 break;
@@ -1011,7 +1054,7 @@ public class RegionScreen extends HoloScreen {
             text(g, r[0], px + 6, ry, VIO, 0.6f);
             text(g, Tr.t("picker_row", worldShort(r[1]), Tr.t("edge." + r[2]), r[3]), px + 70, ry, best ? TEXT : MUTED, 0.6f);
             String target = r[0] + "|" + r[1] + "|" + r[2];
-            hits.add(new Hit(px + 4, ry - 1, PANE_W - 8, 10, () -> {
+            hits.add(new Hit(px + 4, ry - 1, paneW - 8, 10, () -> {
                 send(new RegionActionPacket(RegionActionPacket.EDGE_LINK, selected, side, target));
                 pickSide = null;
             }));
@@ -1054,7 +1097,7 @@ public class RegionScreen extends HoloScreen {
             }
             text(g, i + ". " + font.plainSubstrByWidth(line, 380), px + 6, ry, TEXT, 0.5f);
             int index = i;
-            chip(g, px + PANE_W - 18, ry - 1, 12, 8, "x", false, BAD, 0.5f, () -> act(RegionActionPacket.TRIGGER_REMOVE, String.valueOf(index)));
+            chip(g, px + paneW - 18, ry - 1, 12, 8, "x", false, BAD, 0.5f, () -> act(RegionActionPacket.TRIGGER_REMOVE, String.valueOf(index)));
             ry += 8;
         }
         if (n == 0) {
@@ -1070,7 +1113,7 @@ public class RegionScreen extends HoloScreen {
             chip(g, px + 6 + 4 * 46, ry + 2, 50, 10, Tr.t("add"), false, GOLD, 0.5f, () -> openInput(Input.TRIGGER, "here",
                     triggerCause.equals("timer") ? Tr.t("trigger_hint_timer") : Tr.t("trigger_hint")));
         }
-        text(g, Tr.t("cross_server_destinations_server_world_are_carri"), px + 6, cy + CONTENT_H - 10, 0xFF6F7788, 0.5f);
+        text(g, Tr.t("cross_server_destinations_server_world_are_carri"), px + 6, cy + contentH - 10, 0xFF6F7788, 0.5f);
     }
 
     private void drawSale(GuiGraphics g, int x, int y, RegionListPacket.Summary s, @Nullable RegionDetailPacket d) {
@@ -1102,7 +1145,7 @@ public class RegionScreen extends HoloScreen {
         button(g, px + 80, cy + 78, 56, 12, Tr.t("min_size"), MUTED, () -> data("minSize", data.getOrDefault("minSize", ""), Tr.t("smallest_side_in_blocks_empty_uses_the_config")));
         button(g, px + 140, cy + 78, 56, 12, Tr.t("max_size"), MUTED, () -> data("maxSize", data.getOrDefault("maxSize", ""), Tr.t("largest_side_in_blocks_empty_uses_the_config")));
         text(g, Tr.t("buyer_may_set", data.getOrDefault("playerFlags", Tr.t("the_config_list"))), px + 6, cy + 96, GOLD, 0.6f);
-        chip(g, px + PANE_W - 40, cy + 94, 34, 10, Tr.t("edit"), false, GOLD, 0.5f, () -> data("playerFlags", data.getOrDefault("playerFlags", ""), Tr.t("flags_the_buyer_may_set_comma_separated_default")));
+        chip(g, px + paneW - 40, cy + 94, 34, 10, Tr.t("edit"), false, GOLD, 0.5f, () -> data("playerFlags", data.getOrDefault("playerFlags", ""), Tr.t("flags_the_buyer_may_set_comma_separated_default")));
         text(g, Tr.t("buying_happens_in_bsp_core_s_shop_screen_or_with"), px + 6, cy + 108, 0xFF6F7788, 0.5f);
     }
 
@@ -1214,18 +1257,91 @@ public class RegionScreen extends HoloScreen {
             text(g, Tr.t("unset_flags_take_the_parent_s_values"), px + 6, cy + 73, 0xFF6F7788, 0.5f);
         }
         if (s.bounds() != null) {
-            Cuboid b = s.bounds();
-            text(g, Tr.t("bounds"), px + 6, cy + 83, TQ, 0.6f);
-            text(g, Tr.t("bounds_from_to", b.min().toShortString(), b.max().toShortString()), px + 6, cy + 90, TEXT, 0.6f);
-            text(g, Tr.t("bounds_size", b.sizeX(), b.sizeY(), b.sizeZ(), b.volume(), b.area()), px + 6, cy + 97, MUTED, 0.6f);
+            drawSize(g, px, cy + 83, s, ro);
         }
         if (d != null) {
-            text(g, Tr.t("version_changed", d.version(), (System.currentTimeMillis() - d.updatedAt()) / 60000), px + 6, cy + 108, 0xFF6F7788, 0.5f);
+            text(g, Tr.t("version_changed", d.version(), (System.currentTimeMillis() - d.updatedAt()) / 60000), px + 150, cy + 5, 0xFF6F7788, 0.5f);
             if (!d.inherited().isEmpty()) {
-                text(g, Tr.t("inherited_from_parent", d.inherited().size()), px + 6, cy + 116, VIO, 0.5f);
+                text(g, Tr.t("inherited_from_parent", d.inherited().size()), px + 150, cy + 12, VIO, 0.5f);
             }
         }
-        text(g, Region.GLOBAL_ID.equals(s.id()) ? Tr.t("the_world_default_applies_everywhere_no_other_re") : "", px + 6, cy + 124, MUTED, 0.5f);
+        text(g, Region.GLOBAL_ID.equals(s.id()) ? Tr.t("the_world_default_applies_everywhere_no_other_re") : "", px + 6, cy + 86, MUTED, 0.5f);
+    }
+
+    /**
+     * The INFO tab's SIZE block (D75, option A of D80): the corners as six fields (Enter saves), the size, VERTICAL
+     * FILL, SET CORNERS ON MAP and USE WAND SELECTION; for a region without corners only the last two.
+     */
+    private void drawSize(GuiGraphics g, int px, int top, RegionListPacket.Summary s, boolean ro) {
+        Cuboid b = s.bounds();
+        text(g, Tr.t("size"), px + 6, top, TQ, 0.6f);
+        boolean none = Region.noCorners(b);
+        int bx = px + 150, bw = paneW - 156;
+        if (ro) {
+            text(g, none ? Tr.t("no_corners_yet") : Tr.t("bounds_from_to", b.min().toShortString(), b.max().toShortString()), px + 6, top + 8, none ? GOLD : TEXT, 0.6f);
+            return;
+        }
+        if (none) {
+            text(g, Tr.t("no_corners_yet"), px + 6, top + 9, GOLD, 0.6f);
+            text(g, Tr.t("no_corners_hint"), px + 6, top + 17, MUTED, 0.5f);
+        } else {
+            if (!s.id().equals(sizeFor) || !b.equals(sizeFrom)) {
+                fillSize(s.id(), b);
+            }
+            int[] values = {b.minX(), b.minY(), b.minZ(), b.maxX(), b.maxY(), b.maxZ()};
+            for (int i = 0; i < 6; i++) {
+                int fx = px + 30 + (i % 3) * 38, fy = top + 9 + (i / 3) * 13;
+                if (i % 3 == 0) {
+                    text(g, i == 0 ? Tr.t("size_from") : Tr.t("size_to"), px + 6, fy + 2, MUTED, 0.5f);
+                }
+                EditBox box = sizeBox[i];
+                inset(g, fx - 2, fy - 1, 36, 11);
+                if (box.isFocused()) {
+                    frame(g, fx - 2, fy - 1, 36, 11, TQ);
+                } else if (!box.getValue().equals(String.valueOf(values[i]))) {
+                    frame(g, fx - 2, fy - 1, 36, 11, GOLD); // typed but not saved yet
+                }
+                box.setX(fx);
+                box.setY(fy + 1);
+                box.setVisible(true);
+            }
+            text(g, "x", px + 44, top + 35, 0xFF6F7788, 0.5f);
+            text(g, "y", px + 82, top + 35, 0xFF6F7788, 0.5f);
+            text(g, "z", px + 120, top + 35, 0xFF6F7788, 0.5f);
+            text(g, Tr.t("bounds_size", b.sizeX(), b.sizeY(), b.sizeZ(), b.volume(), b.area()), px + 6, top + 42, MUTED, 0.5f);
+            text(g, Tr.t("size_hint"), px + 6, top + 49, 0xFF6F7788, 0.5f);
+            String fill = minecraft == null || minecraft.level == null ? Tr.t("vertical_fill")
+                    : Tr.t("vertical_fill_range", minecraft.level.getMinBuildHeight(), minecraft.level.getMaxBuildHeight() - 1);
+            chip(g, bx, top + 8, bw, 11, fill, true, GOLD, 0.6f, () -> act(RegionActionPacket.VFILL, ""));
+        }
+        chip(g, bx, top + (none ? 8 : 21), bw, 11, Tr.t("set_corners_on_map"), false, TQ, 0.6f, () -> act(RegionActionPacket.CORNERS, ""));
+        chip(g, bx, top + (none ? 21 : 34), bw, 11, Tr.t("use_wand_selection"), false, MUTED, 0.6f, () -> act(RegionActionPacket.REDEFINE, ""));
+    }
+
+    private void fillSize(String id, Cuboid b) {
+        int[] values = {b.minX(), b.minY(), b.minZ(), b.maxX(), b.maxY(), b.maxZ()};
+        for (int i = 0; i < 6; i++) {
+            sizeBox[i].setValue(String.valueOf(values[i]));
+            sizeBox[i].setFocused(false);
+        }
+        sizeFor = id;
+        sizeFrom = b;
+    }
+
+    /** Sends the six corner fields; a field left empty keeps its number. */
+    private void submitSize() {
+        if (sizeFrom == null || sizeFor == null || !sizeFor.equals(selected)) {
+            return;
+        }
+        int[] values = {sizeFrom.minX(), sizeFrom.minY(), sizeFrom.minZ(), sizeFrom.maxX(), sizeFrom.maxY(), sizeFrom.maxZ()};
+        StringBuilder out = new StringBuilder();
+        for (int i = 0; i < 6; i++) {
+            String v = sizeBox[i].getValue().trim();
+            out.append(i == 0 ? "" : " ").append(v.isEmpty() || v.equals("-") ? String.valueOf(values[i]) : v);
+            sizeBox[i].setFocused(false);
+        }
+        setFocused(null);
+        act(RegionActionPacket.RESIZE, out.toString());
     }
 
     // ------------------------------------------------------------------ input
@@ -1241,7 +1357,7 @@ public class RegionScreen extends HoloScreen {
                 return true;
             }
         }
-        if (!(mx >= left() + PANE_X && my >= top() + 204 && my < top() + 218)) {
+        if (!(mx >= left() + PANE_X && my >= top() + winH - 32 && my < top() + winH - 18)) {
             confirmDelete = false;
         }
         return false;
@@ -1250,11 +1366,11 @@ public class RegionScreen extends HoloScreen {
     @Override
     protected boolean onScroll(double mx, double my, double delta) {
         int x = left(), y = top();
-        if (mx >= x + LIST_X && mx < x + LIST_X + LIST_W && my >= y + LIST_Y && my < y + LIST_Y + LIST_H) {
+        if (mx >= x + LIST_X && mx < x + LIST_X + LIST_W && my >= y + LIST_Y && my < y + LIST_Y + listH) {
             listScroll -= (int) Math.signum(delta);
             return true;
         }
-        if (mx >= x + PANE_X && mx < x + PANE_X + PANE_W && my >= y + CONTENT_Y && my < y + CONTENT_Y + CONTENT_H) {
+        if (mx >= x + PANE_X && mx < x + PANE_X + paneW && my >= y + CONTENT_Y && my < y + CONTENT_Y + contentH) {
             if (tab == 0) {
                 zoomedByHand = true;
                 map.zoom(delta > 0 ? -1 : 1);
@@ -1268,6 +1384,19 @@ public class RegionScreen extends HoloScreen {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        for (EditBox b : sizeBox) {
+            if (b.isVisible() && b.isFocused()) {
+                if (keyCode == 257 || keyCode == 335) { // Enter saves the corners
+                    submitSize();
+                    return true;
+                }
+                if (keyCode == 256 && sizeFor != null && sizeFrom != null) { // Esc puts the numbers back
+                    fillSize(sizeFor, sizeFrom);
+                    setFocused(null);
+                    return true;
+                }
+            }
+        }
         if (inputMode != Input.NONE && input.isFocused()) {
             if (keyCode == 257 || keyCode == 335) { // Enter
                 if (inputMode == Input.PLAYER) {

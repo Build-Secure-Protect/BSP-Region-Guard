@@ -34,6 +34,11 @@ import java.util.UUID;
 public final class Region {
     public static final String GLOBAL_ID = "__global__";
     public static final int MAX_ID_LENGTH = 32;
+    /**
+     * The box saved for a region that has no corners yet (D73): one block far below any world, so it contains nothing
+     * and an older Region Guard reading it never takes it for the world default (which has no box at all).
+     */
+    public static final Cuboid NO_CORNERS = new Cuboid(0, -30000, 0, 0, -30000, 0);
 
     private final String id;
     private final ResourceKey<Level> dimension;
@@ -104,6 +109,16 @@ public final class Region {
         return bounds == null;
     }
 
+    /** False for a region made without corners (D73), which applies nowhere until it gets some; true for the rest. */
+    public boolean hasCorners() {
+        return bounds == null || !bounds.equals(NO_CORNERS);
+    }
+
+    /** True for the box a region without corners carries ({@link #NO_CORNERS}); the screens use it too. */
+    public static boolean noCorners(@Nullable Cuboid box) {
+        return NO_CORNERS.equals(box);
+    }
+
     /** The box, or {@code null} for the global region. */
     @Nullable
     public Cuboid bounds() {
@@ -118,11 +133,11 @@ public final class Region {
     }
 
     public boolean contains(BlockPos pos) {
-        return bounds == null || bounds.contains(pos);
+        return contains(pos.getX(), pos.getY(), pos.getZ());
     }
 
     public boolean contains(int x, int y, int z) {
-        return bounds == null || bounds.contains(x, y, z);
+        return bounds == null || hasCorners() && bounds.contains(x, y, z);
     }
 
     public int priority() {

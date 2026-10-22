@@ -52,9 +52,9 @@ public final class PlotMap {
 
     /** One confirmed action: the region as it was before (null for a paste) and after. */
     private record Step(String dimension, String id, @Nullable CompoundTag before, CompoundTag after,
-                        @Nullable String source, int rotation, @Nullable PlotBlocks.Job blocks) {
-        Step(String dimension, String id, @Nullable CompoundTag before, CompoundTag after) {
-            this(dimension, id, before, after, null, 0, null);
+                        @Nullable String source, int rotation, @Nullable PlotBlocks.Job blocks, boolean corners) {
+        Step(String dimension, String id, @Nullable CompoundTag before, CompoundTag after, @Nullable String source, int rotation, @Nullable PlotBlocks.Job blocks) {
+            this(dimension, id, before, after, source, rotation, blocks, false);
         }
     }
 
@@ -286,6 +286,42 @@ public final class PlotMap {
         return Result.ok(r.id() + (blocks ? " is moved and locked; its blocks are on their way." : " is moved and locked."));
     }
 
+    // ------------------------------------------------------------------ corners (D71 to D79)
+
+    /**
+     * Gives a region the corners clicked on the map: any region of the admin's own world but the world default, any
+     * size. Plots, claims and open areas keep to the overlap rule (D59, D78); the change can be undone (D79).
+     */
+    public static Result setCorners(ServerPlayer admin, String id, Cuboid box) {
+        if (!BspCore.isAdmin(admin)) {
+            return Result.fail("Only BSP-Core admins can use the plot map.");
+        }
+        ServerLevel level = admin.serverLevel();
+        RegionStore store = RegionStore.get(level);
+        Region r = store.get(id);
+        if (r == null || r.isGlobal()) {
+            return Result.fail(r == null ? "No region called '" + id + "' in this world. The plot map edits only the world you are in." : "The world default has no corners.");
+        }
+        if (PlotBlocks.busy(r.id())) {
+            return Result.fail("The blocks of " + r.id() + " are still being worked on.");
+        }
+        String height = com.mrgregles.bsp_region_guard.command.RegionEdits.heightProblem(level, box);
+        if (height != null) {
+            return Result.fail(height);
+        }
+        if (isPlot(r)) {
+            String overlap = overlapProblem(store, box, r.priority(), r.id());
+            if (overlap != null) {
+                return Result.fail("Can't put it here: " + overlap);
+            }
+        }
+        CompoundTag before = r.save();
+        r.setBounds(box);
+        store.touch(r);
+        record(admin, new Step(level.dimension().location().toString(), r.id(), before, r.save(), null, 0, null, true));
+        return Result.ok(r.id() + " now covers " + box + ": " + box.sizeX() + " x " + box.sizeZ() + ", " + box.minY() + " to " + box.maxY() + ".");
+    }
+
     // ------------------------------------------------------------------ backups (D69)
 
     /** Saves the blocks of a plot as they are now. */
@@ -403,6 +439,9 @@ public final class PlotMap {
                 return Result.fail(s.id() + " no longer exists.");
             }
             Region target = Region.load(undo ? s.before() : s.after());
+            if (!target.hasCorners() && now.type() != RegionType.PROTECTED) {
+                return Result.fail(s.id() + " is a " + now.type().key().replace('_', ' ') + " region now, which needs corners. Make it protected first to undo this.");
+            }
             String overlap = overlapProblem(store, target.bounds(), target.priority(), now.id());
             if (overlap != null) {
                 return Result.fail("Can't " + (undo ? "undo" : "redo") + " the move: " + overlap);
@@ -414,7 +453,7 @@ public final class PlotMap {
             now.setFlag(Flags.SPAWN, target.flag(Flags.SPAWN));
             Cuboid leaving = now.bounds();
             store.touch(now);
-            done = (undo ? "Undone" : "Redone") + ": the move of " + s.id() + ".";
+            done = (undo ? "Undone" : "Redone") + (s.corners() ? ": the corners of " : ": the move of ") + s.id() + ".";
             if (s.blocks() != null) {
                 if (undo) { // both spots back as they were before the move, from that move's backups
                     PlotBlocks.Job moved = s.blocks();

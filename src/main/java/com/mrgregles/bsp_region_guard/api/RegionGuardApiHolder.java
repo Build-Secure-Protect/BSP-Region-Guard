@@ -64,7 +64,7 @@ final class RegionGuardApiHolder {
         @Override
         public Cuboid bounds(net.minecraft.server.level.ServerLevel level, String regionId) {
             var r = com.mrgregles.bsp_region_guard.region.RegionStore.get(level).get(regionId);
-            return r == null ? null : r.bounds();
+            return r == null || !r.hasCorners() ? null : r.bounds();
         }
 
         @Override

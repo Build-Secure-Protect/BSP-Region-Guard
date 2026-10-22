@@ -12,10 +12,13 @@ import java.util.function.Supplier;
 /**
  * Server to client: what the plot map shows for one world (D57 to D65): its plots with their boxes, priorities, owners
  * and locks; whether the admin may edit it (only the world they stand in, D62); their undo and redo counts; the answer
- * to their last action. {@code open} opens the screen.
+ * to their last action. {@code open} opens the screen. {@code corners} names the region whose corners are to be clicked
+ * (D71; empty otherwise), {@code bottom} and {@code top} the world's height range (D72), {@code others} the world's other
+ * regions with corners (protected areas, mines), drawn as outlines while placing corners (D80).
  */
 public record PlotMapStatePacket(boolean open, String dimension, boolean editable, List<Plot> plots, int undo, int redo,
-                                 boolean ok, String message, boolean askOwner, int playerX, int playerZ, String backupsOf, List<String> backups) {
+                                 boolean ok, String message, boolean askOwner, int playerX, int playerZ, String backupsOf, List<String> backups,
+                                 String corners, int bottom, int top, List<Plot> others) {
     public record Plot(String id, String name, String type, int priority, int minX, int minY, int minZ, int maxX, int maxY, int maxZ,
                        String owner, boolean locked) {
         public int width() {
@@ -31,8 +34,26 @@ public record PlotMapStatePacket(boolean open, String dimension, boolean editabl
         buf.writeBoolean(m.open);
         buf.writeUtf(m.dimension, 128);
         buf.writeBoolean(m.editable);
-        buf.writeVarInt(m.plots.size());
-        for (Plot p : m.plots) {
+        writePlots(buf, m.plots);
+        buf.writeVarInt(m.undo);
+        buf.writeVarInt(m.redo);
+        buf.writeBoolean(m.ok);
+        buf.writeUtf(m.message, 512);
+        buf.writeBoolean(m.askOwner);
+        buf.writeInt(m.playerX);
+        buf.writeInt(m.playerZ);
+        buf.writeUtf(m.backupsOf, 64);
+        buf.writeVarInt(Math.min(m.backups.size(), 50));
+        m.backups.stream().limit(50).forEach(b -> buf.writeUtf(b, 160));
+        buf.writeUtf(m.corners, 64);
+        buf.writeInt(m.bottom);
+        buf.writeInt(m.top);
+        writePlots(buf, m.others);
+    }
+
+    private static void writePlots(FriendlyByteBuf buf, List<Plot> plots) {
+        buf.writeVarInt(plots.size());
+        for (Plot p : plots) {
             buf.writeUtf(p.id, 64);
             buf.writeUtf(p.name, 128);
             buf.writeUtf(p.type, 32);
@@ -46,28 +67,23 @@ public record PlotMapStatePacket(boolean open, String dimension, boolean editabl
             buf.writeUtf(p.owner, 64);
             buf.writeBoolean(p.locked);
         }
-        buf.writeVarInt(m.undo);
-        buf.writeVarInt(m.redo);
-        buf.writeBoolean(m.ok);
-        buf.writeUtf(m.message, 512);
-        buf.writeBoolean(m.askOwner);
-        buf.writeInt(m.playerX);
-        buf.writeInt(m.playerZ);
-        buf.writeUtf(m.backupsOf, 64);
-        buf.writeVarInt(Math.min(m.backups.size(), 50));
-        m.backups.stream().limit(50).forEach(b -> buf.writeUtf(b, 160));
     }
 
-    public static PlotMapStatePacket decode(FriendlyByteBuf buf) {
-        boolean open = buf.readBoolean();
-        String dim = buf.readUtf(128);
-        boolean editable = buf.readBoolean();
+    private static List<Plot> readPlots(FriendlyByteBuf buf) {
         int n = buf.readVarInt();
         List<Plot> plots = new ArrayList<>(n);
         for (int i = 0; i < n; i++) {
             plots.add(new Plot(buf.readUtf(64), buf.readUtf(128), buf.readUtf(32), buf.readInt(), buf.readInt(), buf.readInt(), buf.readInt(),
                     buf.readInt(), buf.readInt(), buf.readInt(), buf.readUtf(64), buf.readBoolean()));
         }
+        return plots;
+    }
+
+    public static PlotMapStatePacket decode(FriendlyByteBuf buf) {
+        boolean open = buf.readBoolean();
+        String dim = buf.readUtf(128);
+        boolean editable = buf.readBoolean();
+        List<Plot> plots = readPlots(buf);
         int undo = buf.readVarInt(), redo = buf.readVarInt();
         boolean ok = buf.readBoolean();
         String message = buf.readUtf(512);
@@ -79,7 +95,9 @@ public record PlotMapStatePacket(boolean open, String dimension, boolean editabl
         for (int i = 0; i < nb; i++) {
             backups.add(buf.readUtf(160));
         }
-        return new PlotMapStatePacket(open, dim, editable, plots, undo, redo, ok, message, ask, px, pz, of, backups);
+        String corners = buf.readUtf(64);
+        int bottom = buf.readInt(), top = buf.readInt();
+        return new PlotMapStatePacket(open, dim, editable, plots, undo, redo, ok, message, ask, px, pz, of, backups, corners, bottom, top, readPlots(buf));
     }
 
     public static void handle(PlotMapStatePacket msg, Supplier<NetworkEvent.Context> ctx) {

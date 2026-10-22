@@ -21,7 +21,7 @@ Value types in `api`: `Cuboid` (a box of whole blocks, both corners inclusive: `
 | `regions().regionIdsAt(level, pos)` | ids of the regions at a position, highest priority first, world default last |
 | `regions().allows(level, pos, flag, player)` | whether a state flag allows the action there (exemptions included); flags are the constants in `flag.Flags`. For `teleport-in`, `teleport-out`, `set-home`, `totem-place` and `totem-drop` it also answers no inside a BSP-Core Anti Totem zone that blocks the same rule, and `teleport-in` and `set-home` answer no outside the world border, so callers need ask only Region Guard |
 | `regions().value(level, pos, flag)` | a flag's value there, or null |
-| `regions().bounds(level, regionId)` | a region's `Cuboid`, or null for an unknown id or the world default |
+| `regions().bounds(level, regionId)` | a region's `Cuboid`, or null for an unknown id, the world default, or a region made without corners that has none yet (since 2026-10-22; such a region applies nowhere) |
 | `regions().border(level)` | the world's `Border`, or null when it has none (it belongs to the world's global region; set with `/rg border`) |
 | `regions().registerFlag(flag)` | add your own flag before the server starts; it appears in the admin screen |
 | `regions().addExemption(exemption)` | lift region rules for a player in a spot (an `api.Exemption`, see below) |

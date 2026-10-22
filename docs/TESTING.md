@@ -369,3 +369,21 @@ On a copy of the world, in the plot map, with a plot for sale that has a small b
 - [ ] Move a full-height 64 x 64 plot: the server keeps ticking (watch TPS); it finishes within a minute or two.
 - [ ] BACKUP on a plot's card, change something inside, BACKUPS, click the newest twice (SURE? RESTORE): the change is undone. `/rg plot backups <plot>` lists the files; they are in `world/bsp_region_guard/backups/plots/`.
 
+
+## 2026-10-22: region size, vertical fill and corners on the map (B6, B7)
+
+The new jar on the server **and** the client (network protocol 7). As a BSP Core admin. Built and tested headless (98 GameTests); nothing below has been seen in a client yet.
+
+- [ ] `/rg gui`: the admin screen fills the window with a small margin, and text is a little smaller than before. Make the window smaller and larger: it follows, never smaller than before. The region list shows more rows, the MAP tab's map is larger, FLAGS shows more flags.
+- [ ] Pick a region, INFO tab: SIZE shows FROM and TO as six numbers, the size line, VERTICAL FILL (-64 to 319 in the Overworld), SET CORNERS ON MAP and USE WAND SELECTION. Click a number, change it (it turns gold), Enter: the region moves (watch in the world or on MAP). Esc while typing puts the number back.
+- [ ] Type a height above the world (e.g. 400) and Enter: a red sentence, nothing changes.
+- [ ] VERTICAL FILL: the region now runs from the bottom to the top of the world; `/rg info` shows it. `/rg vfill <id>` does the same; `/rg vfill` with a wand selection stretches the selection (its box in the world grows).
+- [ ] `/rg redefine <id> ~ ~ ~ ~10 ~5 ~10` moves the region to typed corners.
+- [ ] With no wand selection, + NEW, type `harbour`, Enter. The plot map opens with "harbour has no corners yet: click the first corner". Protected regions show as grey dotted outlines.
+- [ ] Click once: a marker. Move the mouse: a teal box follows. Drag the map: it pans, no corner is placed. Click the second corner: the bar shows the size and y -64 to 319.
+- [ ] Change the bar's heights (e.g. 60 to 90). CONFIRM: you are back in the admin screen on harbour with its new box; INFO shows the corners. A third click before CONFIRM starts over.
+- [ ] Before giving harbour corners: the list shows NO CORNERS in gold, and the header says "no corners yet". TELEPORT, SELECT, SALE and MINE give a "has no corners yet" sentence; flags can be set. Stand anywhere with `/rg bypass` off and a `build deny` flag on harbour: you can still build everywhere.
+- [ ] SET CORNERS ON MAP on a region that has corners: click new ones, CONFIRM; then PLOT MAP, UNDO (1): its old corners come back.
+- [ ] CANCEL or Esc in corner mode: back to the admin screen, nothing changed.
+- [ ] Plot map, normal use: UNDO and REDO are in the world card at the top right and never sit over the PLOTS card. ▾ on the picked plot's card folds it to its name; ▸ opens it again. The same on the toolbar under a copy (COPY OF ...) and on the PLOTS card. The cards are a little smaller than before.
+- [ ] Another server still on the older Region Guard, sharing storage: harbour (no corners) shows there as a tiny region far below the world and protects nothing.

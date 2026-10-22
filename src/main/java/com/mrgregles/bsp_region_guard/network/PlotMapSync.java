@@ -25,6 +25,17 @@ public final class PlotMapSync {
         RegionNetwork.sendTo(player, state(player, player.serverLevel(), true, new PlotMap.Result(true, "", false), ""));
     }
 
+    /** Opens the plot map on the admin's own world, waiting for the two corners of {@code regionId} (D71). */
+    public static void openCorners(ServerPlayer player, String regionId, String message) {
+        RegionNetwork.sendTo(player, cornersState(player, regionId, message));
+    }
+
+    public static PlotMapStatePacket cornersState(ServerPlayer player, String regionId, String message) {
+        PlotMapStatePacket p = state(player, player.serverLevel(), true, new PlotMap.Result(true, message, false), "");
+        return new PlotMapStatePacket(p.open(), p.dimension(), p.editable(), p.plots(), p.undo(), p.redo(), p.ok(), p.message(), p.askOwner(),
+                p.playerX(), p.playerZ(), p.backupsOf(), p.backups(), regionId, p.bottom(), p.top(), p.others());
+    }
+
     public static PlotMapStatePacket apply(ServerPlayer player, PlotMapActionPacket m) {
         ServerLevel own = player.serverLevel();
         if (!BspCore.isAdmin(player)) {
@@ -45,6 +56,7 @@ public final class PlotMapSync {
             case PlotMapActionPacket.RESTORE -> PlotMap.restore(player, m.a());
             case PlotMapActionPacket.UNDO -> PlotMap.undo(player);
             case PlotMapActionPacket.REDO -> PlotMap.redo(player);
+            case PlotMapActionPacket.CORNERS -> PlotMap.setCorners(player, m.a(), box);
             default -> new PlotMap.Result(false, "Unknown action " + m.action(), false);
         };
         if (m.action().equals(PlotMapActionPacket.VIEW)) {
@@ -61,16 +73,23 @@ public final class PlotMapSync {
         return state(player, own, false, r, of);
     }
 
-    /** A world's plots (plots for sale, claims and open areas) for the screen, biggest first so small ones draw on top. */
+    /**
+     * A world's plots (plots for sale, claims and open areas) for the screen, biggest first so small ones draw on top,
+     * and its other regions with corners as outlines.
+     */
     static PlotMapStatePacket state(ServerPlayer player, ServerLevel level, boolean open, PlotMap.Result r, String backupsOf) {
-        List<PlotMapStatePacket.Plot> plots = new ArrayList<>();
+        List<PlotMapStatePacket.Plot> plots = new ArrayList<>(), others = new ArrayList<>();
         List<Region> regions = new ArrayList<>(RegionStore.get(level).all());
         regions.sort(Comparator.comparingLong((Region x) -> x.bounds() == null ? 0 : -(long) x.bounds().sizeX() * x.bounds().sizeZ()));
         for (Region x : regions) {
-            if (x.isGlobal() || x.bounds() == null || !PlotMap.isPlot(x)) {
+            if (x.isGlobal() || x.bounds() == null || !x.hasCorners()) {
                 continue;
             }
             Cuboid b = x.bounds();
+            if (!PlotMap.isPlot(x)) {
+                others.add(new PlotMapStatePacket.Plot(x.id(), x.name(), x.type().key(), x.priority(), b.minX(), b.minY(), b.minZ(), b.maxX(), b.maxY(), b.maxZ(), "", true));
+                continue;
+            }
             String owner = x.owners().stream().findFirst().map(u -> player.server.getProfileCache().get(u).map(p -> p.getName()).orElse(u.toString().substring(0, 8))).orElse("");
             plots.add(new PlotMapStatePacket.Plot(x.id(), x.name(), x.type().key(), x.priority(), b.minX(), b.minY(), b.minZ(), b.maxX(), b.maxY(), b.maxZ(),
                     owner, PlotMap.locked(x)));
@@ -78,6 +97,7 @@ public final class PlotMapSync {
         boolean editable = level == player.serverLevel();
         return new PlotMapStatePacket(open, level.dimension().location().toString(), editable, plots, PlotMap.undoCount(player), PlotMap.redoCount(player),
                 r.ok(), r.message(), r.askOwner(), player.getBlockX(), player.getBlockZ(), backupsOf,
-                backupsOf.isEmpty() ? List.of() : com.mrgregles.bsp_region_guard.claim.PlotBlocks.backups(player.server, backupsOf));
+                backupsOf.isEmpty() ? List.of() : com.mrgregles.bsp_region_guard.claim.PlotBlocks.backups(player.server, backupsOf),
+                "", level.getMinBuildHeight(), level.getMaxBuildHeight() - 1, others);
     }
 }

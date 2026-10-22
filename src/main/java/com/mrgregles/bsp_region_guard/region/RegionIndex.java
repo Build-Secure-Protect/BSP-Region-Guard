@@ -5,7 +5,9 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import net.minecraft.world.level.ChunkPos;
 
 import java.util.ArrayList;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Finds the regions that may contain a position without scanning them all.
@@ -23,12 +25,15 @@ final class RegionIndex {
 
     private final Long2ObjectOpenHashMap<List<Region>> cells = new Long2ObjectOpenHashMap<>();
     private final List<Region> large = new ArrayList<>();
+    /** The box each region was listed under, so removing it after its bounds changed clears the old cells. */
+    private final Map<Region, Cuboid> listedAs = new IdentityHashMap<>();
 
     void add(Region region) {
         Cuboid b = region.bounds();
-        if (b == null) {
-            return; // the global region is not indexed; the store appends it itself
+        if (b == null || !region.hasCorners()) {
+            return; // the global region is not indexed (the store appends it itself); a region without corners applies nowhere
         }
+        listedAs.put(region, b);
         int cx0 = b.minX() >> CELL_SHIFT, cx1 = b.maxX() >> CELL_SHIFT;
         int cz0 = b.minZ() >> CELL_SHIFT, cz1 = b.maxZ() >> CELL_SHIFT;
         long cellCount = (long) (cx1 - cx0 + 1) * (cz1 - cz0 + 1);
@@ -45,7 +50,7 @@ final class RegionIndex {
 
     void remove(Region region) {
         large.remove(region);
-        Cuboid b = region.bounds();
+        Cuboid b = listedAs.remove(region);
         if (b == null) {
             return;
         }
@@ -65,6 +70,7 @@ final class RegionIndex {
     void clear() {
         cells.clear();
         large.clear();
+        listedAs.clear();
     }
 
     /** True when nothing but the global region could apply at this column. The cheap pre-check for mixins. */

@@ -34,7 +34,7 @@ public interface RegionService {
     @Nullable
     <T> T value(ServerLevel level, BlockPos pos, Flag<T> flag);
 
-    /** A region's box, or {@code null} for an unknown id or the world default (which has no box). */
+    /** A region's box, or {@code null} for an unknown id, the world default (which has no box) or a region without corners yet. */
     @Nullable
     Cuboid bounds(ServerLevel level, String regionId);
 

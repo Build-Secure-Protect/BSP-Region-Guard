@@ -29,10 +29,12 @@ public final class RegionMap {
     @Nullable
     private static DynamicTexture texture;
     private static long builtAt = Long.MIN_VALUE;
-    private static int builtCx, builtCz, builtBpp;
+    private static int builtCx, builtCz, builtBpp, texW, texH;
 
     /** What the map currently shows: centre block and blocks per pixel. */
     int cx, cz, bpp = 1;
+    /** Its size in screen units: {@link #W} by {@link #H}, or larger in the admin screen that fills the window (D80). */
+    int w = W, h = H;
 
     private RegionMap() {
     }
@@ -41,9 +43,14 @@ public final class RegionMap {
         return new RegionMap();
     }
 
+    void size(int w, int h) {
+        this.w = Math.max(16, w);
+        this.h = Math.max(16, h);
+    }
+
     /** Frames the region (or the player) with some margin, unless the user has zoomed by hand. */
     void frame(@Nullable Cuboid bounds, BlockPos player, boolean keepZoom) {
-        if (bounds == null) {
+        if (bounds == null || com.mrgregles.bsp_region_guard.region.Region.noCorners(bounds)) {
             cx = player.getX();
             cz = player.getZ();
             if (!keepZoom) {
@@ -54,7 +61,7 @@ public final class RegionMap {
         cx = (bounds.minX() + bounds.maxX() + 1) / 2;
         cz = (bounds.minZ() + bounds.maxZ() + 1) / 2;
         if (!keepZoom) {
-            int need = Math.max((int) Math.ceil(bounds.sizeX() * 1.4 / W), (int) Math.ceil(bounds.sizeZ() * 1.4 / H));
+            int need = Math.max((int) Math.ceil(bounds.sizeX() * 1.4 / w), (int) Math.ceil(bounds.sizeZ() * 1.4 / h));
             bpp = Math.max(1, Math.min(64, need));
         }
     }
@@ -72,30 +79,37 @@ public final class RegionMap {
     }
 
     int blockX(int x, int px) {
-        return cx + (px - x - W / 2) * bpp;
+        return cx + (px - x - w / 2) * bpp;
     }
 
     int blockZ(int y, int py) {
-        return cz + (py - y - H / 2) * bpp;
+        return cz + (py - y - h / 2) * bpp;
     }
 
     private int pixelX(int x, int bx) {
-        return x + W / 2 + Math.floorDiv(bx - cx, bpp);
+        return x + w / 2 + Math.floorDiv(bx - cx, bpp);
     }
 
     private int pixelZ(int y, int bz) {
-        return y + H / 2 + Math.floorDiv(bz - cz, bpp);
+        return y + h / 2 + Math.floorDiv(bz - cz, bpp);
     }
 
-    /** Rebuilds the terrain texture when the view moved or every two seconds (chunks keep arriving). */
+    /** Rebuilds the terrain texture when the view moved or every two seconds or so (chunks keep arriving). */
     private void ensure(Level level) {
         Minecraft mc = Minecraft.getInstance();
-        if (texture == null) {
-            texture = new DynamicTexture(W, H, false);
+        if (texture == null || texW != w || texH != h) {
+            if (texture != null) {
+                mc.getTextureManager().release(TEXTURE);
+            }
+            texture = new DynamicTexture(w, h, false);
+            texW = w;
+            texH = h;
+            builtAt = Long.MIN_VALUE;
             mc.getTextureManager().register(TEXTURE, texture);
         }
         long now = level.getGameTime();
-        if (cx == builtCx && cz == builtCz && bpp == builtBpp && now - builtAt < 40 && now >= builtAt) {
+        long every = 40L * Math.max(1, (long) w * h / ((long) W * H)); // a larger map is rebuilt less often, so the cost stays about the same
+        if (cx == builtCx && cz == builtCz && bpp == builtBpp && now - builtAt < every && now >= builtAt) {
             return;
         }
         builtCx = cx;
@@ -107,9 +121,9 @@ public final class RegionMap {
             return;
         }
         BlockPos.MutableBlockPos p = new BlockPos.MutableBlockPos();
-        int x0 = cx - (W / 2) * bpp, z0 = cz - (H / 2) * bpp;
-        for (int px = 0; px < W; px++) {
-            for (int pz = 0; pz < H; pz++) {
+        int x0 = cx - (w / 2) * bpp, z0 = cz - (h / 2) * bpp;
+        for (int px = 0; px < w; px++) {
+            for (int pz = 0; pz < h; pz++) {
                 int wx = x0 + px * bpp, wz = z0 + pz * bpp, rgb = UNLOADED;
                 if (level.hasChunk(wx >> 4, wz >> 4)) {
                     int top = level.getHeight(Heightmap.Types.WORLD_SURFACE, wx, wz);
@@ -138,17 +152,17 @@ public final class RegionMap {
             return null;
         }
         ensure(level);
-        g.blit(TEXTURE, x, y, W, H, 0f, 0f, W, H, W, H);
-        HoloScreen.scissor(g, x, y, x + W, y + H);
+        g.blit(TEXTURE, x, y, w, h, 0f, 0f, w, h, w, h);
+        HoloScreen.scissor(g, x, y, x + w, y + h);
         RegionListPacket.Summary hovered = null;
         int hoveredArea = Integer.MAX_VALUE;
         for (RegionListPacket.Summary s : regions) {
             Cuboid b = s.bounds();
-            if (b == null) {
+            if (b == null || com.mrgregles.bsp_region_guard.region.Region.noCorners(b)) {
                 continue;
             }
             int x1 = pixelX(x, b.minX()), x2 = pixelX(x, b.maxX() + 1), z1 = pixelZ(y, b.minZ()), z2 = pixelZ(y, b.maxZ() + 1);
-            if (x2 <= x || x1 >= x + W || z2 <= y || z1 >= y + H) {
+            if (x2 <= x || x1 >= x + w || z2 <= y || z1 >= y + h) {
                 continue;
             }
             x2 = Math.max(x2, x1 + 1);
@@ -173,7 +187,7 @@ public final class RegionMap {
             }
         }
         int px = pixelX(x, player.getX()), pz = pixelZ(y, player.getZ());
-        if (px >= x && px < x + W && pz >= y && pz < y + H) {
+        if (px >= x && px < x + w && pz >= y && pz < y + h) {
             g.fill(px - 2, pz - 2, px + 3, pz + 3, 0xFF000000);
             g.fill(px - 1, pz - 1, px + 2, pz + 2, 0xFFFFD23A);
         }

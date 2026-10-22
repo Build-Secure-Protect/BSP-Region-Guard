@@ -64,30 +64,94 @@ public final class RegionEdits {
 
     // ------------------------------------------------------------------ create, change, remove
 
+    /** Makes a region from {@code box}; without one it has no corners yet and applies nowhere until it gets some (D73, D74). */
     public static Result create(ServerLevel level, String id, @Nullable Cuboid box, int priority) {
-        if (box == null) {
-            return Result.fail(NO_SELECTION);
-        }
         try {
-            Region r = new Region(Region.validateId(id), level.dimension(), box, RegionType.PROTECTED);
+            Region r = new Region(Region.validateId(id), level.dimension(), box == null ? Region.NO_CORNERS : box, RegionType.PROTECTED);
             r.setPriority(priority);
             RegionStore.get(level).add(r);
+            if (box == null) {
+                return Result.ok("Region " + r.id() + " created without corners; it protects nothing yet. Set them on the plot map (SET CORNERS), "
+                        + "with the wand and /rg redefine " + r.id() + ", or by typing them: /rg redefine " + r.id() + " <x1 y1 z1> <x2 y2 z2>.");
+            }
             return Result.ok("Region " + r.id() + " created: " + box + ", " + box.volume() + " blocks, priority " + priority + ".");
         } catch (IllegalArgumentException | IllegalStateException e) {
             return Result.fail(e.getMessage());
         }
     }
 
-    public static Result redefine(RegionStore store, Region r, @Nullable Cuboid box) {
+    /** Null when {@code box} lies within the world's height; otherwise why not. */
+    @Nullable
+    public static String heightProblem(ServerLevel level, Cuboid box) {
+        int bottom = level.getMinBuildHeight(), top = level.getMaxBuildHeight() - 1;
+        return box.minY() < bottom || box.maxY() > top ? "Heights in " + level.dimension().location() + " run from " + bottom + " to " + top + "." : null;
+    }
+
+    public static Result redefine(ServerLevel level, RegionStore store, Region r, @Nullable Cuboid box) {
         if (r.isGlobal()) {
             return Result.fail("The world default has no bounds.");
         }
         if (box == null) {
             return Result.fail(NO_SELECTION);
         }
+        String height = heightProblem(level, box);
+        if (height != null) {
+            return Result.fail(height);
+        }
         r.setBounds(box);
         store.touch(r);
-        return Result.ok("Region " + r.id() + " now covers " + box + ".");
+        return Result.ok("Region " + r.id() + " now covers " + box + ": " + box.sizeX() + " x " + box.sizeY() + " x " + box.sizeZ() + ".");
+    }
+
+    /** The size fields of the screen: six whole numbers, "x1 y1 z1 x2 y2 z2", corners in any order. */
+    public static Result resize(ServerLevel level, RegionStore store, Region r, String corners) {
+        String[] parts = corners.trim().split("[\\s,]+");
+        if (parts.length != 6) {
+            return Result.fail("Give both corners as six numbers: x1 y1 z1 x2 y2 z2.");
+        }
+        int[] v = new int[6];
+        try {
+            for (int i = 0; i < 6; i++) {
+                v[i] = Integer.parseInt(parts[i]);
+            }
+        } catch (NumberFormatException e) {
+            return Result.fail("Corners are whole numbers: x1 y1 z1 x2 y2 z2.");
+        }
+        return redefine(level, store, r, Cuboid.of(new net.minecraft.core.BlockPos(v[0], v[1], v[2]), new net.minecraft.core.BlockPos(v[3], v[4], v[5])));
+    }
+
+    /** The box stretched from the world's lowest block to its highest buildable block (D77). */
+    public static Cuboid verticalFill(ServerLevel level, Cuboid box) {
+        return new Cuboid(box.minX(), level.getMinBuildHeight(), box.minZ(), box.maxX(), level.getMaxBuildHeight() - 1, box.maxZ());
+    }
+
+    /** Stretches a region from the bottom to the top of its world. */
+    public static Result verticalFill(ServerLevel level, RegionStore store, Region r) {
+        if (r.isGlobal()) {
+            return Result.fail("The world default already covers the whole world.");
+        }
+        if (!r.hasCorners()) {
+            return Result.fail(r.id() + " has no corners yet. Set them first; corners clicked on the plot map span the whole height anyway.");
+        }
+        return redefine(level, store, r, verticalFill(level, r.bounds()));
+    }
+
+    /** Stretches the player's wand selection from the bottom to the top of the world they stand in. */
+    public static Result verticalFillSelection(ServerPlayer player) {
+        Cuboid box = selectionIn(player);
+        if (box == null) {
+            return Result.fail(NO_SELECTION);
+        }
+        Cuboid tall = verticalFill(player.serverLevel(), box);
+        Selections.of(player).set(player.serverLevel().dimension(), tall);
+        Selections.sync(player);
+        return Result.ok("Selection stretched to the whole height: " + tall + ".");
+    }
+
+    /** Null when the region has corners; otherwise a refusal for {@code what} (D73). */
+    @Nullable
+    private static Result needsCorners(Region r, String what) {
+        return r.hasCorners() ? null : Result.fail(r.id() + " has no corners yet, so it can't " + what + ". Set its corners first (SET CORNERS on the INFO tab, or /rg redefine).");
     }
 
     public static Result remove(RegionStore store, Region r) {
@@ -132,6 +196,9 @@ public final class RegionEdits {
         RegionType type = RegionType.byKey(typeKey.trim().toLowerCase(Locale.ROOT));
         if (type == null || type == RegionType.GLOBAL || r.isGlobal()) {
             return Result.fail("Types: protected, plot_for_sale, open_for_buying, claim, mine.");
+        }
+        if (type != RegionType.PROTECTED && !r.hasCorners()) {
+            return needsCorners(r, "be a " + type.key().replace('_', ' ') + " region");
         }
         if ((type == RegionType.CLAIM || type == RegionType.PLOT_FOR_SALE || type == RegionType.OPEN_FOR_BUYING) && !TotemRule.claimsAllowedIn(level)) {
             return Result.fail("Claims are not allowed in a PvP world (where Shatter Totems can be placed). See the claims section of the config.");
@@ -191,6 +258,9 @@ public final class RegionEdits {
         if (r.bounds() == null) {
             return Result.fail("The world default has no corners to select.");
         }
+        if (!r.hasCorners()) {
+            return needsCorners(r, "be selected");
+        }
         Selections.of(player).set(player.serverLevel().dimension(), r.bounds());
         Selections.sync(player);
         return Result.ok("Selection set to " + r.id() + ": " + r.bounds() + ".");
@@ -198,6 +268,9 @@ public final class RegionEdits {
 
     /** To the region's teleport point, or onto the surface at its middle. */
     public static Result teleport(ServerPlayer p, RegionStore store, Region r) {
+        if (!r.hasCorners()) {
+            return needsCorners(r, "be teleported to");
+        }
         FlagLocation target = r.flag(Flags.TELEPORT);
         if (target != null) {
             ServerLevel dest = p.server.getLevel(target.dimension());
@@ -228,6 +301,9 @@ public final class RegionEdits {
         }
         if (!TotemRule.claimsAllowedIn(level)) {
             return "Claims are not allowed in a PvP world.";
+        }
+        if (!r.hasCorners()) {
+            return r.id() + " has no corners yet, so it can't be sold or opened for buying. Set its corners first.";
         }
         if (r.type() == RegionType.CLAIM) {
             return r.id() + " is already owned; the owner can abandon it, or an admin can with /claim abandon.";
@@ -329,6 +405,9 @@ public final class RegionEdits {
     public static Result makeMine(RegionStore store, Region r) {
         if (r.isGlobal()) {
             return Result.fail("The world default cannot be a mine.");
+        }
+        if (!r.hasCorners()) {
+            return needsCorners(r, "be a mine");
         }
         Mines.makeMine(store, r);
         return Result.ok(r.id() + " is now a mine: breaking is allowed inside, placing is not. Add blocks with /rg mine add " + r.id() + " <block> <weight>.");

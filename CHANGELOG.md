@@ -4,6 +4,35 @@ All notable changes to BSP Region Guard. Format follows Keep a Changelog; versio
 
 ## [Unreleased]
 
+Network protocol 7: servers and players need this version together.
+
+### Added (2026-10-22, region size and corners: B6, B7)
+- **Regions without corners** (owner decisions D71 to D79): **+ NEW** with no wand selection, `/rg define <id>` or the new alias `/rg create <id>` without one, makes a region that protects nothing and applies nowhere until it has corners.
+  - It shows NO CORNERS in the list and "no corners yet" in `/rg list` and `/rg info`.
+  - Flags, owners, members, ranks and the name can be set beforehand. Teleport, sale, open for buying, mine, other types and SELECT refuse until it has corners.
+  - It is saved with a one-block box far below the world, so an older Region Guard on another server reads it as a tiny region, never as the world default.
+- **Corners on the plot map:** + NEW without a selection, or SET CORNERS ON MAP on the INFO tab, opens the plot map in corner mode.
+  - Click the first and second corner; a drag still pans. SNAP lands a corner just outside a neighbour's side.
+  - The height is the whole world unless the corner bar's two height fields say otherwise.
+  - Protected regions and mines show as grey dotted outlines.
+  - CONFIRM sets the corners and goes back to the admin screen; CANCEL or Esc changes nothing. UNDO and REDO cover it.
+  - Plots, claims and open areas keep to the overlap rule (D59).
+- **Size editing on the INFO tab:** the corners are six fields (Enter saves, Esc puts them back), with VERTICAL FILL, SET CORNERS ON MAP and USE WAND SELECTION (which replaces REDEFINE under the tabs).
+- **Vertical fill:** from the world's lowest block to its highest buildable block (-64 to 319 in the Overworld). VERTICAL FILL on the INFO tab; `/rg vfill <id>` for a region, `/rg vfill` for your wand selection.
+- **Typed corners:** `/rg redefine <id> <x1 y1 z1> <x2 y2 z2>` (`~` works). Heights outside the world are refused.
+- Seven GameTests (98 in all).
+
+### Changed (2026-10-22, screens; D80, mock-up option A)
+- **The admin screen fills the window** and is drawn at 80% of `ui.scale`. The region list shows as many rows as fit; the MAP tab's map and the FLAGS list grow with the pane.
+- **The plot map's cards are drawn at 80%:**
+  - UNDO and REDO sit in the world card at the top right, so they no longer overlap the other cards.
+  - The picked plot's card and the toolbar under a copied or moved plot fold to one line with ▾ / ▸; the PLOTS card uses the same button.
+  - The toolbar has a title line (COPY OF ..., MOVING ...).
+
+### Fixed (2026-10-22)
+- After a region changed size, it stayed listed under the ground it used to cover. Lookups still checked the box, so nothing was protected wrongly, but quick checks were slower there. It is now listed only where it is.
+- The BORDER tab could miss other servers' worlds on a network with many worlds (B5): it read at most 50 entries, and each server listed the others in a different order, so a world one server offered could be missing on another. Now only worlds with a border (the only ones that can be linked) are sent, all of them, in the same order everywhere. One GameTest (91 in all).
+
 ## [0.3.0] - 2026-10-20
 
 The plot map: copy, move, back up and find plots on a full-window map. Network protocol 6: servers and players need this version together.

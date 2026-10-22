@@ -356,4 +356,26 @@ public class EdgeLinkGameTests {
         }
         h.succeed();
     }
+
+    /** Bug B5: a network of 55 worlds pushed linkable ones past the screen's 50-entry list. Only bordered worlds are sent, sorted. */
+    @GameTest(template = EMPTY, batch = BATCH)
+    public void every_bordered_world_reaches_the_border_tab_however_many_worlds_there_are(GameTestHelper h) {
+        ServerLevel level = h.getLevel();
+        List<EdgeLinks.World> worlds = new java.util.ArrayList<>();
+        for (int i = 0; i < 60; i++) {
+            worlds.add(new EdgeLinks.World("srv" + i, "mod:dim" + i, null, Map.of()));
+        }
+        worlds.add(new EdgeLinks.World("zz-last", "minecraft:overworld", new Border(0, 0, 3000), Map.of()));
+        EdgeLinks.setNetwork(worlds);
+        try {
+            Map<String, String> data = new java.util.LinkedHashMap<>();
+            com.mrgregles.bsp_region_guard.network.RegionSync.borderData(level, data);
+            long nets = data.keySet().stream().filter(k -> k.startsWith("net.")).count();
+            h.assertTrue(nets == 1 && data.get("net.1").startsWith("zz-last|minecraft:overworld|3000|"), "only the bordered world is sent, whatever its place: " + data);
+            h.assertTrue(EdgeLinks.network().get(0).server().equals("srv0"), "the network is listed in a fixed order");
+        } finally {
+            EdgeLinks.clearAll();
+        }
+        h.succeed();
+    }
 }

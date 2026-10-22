@@ -29,12 +29,14 @@ import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.commands.SharedSuggestionProvider;
 import net.minecraft.commands.arguments.GameProfileArgument;
+import net.minecraft.commands.arguments.coordinates.BlockPosArgument;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.event.RegisterCommandsEvent;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -88,11 +90,19 @@ public final class RegionCommands {
         rg.then(Commands.literal("pos1").executes(ctx -> pos(ctx.getSource(), true)));
         rg.then(Commands.literal("pos2").executes(ctx -> pos(ctx.getSource(), false)));
         rg.then(Commands.literal("select").then(id().executes(ctx -> select(ctx.getSource(), id(ctx)))));
-        rg.then(Commands.literal("define").then(id()
-                .executes(ctx -> define(ctx.getSource(), id(ctx), 0))
-                .then(Commands.argument("priority", IntegerArgumentType.integer())
-                        .executes(ctx -> define(ctx.getSource(), id(ctx), IntegerArgumentType.getInteger(ctx, "priority"))))));
-        rg.then(Commands.literal("redefine").then(id().executes(ctx -> redefine(ctx.getSource(), id(ctx)))));
+        for (String name : new String[]{"define", "create"}) { // without a selection: a region without corners (D76)
+            rg.then(Commands.literal(name).then(id()
+                    .executes(ctx -> define(ctx.getSource(), id(ctx), 0))
+                    .then(Commands.argument("priority", IntegerArgumentType.integer())
+                            .executes(ctx -> define(ctx.getSource(), id(ctx), IntegerArgumentType.getInteger(ctx, "priority"))))));
+        }
+        rg.then(Commands.literal("redefine").then(id().executes(ctx -> redefine(ctx.getSource(), id(ctx)))
+                .then(Commands.argument("from", BlockPosArgument.blockPos()).then(Commands.argument("to", BlockPosArgument.blockPos())
+                        .executes(ctx -> redefine(ctx.getSource(), id(ctx), Cuboid.of(BlockPosArgument.getBlockPos(ctx, "from"), BlockPosArgument.getBlockPos(ctx, "to"))))))));
+        rg.then(Commands.literal("vfill")
+                .executes(ctx -> answer(ctx.getSource(), RegionEdits.verticalFillSelection(player(ctx.getSource()))))
+                .then(id().executes(ctx -> answer(ctx.getSource(), RegionEdits.verticalFill(ctx.getSource().getLevel(), RegionStore.get(ctx.getSource().getLevel()),
+                        region(ctx.getSource(), id(ctx)))))));
         rg.then(Commands.literal("remove").then(id().executes(ctx -> remove(ctx.getSource(), id(ctx)))));
         rg.then(Commands.literal("list").executes(ctx -> list(ctx.getSource())));
         rg.then(Commands.literal("info")
@@ -393,8 +403,12 @@ public final class RegionCommands {
     }
 
     private static int redefine(CommandSourceStack src, String id) throws CommandSyntaxException {
+        return redefine(src, id, RegionEdits.selectionIn(player(src)));
+    }
+
+    private static int redefine(CommandSourceStack src, String id, @Nullable Cuboid box) throws CommandSyntaxException {
         Region r = region(src, id);
-        return answer(src, RegionEdits.redefine(RegionStore.get(src.getLevel()), r, RegionEdits.selectionIn(player(src))));
+        return answer(src, RegionEdits.redefine(src.getLevel(), RegionStore.get(src.getLevel()), r, box));
     }
 
     private static int remove(CommandSourceStack src, String id) throws CommandSyntaxException {
@@ -595,7 +609,7 @@ public final class RegionCommands {
         MutableComponent out = Component.literal("Regions in " + src.getLevel().dimension().location() + " (" + store.size() + "):");
         for (Region r : store.all()) {
             out.append(Component.literal("\n  " + r.id()).withStyle(ChatFormatting.AQUA))
-                    .append(Component.literal(" " + (r.isGlobal() ? "world default" : r.bounds() + ", priority " + r.priority())
+                    .append(Component.literal(" " + (r.isGlobal() ? "world default" : (r.hasCorners() ? r.bounds() : "no corners yet") + ", priority " + r.priority())
                             + (r.type() == RegionType.PROTECTED || r.isGlobal() ? "" : ", " + r.type().key().replace('_', ' '))));
         }
         src.sendSuccess(() -> out, false);
@@ -627,7 +641,7 @@ public final class RegionCommands {
         }
         out.append("\n  Type: " + r.type().key().replace('_', ' ') + ", priority " + r.priority()
                 + (r.parentId() == null ? "" : ", parent " + r.parentId()));
-        out.append("\n  Bounds: " + (r.bounds() == null ? "the whole world" : r.bounds() + " (" + r.bounds().sizeX() + " x "
+        out.append("\n  Bounds: " + (r.bounds() == null ? "the whole world" : !r.hasCorners() ? "no corners yet (protects nothing)" : r.bounds() + " (" + r.bounds().sizeX() + " x "
                 + r.bounds().sizeY() + " x " + r.bounds().sizeZ() + ")"));
         out.append("\n  Owners: " + names(src, r.owners()));
         out.append("\n  Members: " + names(src, r.members()));

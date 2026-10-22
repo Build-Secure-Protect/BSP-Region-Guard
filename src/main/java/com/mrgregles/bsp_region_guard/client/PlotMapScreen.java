@@ -31,12 +31,18 @@ import java.util.Map;
  * unlocks it; the copy or the unlocked plot follows the mouse until a click drops it, then drags; a toolbar under it
  * sets the name, priority and height, turns it, switches SNAP, and confirms or cancels. UNDO and REDO take back the
  * last 15 actions. Only the world the admin stands in can be edited (D62); others show in a gold frame.
+ *
+ * <p>Corner mode (D71 to D80): opened for one region from the admin screen, the admin clicks its first and second
+ * corner (a click that does not drag), sets the height in the corner bar (the whole world at first), and confirms;
+ * then the admin screen comes back. The cards are drawn at 80% ({@link #UI}) and fold.
  */
 public class PlotMapScreen extends Screen {
     private static final int BG = RegionScreen.BG, INSET = RegionScreen.INSET, LINE = RegionScreen.LINE, TQ = RegionScreen.TQ, VIO = RegionScreen.VIO,
             GOLD = RegionScreen.GOLD, BAD = RegionScreen.BAD, TEXT = RegionScreen.TEXT, MUTED = RegionScreen.MUTED;
     private static final float MIN_SCALE = 1, MAX_SCALE = 16;
     private static final int ROW = 11, LIST_W = 170, LIST_ROWS = 18;
+    /** The cards, bars and text are drawn at this size; the map itself at full size (D80). */
+    private static final float UI = 0.8f;
 
     private record Hit(int x, int y, int w, int h, Runnable action) {
         boolean contains(double mx, double my) {
@@ -72,14 +78,44 @@ public class PlotMapScreen extends Screen {
     private int dragDX = Integer.MIN_VALUE, dragDZ, listScroll;
     private String filter = "all";
     private final List<Hit> hits = new ArrayList<>();
+    /** The cards drawn this frame (card units): a click on one that hits no button goes no further, so it never reaches the map. */
+    private final List<Hit> covers = new ArrayList<>();
     private final Map<Long, Tex> textures = new HashMap<>();
-    private EditBox search, name;
+    private EditBox search, name, minY, maxY;
     private String message = "";
     private boolean messageOk = true;
+    /** The window in card units ({@link #UI}). */
+    private int uw, uh;
+    private boolean cardFolded, toolFolded;
+    /** Corner mode: the region whose corners are clicked, or null; the corners clicked so far; the world's height. */
+    @Nullable
+    private String corners;
+    @Nullable
+    private int[] corner1, corner2;
+    private int bottom, top;
+    private boolean cornersSent, pressed;
+    private double pressX, pressY;
 
     public PlotMapScreen(PlotMapStatePacket state) {
         super(Component.literal(Tr.t("plot_map")));
         this.state = state;
+        if (!state.corners().isEmpty()) {
+            startCorners(state);
+        }
+    }
+
+    private void startCorners(PlotMapStatePacket msg) {
+        corners = msg.corners();
+        corner1 = corner2 = null;
+        bottom = msg.bottom();
+        top = msg.top();
+        cornersSent = false;
+        ghost = null;
+        picked = null;
+        if (minY != null) {
+            minY.setValue(String.valueOf(bottom));
+            maxY.setValue(String.valueOf(top));
+        }
     }
 
     /** Opens the screen, or brings the open one up to date with the server's answer. */
@@ -98,6 +134,15 @@ public class PlotMapScreen extends Screen {
         if (!msg.message().isEmpty()) {
             message = msg.message();
             messageOk = msg.ok();
+        }
+        if (!msg.corners().isEmpty()) {
+            startCorners(msg);
+        } else if (corners != null && cornersSent) {
+            cornersSent = false;
+            if (msg.ok() && !msg.message().isEmpty()) {
+                backToRegions(corners); // the corners are set: back to the admin screen
+                return;
+            }
         }
         askOwner = msg.askOwner();
         if (worldChanged) {
@@ -139,6 +184,16 @@ public class PlotMapScreen extends Screen {
         name.setValue(n);
         name.setMaxLength(32);
         addRenderableWidget(name);
+        String lo = minY == null ? String.valueOf(bottom) : minY.getValue(), hi = maxY == null ? String.valueOf(top) : maxY.getValue();
+        minY = new EditBox(font, 0, 0, 40, 12, Component.literal(Tr.t("pm_min_y")));
+        maxY = new EditBox(font, 0, 0, 40, 12, Component.literal(Tr.t("pm_max_y")));
+        minY.setValue(lo);
+        maxY.setValue(hi);
+        for (EditBox b : new EditBox[]{minY, maxY}) {
+            b.setMaxLength(6);
+            b.setFilter(t -> t.matches("-?\\d*"));
+            addRenderableWidget(b);
+        }
     }
 
     private void centreOn(double bx, double bz) {
@@ -181,11 +236,18 @@ public class PlotMapScreen extends Screen {
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partial) {
         hits.clear();
+        covers.clear();
         g.fill(0, 0, width, height, 0xFF05070A);
         mouseBX = (int) Math.floor(mouseX / scale + ox);
         mouseBZ = (int) Math.floor(mouseY / scale + oz);
         drawTerrain(g);
+        if (corners != null) {
+            drawOthers(g);
+        }
         drawPlots(g);
+        if (corners != null) {
+            drawCorners(g);
+        }
         if (ghost != null) {
             if (ghost.following) {
                 ghost.x = mouseBX - ghost.w / 2;
@@ -202,29 +264,41 @@ public class PlotMapScreen extends Screen {
             frame(g, 0, 0, width, height, GOLD);
             frame(g, 1, 1, width - 2, height - 2, GOLD);
         }
-        drawList(g, mouseX, mouseY);
-        drawWorldBar(g);
-        if (!ro) {
-            drawUndo(g);
-        }
-        if (ghost == null) {
+        // the cards, bars and text, at 80% (D80); widgets and clicks use the same units
+        g.pose().pushPose();
+        g.pose().scale(UI, UI, 1);
+        uw = (int) Math.ceil(width / UI);
+        uh = (int) Math.ceil(height / UI);
+        int ux = (int) (mouseX / UI), uy = (int) (mouseY / UI);
+        drawList(g, ux, uy);
+        drawWorldBar(g, ro);
+        minY.visible = maxY.visible = false;
+        if (corners != null) {
+            drawCornerBar(g);
+        } else if (ghost == null) {
             drawPickedCard(g);
         } else {
             drawToolbar(g);
         }
-        name.visible = ghost != null && ghost.source != null;
+        name.visible = ghost != null && ghost.source != null && !toolFolded;
         search.visible = !folded;
         if (askOwner) {
             drawOwnerQuestion(g);
         }
         String hud = "x " + mouseBX + "  z " + mouseBZ + "   " + (scale >= 1 ? (int) scale + " px a block" : "");
-        g.fill(width - font.width(hud) - 12, height - 16, width - 4, height - 4, 0xC0050608);
-        g.drawString(font, hud, width - font.width(hud) - 8, height - 14, TEXT, false);
+        g.fill(uw - font.width(hud) - 12, uh - 16, uw - 4, uh - 4, 0xC0050608);
+        g.drawString(font, hud, uw - font.width(hud) - 8, uh - 14, TEXT, false);
         if (!message.isEmpty()) {
-            g.fill(4, height - 16, 8 + font.width(message), height - 4, 0xC0050608);
-            g.drawString(font, message, 6, height - 14, messageOk ? TQ : BAD, false);
+            g.fill(4, uh - 16, 8 + font.width(message), uh - 4, 0xC0050608);
+            g.drawString(font, message, 6, uh - 14, messageOk ? TQ : BAD, false);
         }
-        super.render(g, mouseX, mouseY, partial);
+        super.render(g, ux, uy, partial);
+        g.pose().popPose();
+    }
+
+    /** Card units: a map pixel position divided by {@link #UI}. */
+    private static int ui(int px) {
+        return (int) (px / UI);
     }
 
     private void drawTerrain(GuiGraphics g) {
@@ -289,6 +363,167 @@ public class PlotMapScreen extends Screen {
                 g.drawString(font, font.plainSubstrByWidth(p.id() + (p.locked() ? "" : "  " + Tr.t("unlocked")), x1 - x0 - 4), x0 + 3, z0 + 2, c, false);
             }
         }
+    }
+
+    /** Corner mode: the world's protected areas and mines as grey dotted outlines, to line up against (D80). */
+    private void drawOthers(GuiGraphics g) {
+        for (Plot p : state.others()) {
+            int x0 = sx(p.minX()), z0 = sz(p.minZ()), x1 = sx(p.maxX() + 1), z1 = sz(p.maxZ() + 1);
+            for (int x = x0; x < x1; x += 4) {
+                g.fill(x, z0, Math.min(x + 2, x1), z0 + 1, 0xC09AA3B5);
+                g.fill(x, z1 - 1, Math.min(x + 2, x1), z1, 0xC09AA3B5);
+            }
+            for (int z = z0; z < z1; z += 4) {
+                g.fill(x0, z, x0 + 1, Math.min(z + 2, z1), 0xC09AA3B5);
+                g.fill(x1 - 1, z, x1, Math.min(z + 2, z1), 0xC09AA3B5);
+            }
+            if (x1 - x0 > 30 && z1 - z0 > 10) {
+                g.drawString(font, font.plainSubstrByWidth(p.id(), x1 - x0 - 4), x0 + 3, z0 + 2, MUTED, false);
+            }
+        }
+    }
+
+    /** Corner mode: the box from the first corner to the second, or to the block under the mouse until it is clicked. */
+    private void drawCorners(GuiGraphics g) {
+        if (corner1 == null) {
+            return;
+        }
+        int[] other = corner2 != null ? corner2 : snapCorner(mouseBX, mouseBZ);
+        int bx0 = Math.min(corner1[0], other[0]), bz0 = Math.min(corner1[1], other[1]);
+        int bx1 = Math.max(corner1[0], other[0]) + 1, bz1 = Math.max(corner1[1], other[1]) + 1;
+        int x0 = sx(bx0), z0 = sz(bz0), x1 = sx(bx1), z1 = sz(bz1);
+        g.fill(x0, z0, x1, z1, (TQ & 0xFFFFFF) | 0x40000000);
+        frame(g, x0, z0, x1 - x0, z1 - z0, TQ);
+        frame(g, x0 - 1, z0 - 1, x1 - x0 + 2, z1 - z0 + 2, 0x80FFFFFF);
+        for (int[] c : corner2 != null ? new int[][]{corner1, corner2} : new int[][]{corner1}) {
+            int cx = sx(c[0] + 0.5), cz = sz(c[1] + 0.5);
+            g.fill(cx - 4, cz - 4, cx + 5, cz + 5, 0xFFFFFFFF);
+            g.fill(cx - 3, cz - 3, cx + 4, cz + 4, TQ);
+        }
+    }
+
+    /** With SNAP on (SHIFT flips it), a corner within two blocks of a plot's or region's side lands just outside it, touching. */
+    private int[] snapCorner(int bx, int bz) {
+        if (snap == hasShiftDown()) {
+            return new int[]{bx, bz};
+        }
+        int x = bx, z = bz;
+        List<Plot> all = new ArrayList<>(state.plots());
+        all.addAll(state.others());
+        for (Plot p : all) {
+            for (int edge : new int[]{p.minX() - 1, p.maxX() + 1}) {
+                if (Math.abs(bx - edge) <= 2) {
+                    x = edge;
+                }
+            }
+            for (int edge : new int[]{p.minZ() - 1, p.maxZ() + 1}) {
+                if (Math.abs(bz - edge) <= 2) {
+                    z = edge;
+                }
+            }
+        }
+        return new int[]{x, z};
+    }
+
+    /** A corner clicked on the map: the first, then the second; a click after both starts again. */
+    private void cornerClick(int bx, int bz) {
+        int[] c = snapCorner(bx, bz);
+        if (corner1 == null || corner2 != null) {
+            corner1 = c;
+            corner2 = null;
+        } else {
+            corner2 = c;
+        }
+    }
+
+    @Nullable
+    private Integer yValue(EditBox box) {
+        try {
+            return Integer.parseInt(box.getValue().trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    /** Why the corners can't be confirmed yet, or null. */
+    @Nullable
+    private String cornerProblem() {
+        if (corner1 == null) {
+            return Tr.t("pm_click_first_corner", corners);
+        }
+        if (corner2 == null) {
+            return Tr.t("pm_click_second_corner");
+        }
+        Integer lo = yValue(minY), hi = yValue(maxY);
+        if (lo == null || hi == null || lo > hi || lo < bottom || hi > top) {
+            return Tr.t("pm_heights_run", bottom, top);
+        }
+        return null;
+    }
+
+    /** The corner bar (D71, D72, option A of D80): title with the steps, the height, VERTICAL FILL, SNAP, CONFIRM, CANCEL. */
+    private void drawCornerBar(GuiGraphics g) {
+        int w = 420, h = toolFolded ? 16 : 48, x = 8, y = uh - h - 22;
+        String problem = cornerProblem();
+        boolean ready = problem == null;
+        card(g, x, y, w, h, corner2 != null && !ready ? BAD : TQ);
+        String title = Tr.t("pm_corners_for", corners);
+        g.drawString(font, title, x + 5, y + 4, TEXT, false);
+        String steps = (corner1 == null ? "1 ●  2 ○" : corner2 == null ? "1 ✓  2 ●" : "1 ✓  2 ✓");
+        g.drawString(font, steps, x + 12 + font.width(title), y + 4, MUTED, false);
+        chip(g, x + w - 16, y + 2, 12, 12, toolFolded ? "▸" : "▾", false, MUTED, () -> toolFolded = !toolFolded);
+        if (toolFolded) {
+            return;
+        }
+        int ry = y + 16;
+        g.drawString(font, "Y", x + 5, ry + 3, MUTED, false);
+        minY.setX(x + 14);
+        minY.setY(ry);
+        minY.visible = true;
+        g.drawString(font, Tr.t("pm_to"), x + 59, ry + 3, MUTED, false);
+        maxY.setX(x + 59 + font.width(Tr.t("pm_to")) + 4);
+        maxY.setY(ry);
+        maxY.visible = true;
+        int cx = maxY.getX() + 46;
+        chip(g, cx, ry, 76, 12, Tr.t("vertical_fill"), true, GOLD, () -> {
+            minY.setValue(String.valueOf(bottom));
+            maxY.setValue(String.valueOf(top));
+        });
+        chip(g, cx + 80, ry, 36, 12, Tr.t("pm_snap"), snap, TQ, () -> snap = !snap);
+        chip(g, x + w - 112, ry, 54, 12, Tr.t("pm_confirm"), ready && !cornersSent, TQ, ready && !cornersSent ? this::confirmCorners : null);
+        chip(g, x + w - 54, ry, 48, 12, Tr.t("cancel"), false, BAD, this::cancelCorners);
+        String line = problem;
+        if (ready) {
+            int wide = Math.abs(corner1[0] - corner2[0]) + 1, deep = Math.abs(corner1[1] - corner2[1]) + 1;
+            line = Tr.t("pm_corners_size", wide, deep, yValue(minY), yValue(maxY));
+        }
+        g.drawString(font, font.plainSubstrByWidth(line, w - 10), x + 5, ry + 17, ready ? MUTED : corner2 != null ? BAD : TQ, false);
+    }
+
+    private void confirmCorners() {
+        if (corners == null || cornerProblem() != null) {
+            return;
+        }
+        int lo = yValue(minY), hi = yValue(maxY);
+        send(new PlotMapActionPacket(PlotMapActionPacket.CORNERS, corners, "", "", Math.min(corner1[0], corner2[0]), lo, Math.min(corner1[1], corner2[1]),
+                Math.max(corner1[0], corner2[0]), hi, Math.max(corner1[1], corner2[1]), 0, false, false, 0));
+        cornersSent = true;
+    }
+
+    /** CANCEL or Esc in corner mode: nothing is changed; back to the admin screen the admin came from. */
+    private void cancelCorners() {
+        if (corners != null) {
+            backToRegions(corners);
+        }
+    }
+
+    private void backToRegions(String id) {
+        corners = null;
+        if (minecraft != null) {
+            minecraft.setScreen(new RegionScreen(id));
+        }
+        RegionNetwork.CHANNEL.sendToServer(com.mrgregles.bsp_region_guard.network.RegionActionPacket.of(com.mrgregles.bsp_region_guard.network.RegionActionPacket.LIST, id));
+        RegionNetwork.CHANNEL.sendToServer(com.mrgregles.bsp_region_guard.network.RegionActionPacket.of(com.mrgregles.bsp_region_guard.network.RegionActionPacket.SELECT, id));
     }
 
     private void drawGhost(GuiGraphics g) {
@@ -356,7 +591,7 @@ public class PlotMapScreen extends Screen {
         int x = 8, y = 8, h = folded ? 20 : 58 + LIST_ROWS * ROW + 6;
         card(g, x, y, LIST_W, h, TQ);
         g.drawString(font, Tr.t("plots"), x + 6, y + 6, TQ, false);
-        chip(g, x + LIST_W - 40, y + 4, 34, 12, folded ? Tr.t("open") : Tr.t("fold"), false, MUTED, () -> folded = !folded);
+        chip(g, x + LIST_W - 18, y + 4, 12, 12, folded ? "▸" : "▾", false, MUTED, () -> folded = !folded);
         if (folded) {
             return;
         }
@@ -401,16 +636,25 @@ public class PlotMapScreen extends Screen {
         centreOn(p.minX() + p.width() / 2.0, p.minZ() + p.depth() / 2.0);
     }
 
-    private void drawWorldBar(GuiGraphics g) {
+    /** The world card, top right: the world switcher, editable or read-only, UNDO and REDO (D80, kept clear of the other cards), refresh. */
+    private void drawWorldBar(GuiGraphics g, boolean ro) {
         String world = state.dimension().replace("minecraft:", "");
         String access = state.editable() ? Tr.t("pm_editable") : Tr.t("read_only");
-        int w = 70 + font.width(world) + font.width(access) + 40;
-        int x = width - w - 8, y = 8;
+        String u = Tr.t("pm_undo", state.undo()), r = Tr.t("pm_redo", state.redo());
+        int undoW = ro ? 0 : font.width(u) + font.width(r) + 30;
+        int w = 70 + font.width(world) + font.width(access) + 40 + undoW;
+        int x = uw - w - 8, y = 8;
         card(g, x, y, w, 20, state.editable() ? TQ : GOLD);
         chip(g, x + 4, y + 4, 12, 12, "<", false, TEXT, () -> switchWorld(-1));
         g.drawString(font, world, x + 20, y + 6, TEXT, false);
         chip(g, x + 24 + font.width(world), y + 4, 12, 12, ">", false, TEXT, () -> switchWorld(1));
         g.drawString(font, access, x + 42 + font.width(world), y + 6, state.editable() ? MUTED : GOLD, false);
+        if (!ro) {
+            int ux = x + w - 30 - undoW;
+            g.fill(ux - 4, y + 4, ux - 3, y + 16, LINE);
+            chip(g, ux, y + 4, font.width(u) + 10, 12, u, state.undo() > 0, TQ, state.undo() > 0 ? () -> send(PlotMapActionPacket.simple(PlotMapActionPacket.UNDO, "", false)) : null);
+            chip(g, ux + font.width(u) + 14, y + 4, font.width(r) + 10, 12, r, state.redo() > 0, TQ, state.redo() > 0 ? () -> send(PlotMapActionPacket.simple(PlotMapActionPacket.REDO, "", false)) : null);
+        }
         chip(g, x + w - 26, y + 4, 22, 12, "↻", false, MUTED, () -> {
             releaseTextures();
             visibleChunks(true);
@@ -441,23 +685,19 @@ public class PlotMapScreen extends Screen {
         send(PlotMapActionPacket.simple(PlotMapActionPacket.VIEW, next, false));
     }
 
-    private void drawUndo(GuiGraphics g) {
-        String u = Tr.t("pm_undo", state.undo()), r = Tr.t("pm_redo", state.redo());
-        int w = font.width(u) + font.width(r) + 30, x = (width - w) / 2;
-        card(g, x - 4, 6, w + 8, 20, LINE);
-        chip(g, x, 10, font.width(u) + 10, 12, u, state.undo() > 0, TQ, state.undo() > 0 ? () -> send(PlotMapActionPacket.simple(PlotMapActionPacket.UNDO, "", false)) : null);
-        chip(g, x + font.width(u) + 16, 10, font.width(r) + 10, 12, r, state.redo() > 0, TQ, state.redo() > 0 ? () -> send(PlotMapActionPacket.simple(PlotMapActionPacket.REDO, "", false)) : null);
-    }
-
     private void drawPickedCard(GuiGraphics g) {
         Plot p = picked == null ? null : plot(picked);
         if (p == null) {
             return;
         }
-        int w = 150, h = state.editable() ? 78 : 46;
-        int x = Math.max(LIST_W + 16, Math.min(width - w - 8, sx(p.maxX() + 1) + 8)), y = Math.max(32, Math.min(height - h - 24, sz(p.minZ())));
+        int w = 150, h = cardFolded ? 18 : state.editable() ? 78 : 46;
+        int x = Math.max(LIST_W + 16, Math.min(uw - w - 8, ui(sx(p.maxX() + 1)) + 8)), y = Math.max(32, Math.min(uh - h - 24, ui(sz(p.minZ()))));
         card(g, x, y, w, h, colour(p.type()));
-        g.drawString(font, font.plainSubstrByWidth(p.name().equals(p.id()) ? p.id() : p.name() + " (" + p.id() + ")", w - 10), x + 5, y + 5, TEXT, false);
+        g.drawString(font, font.plainSubstrByWidth(p.name().equals(p.id()) ? p.id() : p.name() + " (" + p.id() + ")", w - 26), x + 5, y + 5, TEXT, false);
+        chip(g, x + w - 16, y + 3, 12, 12, cardFolded ? "▸" : "▾", false, MUTED, () -> cardFolded = !cardFolded);
+        if (cardFolded) {
+            return;
+        }
         g.drawString(font, Tr.t("pm_size", p.width(), p.depth(), p.minY(), p.maxY(), p.priority()), x + 5, y + 17, MUTED, false);
         g.drawString(font, p.owner().isEmpty() ? Tr.t("type." + p.type()) : Tr.t("pm_owner", p.owner()), x + 5, y + 29, MUTED, false);
         if (state.editable()) {
@@ -528,10 +768,21 @@ public class PlotMapScreen extends Screen {
 
     private void drawToolbar(GuiGraphics g) {
         boolean paste = ghost.source != null;
-        int w = (paste ? 120 : 0) + 384, h = 34;
-        int x = Math.max(4, Math.min(width - w - 4, sx(ghost.x))), y = Math.max(32, Math.min(height - h - 22, sz(ghost.z + ghost.d) + 6));
+        int w = (paste ? 120 : 0) + 384, h = toolFolded ? 16 : 48;
+        int x = Math.max(4, Math.min(uw - w - 4, ui(sx(ghost.x)))), y = Math.max(32, Math.min(uh - h - 22, ui(sz(ghost.z + ghost.d)) + 6));
         String problem = problem();
         card(g, x, y, w, h, problem == null ? TQ : BAD);
+        String title = paste ? Tr.t("pm_copy_of", ghost.source) : Tr.t("pm_moving", ghost.moving);
+        g.drawString(font, title, x + 5, y + 4, TEXT, false);
+        if (toolFolded) {
+            String line = problem == null ? Tr.t("pm_fits", ghost.x, ghost.z, ghost.minY, ghost.maxY) : problem;
+            g.drawString(font, font.plainSubstrByWidth(line, w - 30 - font.width(title)), x + 12 + font.width(title), y + 4, problem == null ? MUTED : BAD, false);
+        }
+        chip(g, x + w - 16, y + 2, 12, 12, toolFolded ? "▸" : "▾", false, MUTED, () -> toolFolded = !toolFolded);
+        if (toolFolded) {
+            return;
+        }
+        y += 14;
         int cx = x + 5;
         if (paste) {
             name.setX(cx);
@@ -593,13 +844,13 @@ public class PlotMapScreen extends Screen {
     }
 
     private void drawOwnerQuestion(GuiGraphics g) {
-        int w = 280, h = 54, x = (width - w) / 2, y = (height - h) / 2;
+        int w = 280, h = 54, x = (uw - w) / 2, y = (uh - h) / 2;
         card(g, x, y, w, h, BAD);
         for (var line : font.split(Component.literal(message), w - 12)) {
             g.drawString(font, line, x + 6, y + 6, TEXT, false);
             y += 10;
         }
-        y = (height - h) / 2;
+        y = (uh - h) / 2;
         chip(g, x + 6, y + h - 18, 80, 13, Tr.t("pm_move_anyway"), true, BAD, () -> {
             askOwner = false;
             confirm(true);
@@ -611,17 +862,34 @@ public class PlotMapScreen extends Screen {
 
     @Override
     public boolean mouseClicked(double mx, double my, int button) {
-        if (super.mouseClicked(mx, my, button)) {
+        double ux = mx / UI, uy = my / UI;
+        if (super.mouseClicked(ux, uy, button)) {
             return true;
         }
+        setFocused(null);
+        for (EditBox b : new EditBox[]{search, name, minY, maxY}) {
+            b.setFocused(false);
+        }
         for (Hit h : new ArrayList<>(hits)) {
-            if (h.contains(mx, my)) {
+            if (h.contains(ux, uy)) {
                 h.action().run();
+                return true;
+            }
+        }
+        for (Hit h : covers) {
+            if (h.contains(ux, uy)) {
                 return true;
             }
         }
         if (askOwner || button != 0) {
             return false;
+        }
+        if (corners != null) { // a click that does not drag places a corner (on release); a drag pans
+            pressed = true;
+            pressX = mx;
+            pressY = my;
+            panning = true;
+            return true;
         }
         if (ghost != null) {
             if (ghost.following) {
@@ -649,6 +917,9 @@ public class PlotMapScreen extends Screen {
 
     @Override
     public boolean mouseDragged(double mx, double my, int button, double dx, double dy) {
+        if (getFocused() != null && super.mouseDragged(mx / UI, my / UI, button, dx / UI, dy / UI)) {
+            return true;
+        }
         if (dragDX != Integer.MIN_VALUE && ghost != null) {
             ghost.x = (int) Math.floor(mx / scale + ox) - dragDX;
             ghost.z = (int) Math.floor(my / scale + oz) - dragDZ;
@@ -660,19 +931,23 @@ public class PlotMapScreen extends Screen {
             oz -= dy / scale;
             return true;
         }
-        return super.mouseDragged(mx, my, button, dx, dy);
+        return false;
     }
 
     @Override
     public boolean mouseReleased(double mx, double my, int button) {
         dragDX = Integer.MIN_VALUE;
         panning = false;
-        return super.mouseReleased(mx, my, button);
+        if (pressed && corners != null && Math.abs(mx - pressX) < 4 && Math.abs(my - pressY) < 4) {
+            cornerClick((int) Math.floor(mx / scale + ox), (int) Math.floor(my / scale + oz));
+        }
+        pressed = false;
+        return super.mouseReleased(mx / UI, my / UI, button);
     }
 
     @Override
     public boolean mouseScrolled(double mx, double my, double delta) {
-        if (!folded && mx >= 8 && mx < 8 + LIST_W && my >= 8 && my < 72 + LIST_ROWS * ROW) {
+        if (!folded && mx / UI >= 8 && mx / UI < 8 + LIST_W && my / UI >= 8 && my / UI < 72 + LIST_ROWS * ROW) {
             listScroll -= (int) Math.signum(delta);
             return true;
         }
@@ -690,6 +965,10 @@ public class PlotMapScreen extends Screen {
                 askOwner = false;
                 return true;
             }
+            if (corners != null) {
+                cancelCorners();
+                return true;
+            }
             if (ghost != null) {
                 cancel();
                 return true;
@@ -697,7 +976,11 @@ public class PlotMapScreen extends Screen {
             onClose();
             return true;
         }
-        if ((search.isFocused() || name.isFocused())) {
+        if (search.isFocused() || name.isFocused() || minY.isFocused() || maxY.isFocused()) {
+            if ((key == 257 || key == 335) && corners != null && (minY.isFocused() || maxY.isFocused())) {
+                confirmCorners(); // Enter in a height field confirms
+                return true;
+            }
             return super.keyPressed(key, scan, mods);
         }
         if (key == 82 && ghost != null) { // R
@@ -727,6 +1010,7 @@ public class PlotMapScreen extends Screen {
     }
 
     private void card(GuiGraphics g, int x, int y, int w, int h, int border) {
+        covers.add(new Hit(x, y, w, h, () -> { }));
         g.fill(x, y, x + w, y + h, BG);
         frame(g, x, y, w, h, border);
     }

@@ -28,7 +28,17 @@ abstract class HoloScreen extends Screen {
 
     /** The scale for a window of {@code w} by {@code h} GUI units. */
     static float scaleFor(int w, int h, int baseW, int baseH) {
-        return RegionGuardClientConfig.screenScale(RegionGuardConfig.getOr(RegionGuardClientConfig.UI_SCALE, 2.0), w, h, baseW, baseH, MARGIN);
+        return scaleFor(w, h, baseW, baseH, 1);
+    }
+
+    /** As {@link #scaleFor(int, int, int, int)} for a screen drawn {@code factor} times {@code ui.scale}. */
+    static float scaleFor(int w, int h, int baseW, int baseH, float factor) {
+        return RegionGuardClientConfig.screenScale(RegionGuardConfig.getOr(RegionGuardClientConfig.UI_SCALE, 2.0) * factor, w, h, baseW, baseH, MARGIN);
+    }
+
+    /** How large this screen is drawn compared with {@code ui.scale}: 1, or less for a screen that fills the window (D80). */
+    protected float sizeFactor() {
+        return 1;
     }
 
     /**
@@ -42,7 +52,7 @@ abstract class HoloScreen extends Screen {
             windowW = width;
             windowH = height;
         }
-        scale = scaleFor(windowW, windowH, baseW, baseH);
+        scale = scaleFor(windowW, windowH, baseW, baseH, sizeFactor());
         width = unitsW = (int) (windowW / scale);
         height = unitsH = (int) (windowH / scale);
         layout();

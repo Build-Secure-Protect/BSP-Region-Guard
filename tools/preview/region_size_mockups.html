@@ -1,0 +1,342 @@
+<title>Region Size Mock-ups</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=VT323&family=IBM+Plex+Sans:wght@400;600&display=swap">
+<style>
+/* Layout: notes, then per option two 16:9 game windows (admin screen, plot map) in their own scrollers. Single dark look: these are game screens. */
+:root {
+    color-scheme: dark;
+    --page: #0b0e13; --panel: rgba(16,21,28,.95); --inset: #0c0e12; --line: #2a2f3a;
+    --tq: #19d3b0; --vio: #b58cff; --gold: #ffd23a; --bad: #ff6b5c; --text: #e6eaf2; --muted: #9aa3b5; --hint: #6f7788;
+    --mc: "VT323", ui-monospace, Menlo, monospace; --ui: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+body { background: var(--page); color: var(--text); font-family: var(--ui); }
+.wrap { max-width: 1020px; margin: 0 auto; padding-block: 28px 64px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1 { font-family: var(--mc); font-weight: normal; font-size: 2.6rem; color: var(--tq); margin: 0 0 4px; text-wrap: balance; }
+h2 { font-family: var(--mc); font-weight: normal; font-size: 1.9rem; margin: 44px 0 4px; text-wrap: balance; }
+h2 .tag { color: var(--muted); font-size: 1.2rem; margin-left: 8px; }
+h3 { font-family: var(--mc); font-weight: normal; font-size: 1.3rem; margin: 18px 0 2px; color: var(--muted); }
+p, li { line-height: 1.55; color: var(--muted); max-width: 72ch; }
+p strong, li strong { color: var(--text); font-weight: 600; }
+.lede { color: var(--text); }
+.scroller { overflow-x: auto; margin-top: 8px; padding-bottom: 6px; }
+.win { position: relative; width: 960px; height: 540px; background: #05070a; font-family: var(--mc); overflow: hidden; user-select: none; }
+.terrain { position: absolute; inset: 0;
+    background:
+      radial-gradient(ellipse 30% 22% at 70% 30%, #2d5a8a 0 60%, transparent 61%),
+      radial-gradient(ellipse 18% 30% at 20% 75%, #6a6f3c 0 70%, transparent 71%),
+      repeating-linear-gradient(90deg, rgba(0,0,0,.07) 0 1px, transparent 1px 16px),
+      repeating-linear-gradient(0deg, rgba(0,0,0,.07) 0 1px, transparent 1px 16px),
+      linear-gradient(135deg, #4c7a35, #5d8b3c 40%, #4a7232 70%, #6f8f45); }
+.dim { position: absolute; inset: 0; background: rgba(5,7,10,.55); }
+.pnl { position: absolute; background: var(--panel); border: 1px solid var(--line); color: var(--text); }
+.pnl.tq { border-color: var(--tq); } .pnl.gold { border-color: var(--gold); }
+.btn { display: inline-flex; align-items: center; justify-content: center; height: 20px; padding: 0 8px; font-family: var(--mc); font-size: 15px;
+    background: var(--inset); border: 1px solid var(--line); color: var(--muted); cursor: pointer; white-space: nowrap; }
+.btn:hover { color: var(--text); }
+.btn.on { color: var(--tq); border-color: var(--tq); background: rgba(25,211,176,.13); }
+.btn.gold { color: var(--gold); border-color: var(--gold); background: rgba(255,210,58,.12); }
+.btn.no { color: var(--bad); border-color: var(--bad); background: rgba(255,107,92,.1); }
+.btn.sq { width: 20px; padding: 0; }
+.btn:focus-visible { outline: 1px solid #fff; }
+.num { width: 54px; height: 20px; background: #050608; border: 1px solid var(--line); color: var(--text); font-family: var(--mc); font-size: 15px; padding: 0 4px;
+    font-variant-numeric: tabular-nums; }
+.num:focus { outline: none; border-color: var(--tq); }
+.lbl { font-size: 13px; color: var(--muted); letter-spacing: .04em; }
+.tiny { font-size: 12px; color: var(--hint); }
+.row { display: flex; align-items: center; gap: 5px; padding: 1px 6px; font-size: 14px; border-left: 2px solid transparent; }
+.row.sel { background: rgba(25,211,176,.12); border-left-color: var(--tq); }
+.row .k { font-size: 11px; color: var(--hint); margin-left: auto; }
+.sw { width: 7px; height: 7px; border: 1px solid; flex: none; }
+.tabs { display: flex; gap: 2px; }
+.tab { font-size: 13px; padding: 1px 6px; color: var(--muted); border-bottom: 1px solid transparent; }
+.tab.on { color: var(--tq); border-bottom-color: var(--tq); }
+.grid6 { display: grid; grid-template-columns: 34px repeat(3, auto); gap: 4px 6px; align-items: center; }
+.flex { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.box { position: absolute; border: 1px solid; }
+.box span { position: absolute; left: 3px; top: 1px; font-size: 13px; }
+.ghost { border: 2px dashed var(--tq); background: rgba(25,211,176,.15); }
+.mark { position: absolute; width: 12px; height: 12px; border: 2px solid #fff; background: var(--tq); transform: translate(-6px,-6px); }
+.hud { position: absolute; font-size: 14px; color: var(--text); background: rgba(5,6,8,.78); padding: 1px 6px; }
+.ok { color: var(--tq); } .bad { color: var(--bad); } .muted { color: var(--muted); } .gold { color: var(--gold); } .vio { color: var(--vio); }
+.callout { position: absolute; font-family: var(--ui); font-size: 11px; color: #000; background: var(--gold); padding: 1px 6px; border-radius: 2px; pointer-events: none; }
+.notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 8px 28px; margin-top: 8px; }
+.notes div { min-width: 0; }
+.notes p { margin: 2px 0; font-size: .9rem; }
+.notes b { color: var(--text); font-family: var(--mc); font-weight: normal; font-size: 1.15rem; }
+ol.dec li { margin: 4px 0; font-size: .93rem; }
+</style>
+
+<div class="wrap">
+  <h1>REGION SIZE AND CORNERS</h1>
+  <p class="lede">Three layouts for B6 and B7 and your three screen requests: the admin screen filling the window with smaller text, a size editor with VERTICAL FILL, corners clicked on the plot map, UNDO/REDO moved off the other cards, and a smaller plot card that folds away.</p>
+  <p>Each option shows two windows at 960 × 540. In the first, the admin screen is on the INFO tab for <strong>market_hall</strong>. In the second, the plot map is in corner mode for <strong>harbour</strong>, a region just made with + NEW and still without corners. The <span class="gold">gold tags</span> point at what changed. The fold buttons (▾ / ▸) on the plot cards work.</p>
+  <p>What all three share (your answers, D71 to D79): corners span the whole world height unless min/max Y are changed, a region without corners shows <span class="gold">NO CORNERS YET</span> and protects nothing, and placing corners can be undone.</p>
+
+  <!-- ============================================================ A -->
+  <h2>A · Stretch <span class="tag">same layout, more room</span></h2>
+  <p>The two panes grow to fill the window. The region list shows as many rows as fit, and the tab content is 20% smaller. The INFO tab gets a SIZE block with the six corners as fields. On the plot map, UNDO and REDO join the world card in the top right. The plot card shrinks to three lines and folds to a single strip.</p>
+
+  <h3>Admin screen · INFO tab</h3>
+  <div class="scroller"><div class="win">
+    <div class="pnl tq" style="left:6px;top:6px;right:6px;bottom:6px">
+      <div style="position:absolute;left:10px;top:6px;font-size:20px;color:var(--tq)">REGIONS</div>
+      <div style="position:absolute;left:110px;top:9px" class="flex"><span class="lbl">SERVER</span><span class="btn sq">&lt;</span><span style="font-size:15px">frostwarf</span><span class="btn sq">&gt;</span></div>
+      <div style="position:absolute;right:10px;top:6px" class="flex"><span class="btn">PLOT MAP</span><span class="btn">WAND</span><span class="btn sq">×</span></div>
+      <!-- list -->
+      <div class="pnl" style="left:8px;top:34px;width:220px;bottom:36px">
+        <div style="margin:5px;height:18px;background:#050608;border:1px solid var(--line);font-size:13px;color:var(--hint);padding:0 4px">search regions</div>
+        <div class="flex" style="margin:0 5px 4px"><span class="btn on" style="height:16px;font-size:12px">ALL</span><span class="btn" style="height:16px;font-size:12px">PROT</span><span class="btn" style="height:16px;font-size:12px">CLAIM</span><span class="btn" style="height:16px;font-size:12px">MINE</span><span class="btn" style="height:16px;font-size:12px">SALE</span></div>
+        <div class="row"><i class="sw" style="border-color:var(--muted)"></i>__global__<span class="k">world</span></div>
+        <div class="row"><i class="sw" style="border-color:var(--tq)"></i>spawn<span class="k">P 10</span></div>
+        <div class="row sel"><i class="sw" style="border-color:var(--tq)"></i>market_hall<span class="k">P 5</span></div>
+        <div class="row"><i class="sw" style="border-color:var(--gold)"></i>harbour<span class="k gold">NO CORNERS</span></div>
+        <div class="row"><i class="sw" style="border-color:var(--gold)"></i>plot_a1<span class="k">sale</span></div>
+        <div class="row"><i class="sw" style="border-color:var(--gold)"></i>plot_a2<span class="k">sale</span></div>
+        <div class="row"><i class="sw" style="border-color:var(--vio)"></i>claim_steve<span class="k">claim</span></div>
+        <div class="row"><i class="sw" style="border-color:var(--vio)"></i>claim_alex<span class="k">claim</span></div>
+        <div class="row"><i class="sw" style="border-color:var(--bad)"></i>iron_mine<span class="k">mine</span></div>
+        <div class="row"><i class="sw" style="border-color:var(--bad)"></i>iron_mine_shell<span class="k">mine</span></div>
+        <div class="row"><i class="sw" style="border-color:var(--tq)"></i>arena<span class="k">P 3</span></div>
+        <div class="row"><i class="sw" style="border-color:var(--tq)"></i>nether_portal<span class="k">P 2</span></div>
+        <div class="row"><i class="sw" style="border-color:var(--tq)"></i>town_wall<span class="k">P 1</span></div>
+        <div class="row"><i class="sw" style="border-color:var(--gold)"></i>plot_b1<span class="k">sale</span></div>
+        <div class="row"><i class="sw" style="border-color:var(--gold)"></i>plot_b2<span class="k">sale</span></div>
+        <div class="row"><i class="sw" style="border-color:var(--gold)"></i>plot_b3<span class="k">sale</span></div>
+        <div class="row"><i class="sw" style="border-color:var(--vio)"></i>claim_maya<span class="k">claim</span></div>
+        <div class="row"><i class="sw" style="border-color:var(--tq)"></i>docks<span class="k">P 4</span></div>
+        <div class="row"><i class="sw" style="border-color:var(--tq)"></i>lighthouse<span class="k">P 6</span></div>
+        <div class="row"><i class="sw" style="border-color:var(--tq)"></i>museum<span class="k">P 2</span></div>
+        <div class="row"><i class="sw" style="border-color:var(--tq)"></i>library<span class="k">P 2</span></div>
+        <div class="row"><i class="sw" style="border-color:var(--tq)"></i>farm_east<span class="k">P 1</span></div>
+      </div>
+      <span class="callout" style="left:150px;top:470px">list shows as many rows as fit</span>
+      <!-- pane -->
+      <div class="pnl" style="left:236px;top:34px;right:8px;bottom:36px">
+        <div style="padding:5px 8px;font-size:18px">market_hall <span class="tiny">protected · priority 5</span></div>
+        <div class="tabs" style="padding:0 8px"><span class="tab">MAP</span><span class="tab">FLAGS</span><span class="tab">ACCESS</span><span class="tab">RANKS</span><span class="tab">SALE</span><span class="tab">MINE</span><span class="tab">TELEPORT</span><span class="tab on">INFO</span><span class="tab">BANNED</span></div>
+        <div style="position:absolute;left:10px;top:52px;right:10px">
+          <div class="lbl">TYPE</div>
+          <div class="flex" style="margin:3px 0 10px"><span class="btn on">PROTECTED</span><span class="btn">FOR SALE</span><span class="btn">OPEN</span><span class="btn">CLAIM</span><span class="btn">MINE</span></div>
+          <div class="flex" style="margin-bottom:10px"><span class="lbl">PRIORITY 5</span><span class="btn">-10</span><span class="btn">-1</span><span class="btn">+1</span><span class="btn">+10</span><span class="lbl" style="margin-left:18px">PARENT none</span><span class="btn">SET</span></div>
+          <div style="border-top:1px solid var(--line);padding-top:8px;display:flex;gap:26px;align-items:flex-start">
+            <div>
+              <div class="lbl" style="margin-bottom:4px">SIZE</div>
+              <div class="grid6">
+                <span class="lbl">FROM</span><input class="num" value="120" aria-label="from x"><input class="num" value="62" aria-label="from y"><input class="num" value="-340" aria-label="from z">
+                <span class="lbl">TO</span><input class="num" value="168" aria-label="to x"><input class="num" value="90" aria-label="to y"><input class="num" value="-301" aria-label="to z">
+                <span></span><span class="tiny">x</span><span class="tiny">y</span><span class="tiny">z</span>
+              </div>
+              <div class="tiny" style="margin-top:4px">49 × 29 × 40 blocks · 56,840 blocks · 1,960 on the ground</div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:5px">
+              <span class="btn gold">VERTICAL FILL  -64 → 319</span>
+              <span class="btn">SET CORNERS ON MAP</span>
+              <span class="btn">USE WAND SELECTION</span>
+            </div>
+          </div>
+          <div class="tiny" style="margin-top:8px">Click a number, type, press Enter. Each change is saved at once.</div>
+          <div class="tiny" style="margin-top:10px">version 14 · changed 3 min ago</div>
+        </div>
+        <span class="callout" style="left:12px;top:160px">six fields, Enter saves one</span>
+        <span class="callout" style="left:330px;top:160px">replaces REDEFINE</span>
+      </div>
+      <div style="position:absolute;left:236px;bottom:10px" class="flex"><span class="btn">TELEPORT</span><span class="btn">SELECT</span></div>
+      <div style="position:absolute;right:14px;bottom:10px"><span class="btn no">DELETE</span></div>
+      <div style="position:absolute;left:14px;bottom:10px" class="flex"><span class="btn on">+ NEW</span></div>
+    </div>
+  </div></div>
+
+  <h3>Plot map · corner mode</h3>
+  <div class="scroller"><div class="win">
+    <div class="terrain"></div>
+    <div class="box" style="left:520px;top:120px;width:120px;height:90px;border-color:var(--gold);background:rgba(255,210,58,.12)"><span class="gold">plot_a1</span></div>
+    <div class="box" style="left:650px;top:120px;width:120px;height:90px;border-color:var(--gold);background:rgba(255,210,58,.12)"><span class="gold">plot_a2</span></div>
+    <div class="box" style="left:300px;top:300px;width:150px;height:110px;border-color:var(--muted);border-style:dotted"><span class="muted">market_hall</span></div>
+    <div class="box ghost" style="left:560px;top:270px;width:220px;height:150px"></div>
+    <div class="mark" style="left:560px;top:270px"></div>
+    <div class="hud" style="left:786px;top:410px">48 × 37</div>
+    <!-- list card, folded -->
+    <div class="pnl tq" style="left:8px;top:8px;width:150px;height:24px"><div class="flex" style="padding:2px 6px"><span style="font-size:15px;color:var(--tq)">PLOTS</span><span class="btn sq" style="margin-left:auto;height:18px">▸</span></div></div>
+    <!-- world + undo -->
+    <div class="pnl tq" style="right:8px;top:8px;height:26px"><div class="flex" style="padding:2px 6px"><span class="btn sq">&lt;</span><span style="font-size:15px">overworld</span><span class="btn sq">&gt;</span><span class="tiny">editable</span><span style="width:1px;height:16px;background:var(--line)"></span><span class="btn on">UNDO 3</span><span class="btn">REDO 0</span><span class="btn sq">↻</span></div></div>
+    <span class="callout" style="right:20px;top:40px">UNDO / REDO inside the world card</span>
+    <!-- corner toolbar -->
+    <div class="pnl tq" style="left:8px;bottom:28px;width:560px;height:52px">
+      <div class="flex" style="padding:4px 6px"><span style="font-size:15px">CORNERS FOR <span class="ok">harbour</span></span><span class="tiny">1 ✓  2 ●  click the second corner</span>
+        <span class="btn sq" style="margin-left:auto;height:18px" data-fold="tbA">▾</span></div>
+      <div class="flex" style="padding:0 6px" id="tbA"><span class="lbl">Y</span><input class="num" value="-64" aria-label="min y"><span class="tiny">to</span><input class="num" value="319" aria-label="max y"><span class="btn gold">VERTICAL FILL</span><span class="btn">SNAP</span><span class="btn on" style="margin-left:auto">CONFIRM</span><span class="btn no">CANCEL</span></div>
+    </div>
+    <span class="callout" style="left:420px;bottom:84px">folds to its title line</span>
+    <div class="hud" style="right:8px;bottom:6px">x 642  z -288   4 px a block</div>
+    <div class="hud" style="left:8px;bottom:6px"><span class="ok">harbour has no corners yet: click the first corner.</span></div>
+  </div></div>
+
+  <!-- ============================================================ B -->
+  <h2>B · Shape column <span class="tag">size always in view</span></h2>
+  <p>The admin screen gets a third column on the right, SHAPE, which stays in view on every tab. It holds the corners, VERTICAL FILL and SET CORNERS. With the extra width the tabs have more room. On the plot map, UNDO and REDO sit at the bottom centre next to the coordinates. There is no floating plot card: the picked plot's details show at the bottom of the list card, and the whole card folds to its title.</p>
+
+  <h3>Admin screen · any tab</h3>
+  <div class="scroller"><div class="win">
+    <div class="pnl tq" style="left:6px;top:6px;right:6px;bottom:6px">
+      <div style="position:absolute;left:10px;top:6px;font-size:20px;color:var(--tq)">REGIONS</div>
+      <div style="position:absolute;right:10px;top:6px" class="flex"><span class="btn">PLOT MAP</span><span class="btn">WAND</span><span class="btn sq">×</span></div>
+      <div class="pnl" style="left:8px;top:34px;width:200px;bottom:36px">
+        <div style="margin:5px;height:18px;background:#050608;border:1px solid var(--line);font-size:13px;color:var(--hint);padding:0 4px">search regions</div>
+        <div class="row"><i class="sw" style="border-color:var(--muted)"></i>__global__<span class="k">world</span></div>
+        <div class="row"><i class="sw" style="border-color:var(--tq)"></i>spawn<span class="k">P 10</span></div>
+        <div class="row sel"><i class="sw" style="border-color:var(--tq)"></i>market_hall<span class="k">P 5</span></div>
+        <div class="row"><i class="sw" style="border-color:var(--gold)"></i>harbour<span class="k gold">NO CORNERS</span></div>
+        <div class="row"><i class="sw" style="border-color:var(--gold)"></i>plot_a1<span class="k">sale</span></div>
+        <div class="row"><i class="sw" style="border-color:var(--vio)"></i>claim_steve<span class="k">claim</span></div>
+        <div class="row"><i class="sw" style="border-color:var(--bad)"></i>iron_mine<span class="k">mine</span></div>
+        <div class="row"><i class="sw" style="border-color:var(--tq)"></i>arena<span class="k">P 3</span></div>
+        <div class="row"><i class="sw" style="border-color:var(--tq)"></i>docks<span class="k">P 4</span></div>
+        <div class="row"><i class="sw" style="border-color:var(--tq)"></i>lighthouse<span class="k">P 6</span></div>
+      </div>
+      <div class="pnl" style="left:216px;top:34px;right:226px;bottom:36px">
+        <div style="padding:5px 8px;font-size:18px">market_hall <span class="tiny">protected · priority 5</span></div>
+        <div class="tabs" style="padding:0 8px"><span class="tab">MAP</span><span class="tab on">FLAGS</span><span class="tab">ACCESS</span><span class="tab">RANKS</span><span class="tab">SALE</span><span class="tab">MINE</span><span class="tab">TELEPORT</span><span class="tab">INFO</span></div>
+        <div style="padding:8px 10px;font-size:14px;line-height:1.55">
+          <div class="flex"><span style="width:150px">build</span><span class="btn">ALLOW</span><span class="btn on">DENY</span><span class="btn">—</span></div>
+          <div class="flex"><span style="width:150px">pvp</span><span class="btn">ALLOW</span><span class="btn on">DENY</span><span class="btn">—</span></div>
+          <div class="flex"><span style="width:150px">chest-access</span><span class="btn on">ALLOW</span><span class="btn">DENY</span><span class="btn">—</span></div>
+          <div class="flex"><span style="width:150px">greeting</span><span class="muted">Welcome to the market</span></div>
+          <div class="flex"><span style="width:150px">mob-spawning</span><span class="btn">ALLOW</span><span class="btn on">DENY</span><span class="btn">—</span></div>
+        </div>
+      </div>
+      <div class="pnl gold" style="right:8px;top:34px;width:210px;bottom:36px;padding:8px">
+        <div class="lbl" style="color:var(--gold)">SHAPE</div>
+        <div class="grid6" style="margin-top:6px;grid-template-columns:28px repeat(3,auto)">
+          <span class="lbl">FROM</span><input class="num" style="width:48px" value="120" aria-label="from x"><input class="num" style="width:48px" value="62" aria-label="from y"><input class="num" style="width:48px" value="-340" aria-label="from z">
+          <span class="lbl">TO</span><input class="num" style="width:48px" value="168" aria-label="to x"><input class="num" style="width:48px" value="90" aria-label="to y"><input class="num" style="width:48px" value="-301" aria-label="to z">
+        </div>
+        <div class="tiny" style="margin:6px 0">49 × 29 × 40 · 56,840 blocks</div>
+        <div style="display:flex;flex-direction:column;gap:5px">
+          <span class="btn gold">VERTICAL FILL  -64 → 319</span>
+          <span class="btn">SET CORNERS ON MAP</span>
+          <span class="btn">USE WAND SELECTION</span>
+          <span class="btn">SELECT WITH WAND</span>
+        </div>
+        <div style="margin-top:12px;height:120px;border:1px solid var(--line);position:relative;background:#0f1a10">
+          <div style="position:absolute;left:30px;top:40px;width:120px;height:46px;border:1px solid var(--tq);background:rgba(25,211,176,.15)"></div>
+          <div style="position:absolute;left:4px;top:2px" class="tiny">side view (height)</div>
+          <div style="position:absolute;left:4px;bottom:2px" class="tiny">-64</div><div style="position:absolute;left:4px;top:14px" class="tiny">319</div>
+        </div>
+      </div>
+      <span class="callout" style="right:20px;top:46px">on every tab</span>
+      <div style="position:absolute;left:216px;bottom:10px" class="flex"><span class="btn">TELEPORT</span></div>
+      <div style="position:absolute;right:234px;bottom:10px"><span class="btn no">DELETE</span></div>
+      <div style="position:absolute;left:14px;bottom:10px"><span class="btn on">+ NEW</span></div>
+    </div>
+  </div></div>
+
+  <h3>Plot map · corner mode</h3>
+  <div class="scroller"><div class="win">
+    <div class="terrain"></div>
+    <div class="box" style="left:520px;top:120px;width:120px;height:90px;border-color:var(--gold);background:rgba(255,210,58,.12)"><span class="gold">plot_a1</span></div>
+    <div class="box" style="left:300px;top:300px;width:150px;height:110px;border-color:var(--muted);border-style:dotted"><span class="muted">market_hall</span></div>
+    <div class="box ghost" style="left:560px;top:270px;width:220px;height:150px"></div>
+    <div class="mark" style="left:560px;top:270px"></div>
+    <div class="pnl tq" style="left:8px;top:8px;width:200px">
+      <div class="flex" style="padding:3px 6px"><span style="font-size:15px;color:var(--tq)">PLOTS</span><span class="btn sq" style="margin-left:auto;height:18px" data-fold="listB">▾</span></div>
+      <div id="listB">
+        <div class="row">plot_a1<span class="k">sale</span></div>
+        <div class="row">plot_a2<span class="k">sale</span></div>
+        <div class="row">claim_steve<span class="k">claim</span></div>
+        <div style="border-top:1px solid var(--line);margin-top:4px;padding:5px 6px">
+          <div style="font-size:15px">CORNERS FOR <span class="ok">harbour</span></div>
+          <div class="tiny">1 ✓  2 ●  click the second corner · 48 × 37</div>
+          <div class="flex" style="margin-top:4px"><span class="lbl">Y</span><input class="num" value="-64" aria-label="min y"><span class="tiny">to</span><input class="num" value="319" aria-label="max y"></div>
+          <div class="flex" style="margin-top:4px"><span class="btn gold">VERTICAL FILL</span><span class="btn on">CONFIRM</span><span class="btn no">CANCEL</span></div>
+        </div>
+      </div>
+    </div>
+    <span class="callout" style="left:214px;top:12px">one card; folds to its title</span>
+    <div class="pnl tq" style="right:8px;top:8px;height:26px"><div class="flex" style="padding:2px 6px"><span class="btn sq">&lt;</span><span style="font-size:15px">overworld</span><span class="btn sq">&gt;</span><span class="tiny">editable</span><span class="btn sq">↻</span></div></div>
+    <div class="pnl" style="left:50%;transform:translateX(-50%);bottom:6px;height:26px"><div class="flex" style="padding:2px 6px"><span class="btn on">UNDO 3</span><span class="btn">REDO 0</span><span style="font-size:14px;margin-left:8px">x 642  z -288   4 px</span></div></div>
+    <span class="callout" style="left:540px;bottom:38px">UNDO / REDO at the bottom</span>
+  </div></div>
+
+  <!-- ============================================================ C -->
+  <h2>C · Map first <span class="tag">size under the map</span></h2>
+  <p>The admin screen fills the window, and the MAP tab's map grows to most of the pane. A size strip sits under the map: the six corners, VERTICAL FILL and SET CORNERS, so you see the change on the map at once. INFO stays as it is. On the plot map, one bar runs across the top: PLOTS on the left, UNDO and REDO in the middle, the world on the right. The plot card under the picked plot is one line that opens with ▾.</p>
+
+  <h3>Admin screen · MAP tab</h3>
+  <div class="scroller"><div class="win">
+    <div class="pnl tq" style="left:6px;top:6px;right:6px;bottom:6px">
+      <div style="position:absolute;left:10px;top:6px;font-size:20px;color:var(--tq)">REGIONS</div>
+      <div style="position:absolute;right:10px;top:6px" class="flex"><span class="btn">PLOT MAP</span><span class="btn">WAND</span><span class="btn sq">×</span></div>
+      <div class="pnl" style="left:8px;top:34px;width:200px;bottom:36px">
+        <div style="margin:5px;height:18px;background:#050608;border:1px solid var(--line);font-size:13px;color:var(--hint);padding:0 4px">search regions</div>
+        <div class="row"><i class="sw" style="border-color:var(--muted)"></i>__global__<span class="k">world</span></div>
+        <div class="row"><i class="sw" style="border-color:var(--tq)"></i>spawn<span class="k">P 10</span></div>
+        <div class="row sel"><i class="sw" style="border-color:var(--tq)"></i>market_hall<span class="k">P 5</span></div>
+        <div class="row"><i class="sw" style="border-color:var(--gold)"></i>harbour<span class="k gold">NO CORNERS</span></div>
+        <div class="row"><i class="sw" style="border-color:var(--gold)"></i>plot_a1<span class="k">sale</span></div>
+        <div class="row"><i class="sw" style="border-color:var(--vio)"></i>claim_steve<span class="k">claim</span></div>
+        <div class="row"><i class="sw" style="border-color:var(--bad)"></i>iron_mine<span class="k">mine</span></div>
+      </div>
+      <div class="pnl" style="left:216px;top:34px;right:8px;bottom:36px">
+        <div style="padding:5px 8px;font-size:18px">market_hall <span class="tiny">protected · priority 5</span></div>
+        <div class="tabs" style="padding:0 8px"><span class="tab on">MAP</span><span class="tab">FLAGS</span><span class="tab">ACCESS</span><span class="tab">RANKS</span><span class="tab">SALE</span><span class="tab">MINE</span><span class="tab">TELEPORT</span><span class="tab">INFO</span></div>
+        <div style="position:absolute;left:8px;right:8px;top:48px;bottom:62px;overflow:hidden;border:1px solid var(--line)">
+          <div class="terrain"></div>
+          <div class="box" style="left:280px;top:110px;width:150px;height:110px;border:2px solid var(--tq);background:rgba(25,211,176,.2)"><span class="ok">market_hall</span></div>
+          <div class="box" style="left:470px;top:60px;width:90px;height:70px;border-color:var(--gold)"><span class="gold">plot_a1</span></div>
+          <div class="box" style="left:80px;top:220px;width:120px;height:60px;border-color:var(--vio)"><span class="vio">claim_steve</span></div>
+        </div>
+        <div style="position:absolute;left:8px;right:8px;bottom:6px;height:50px;border-top:1px solid var(--line);padding-top:5px">
+          <div class="flex"><span class="lbl">FROM</span><input class="num" value="120" aria-label="from x"><input class="num" value="62" aria-label="from y"><input class="num" value="-340" aria-label="from z">
+            <span class="lbl" style="margin-left:8px">TO</span><input class="num" value="168" aria-label="to x"><input class="num" value="90" aria-label="to y"><input class="num" value="-301" aria-label="to z">
+            <span class="tiny" style="margin-left:8px">49 × 29 × 40</span></div>
+          <div class="flex" style="margin-top:5px"><span class="btn gold">VERTICAL FILL -64 → 319</span><span class="btn">SET CORNERS ON MAP</span><span class="btn">USE WAND SELECTION</span></div>
+        </div>
+        <span class="callout" style="left:400px;top:410px">size strip under the map</span>
+      </div>
+      <div style="position:absolute;left:216px;bottom:10px" class="flex"><span class="btn">TELEPORT</span><span class="btn">SELECT</span></div>
+      <div style="position:absolute;right:14px;bottom:10px"><span class="btn no">DELETE</span></div>
+      <div style="position:absolute;left:14px;bottom:10px"><span class="btn on">+ NEW</span></div>
+    </div>
+  </div></div>
+
+  <h3>Plot map · corner mode</h3>
+  <div class="scroller"><div class="win">
+    <div class="terrain"></div>
+    <div class="box" style="left:520px;top:120px;width:120px;height:90px;border-color:var(--gold);background:rgba(255,210,58,.12)"><span class="gold">plot_a1</span></div>
+    <div class="box" style="left:300px;top:300px;width:150px;height:110px;border-color:var(--muted);border-style:dotted"><span class="muted">market_hall</span></div>
+    <div class="box ghost" style="left:560px;top:270px;width:220px;height:150px"></div>
+    <div class="mark" style="left:560px;top:270px"></div>
+    <div class="pnl tq" style="left:0;right:0;top:0;height:28px;border-width:0 0 1px 0">
+      <div class="flex" style="padding:3px 8px"><span class="btn">▸ PLOTS</span>
+        <span style="margin-left:auto" class="btn on">UNDO 3</span><span class="btn">REDO 0</span>
+        <span style="margin-left:auto" class="btn sq">&lt;</span><span style="font-size:15px">overworld</span><span class="btn sq">&gt;</span><span class="tiny">editable</span><span class="btn sq">↻</span></div>
+    </div>
+    <span class="callout" style="left:400px;top:34px">one bar, nothing overlaps</span>
+    <div class="pnl tq" style="left:560px;top:428px;width:330px">
+      <div class="flex" style="padding:3px 6px"><span style="font-size:14px">harbour · <span class="tiny">1 ✓ 2 ● · 48 × 37 · Y -64 to 319</span></span><span class="btn sq" style="margin-left:auto;height:18px" data-fold="tbC">▴</span></div>
+      <div class="flex" style="padding:0 6px 4px" id="tbC" hidden><input class="num" value="-64" aria-label="min y"><input class="num" value="319" aria-label="max y"><span class="btn gold">V FILL</span><span class="btn on">CONFIRM</span><span class="btn no">CANCEL</span></div>
+    </div>
+    <span class="callout" style="left:600px;top:470px">one line; ▴ opens the controls</span>
+    <div class="hud" style="right:8px;bottom:6px">x 642  z -288   4 px a block</div>
+  </div></div>
+
+  <h2>Questions with these mock-ups</h2>
+  <ol class="dec">
+    <li><strong>Which layout?</strong> Default <strong>A</strong>: it keeps the screen you know, gives the most room, and puts size editing on INFO as you chose (D75).</li>
+    <li><strong>How much smaller?</strong> Default: the admin screen and the plot map's cards drawn at <strong>80%</strong> of today's size. The client setting <code>ui.scale</code> still sets the overall size, and the claim screen and the travel pop-up stay as they are.</li>
+    <li><strong>"The plot modal":</strong> I read this as the card beside the picked plot (COPY, UNLOCK, BACKUP) and the toolbar under a moved plot. Default: both get smaller and fold. The PLOTS list card already folds; it gets the same ▸ / ▾ button so all three look alike.</li>
+    <li><strong>Other regions in corner mode:</strong> Default: protected regions and mines show as grey dotted outlines while corners are placed, so you can line up against them. Normally the plot map shows only plots.</li>
+  </ol>
+</div>
+
+<script>
+document.querySelectorAll('[data-fold]').forEach(function (b) {
+  b.addEventListener('click', function () {
+    var t = document.getElementById(b.getAttribute('data-fold'));
+    if (!t) return;
+    t.hidden = !t.hidden;
+    b.textContent = t.hidden ? (b.getAttribute('data-fold') === 'tbC' ? '▴' : '▸') : '▾';
+  });
+});
+</script>

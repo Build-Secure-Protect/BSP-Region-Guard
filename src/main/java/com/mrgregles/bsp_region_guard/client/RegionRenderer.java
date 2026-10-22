@@ -56,7 +56,7 @@ public final class RegionRenderer {
         if (anyRegion) {
             for (RegionListPacket.Summary s : list.regions()) {
                 Cuboid b = s.bounds();
-                if (b == null) {
+                if (b == null || com.mrgregles.bsp_region_guard.region.Region.noCorners(b)) {
                     continue;
                 }
                 AABB box = new AABB(b.minX(), b.minY(), b.minZ(), b.maxX() + 1, b.maxY() + 1, b.maxZ() + 1);

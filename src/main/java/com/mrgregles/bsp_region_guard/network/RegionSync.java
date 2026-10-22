@@ -253,7 +253,7 @@ public final class RegionSync {
      * width|own or theirs" for each linked edge, and {@code net.<n>} = "server|world|width|free sides" for every other
      * server's world (width 0 when it has no border).
      */
-    private static void borderData(ServerLevel level, Map<String, String> data) {
+    public static void borderData(ServerLevel level, Map<String, String> data) {
         data.remove(com.mrgregles.bsp_region_guard.protection.EdgeLinks.KEY);
         String me = com.mrgregles.bsp_region_guard.protection.EdgeLinks.thisServer();
         data.put("storage", me.isEmpty() ? "off" : me);
@@ -266,6 +266,9 @@ public final class RegionSync {
         });
         int n = 0;
         for (var w : network) {
+            if (w.border() == null) {
+                continue; // only worlds with a border can be linked (bug B5: 55 worlds overflowed the screen's list)
+            }
             StringBuilder free = new StringBuilder();
             for (var s : com.mrgregles.bsp_region_guard.protection.EdgeLinks.freeSides(level, w)) {
                 free.append(free.length() == 0 ? "" : ",").append(s.key());
@@ -381,6 +384,10 @@ public final class RegionSync {
                     if (created != null) {
                         sendList(player, created.id(), false);
                         sendDetail(player, created);
+                        if (!created.hasCorners()) { // no wand selection: click the corners on the plot map (D71, D74)
+                            PlotMapSync.openCorners(player, created.id(), "Click the first corner of " + created.id() + ".");
+                            return null;
+                        }
                     }
                     return made.message();
                 }
@@ -406,7 +413,8 @@ public final class RegionSync {
     private static final java.util.Set<String> QUIET = java.util.Set.of(RegionActionPacket.FLAG, RegionActionPacket.ADD_OWNER, RegionActionPacket.REMOVE_OWNER,
             RegionActionPacket.ADD_MEMBER, RegionActionPacket.REMOVE_MEMBER, RegionActionPacket.ADD_RANK, RegionActionPacket.REMOVE_RANK,
             RegionActionPacket.PRIORITY, RegionActionPacket.PARENT, RegionActionPacket.TYPE, RegionActionPacket.RENAME, RegionActionPacket.MINE_ADD,
-            RegionActionPacket.MINE_INTERVAL, RegionActionPacket.TRIGGER_REMOVE, RegionActionPacket.SET_DATA, RegionActionPacket.EDGE_REFRESH);
+            RegionActionPacket.MINE_INTERVAL, RegionActionPacket.TRIGGER_REMOVE, RegionActionPacket.SET_DATA, RegionActionPacket.EDGE_REFRESH,
+            RegionActionPacket.RESIZE, RegionActionPacket.VFILL, RegionActionPacket.CORNERS);
 
     /** One edit from the screen, through the same {@link RegionEdits} the commands use. */
     @Nullable
@@ -433,7 +441,16 @@ public final class RegionSync {
             case RegionActionPacket.TYPE -> RegionEdits.type(level, store, r, a);
             case RegionActionPacket.RENAME -> RegionEdits.rename(store, r, a);
             case RegionActionPacket.DELETE -> RegionEdits.remove(store, r);
-            case RegionActionPacket.REDEFINE -> RegionEdits.redefine(store, r, RegionEdits.selectionIn(player));
+            case RegionActionPacket.REDEFINE -> RegionEdits.redefine(level, store, r, RegionEdits.selectionIn(player));
+            case RegionActionPacket.RESIZE -> RegionEdits.resize(level, store, r, a);
+            case RegionActionPacket.VFILL -> RegionEdits.verticalFill(level, store, r);
+            case RegionActionPacket.CORNERS -> {
+                if (r.isGlobal()) {
+                    yield new RegionEdits.Result(false, "The world default has no corners.");
+                }
+                PlotMapSync.openCorners(player, r.id(), "Click the first corner of " + r.id() + ".");
+                yield new RegionEdits.Result(true, "");
+            }
             case RegionActionPacket.SELECT_BOUNDS -> RegionEdits.selectBounds(player, r);
             case RegionActionPacket.TELEPORT -> RegionEdits.teleport(player, store, r);
             case RegionActionPacket.MINE_CREATE -> RegionEdits.makeMine(store, r);
