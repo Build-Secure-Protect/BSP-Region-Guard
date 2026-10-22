@@ -20,7 +20,7 @@ Network protocol 7: servers and players need this version together.
 - **Size editing on the INFO tab:** the corners are six fields (Enter saves, Esc puts them back), with VERTICAL FILL, SET CORNERS ON MAP and USE WAND SELECTION (which replaces REDEFINE under the tabs).
 - **Vertical fill:** from the world's lowest block to its highest buildable block (-64 to 319 in the Overworld). VERTICAL FILL on the INFO tab; `/rg vfill <id>` for a region, `/rg vfill` for your wand selection.
 - **Typed corners:** `/rg redefine <id> <x1 y1 z1> <x2 y2 z2>` (`~` works). Heights outside the world are refused.
-- Seven GameTests (98 in all).
+- Seven GameTests (98 at the time).
 
 ### Changed (2026-10-22, screens; D80, mock-up option A)
 - **The admin screen fills the window** and is drawn at 80% of `ui.scale`. The region list shows as many rows as fit; the MAP tab's map and the FLAGS list grow with the pane.
@@ -29,7 +29,13 @@ Network protocol 7: servers and players need this version together.
   - The picked plot's card and the toolbar under a copied or moved plot fold to one line with ▾ / ▸; the PLOTS card uses the same button.
   - The toolbar has a title line (COPY OF ..., MOVING ...).
 
+### Changed (2026-10-22, every region on the plot map; B10, D81)
+- **The plot map lists and draws every region**, not only plots. Protected areas show in teal and mines in gold, as outlines. The list card is now called REGIONS and has PROT and MINE filters.
+- **SET CORNERS ON MAP** is on every card. It starts corner mode for that region and stays on the map afterwards. A region that already has corners keeps its height until it's changed.
+- Copying, moving, locking and backups stay for plots. One GameTest (100 in all).
+
 ### Fixed (2026-10-22)
+- Corners clicked on the plot map could land a block or two off (B9). SNAP was on and pulled a corner to just outside any side within two blocks, including the region's own old box, which is hard to see when blocks are small. In corner mode SNAP is now off at first and never uses the region itself. A white frame marks the block a click will use at every zoom, and the corner bar shows the corners' x and z. One GameTest (99 in all).
 - After a region changed size, it stayed listed under the ground it used to cover. Lookups still checked the box, so nothing was protected wrongly, but quick checks were slower there. It is now listed only where it is.
 - The BORDER tab could miss other servers' worlds on a network with many worlds (B5): it read at most 50 entries, and each server listed the others in a different order, so a world one server offered could be missing on another. Now only worlds with a border (the only ones that can be linked) are sent, all of them, in the same order everywhere. One GameTest (91 in all).
 

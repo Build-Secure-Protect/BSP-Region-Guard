@@ -9,13 +9,16 @@ import java.util.function.Supplier;
  * Client to server: one plot map action (D57 to D65). {@code VIEW} asks for a world's plots ({@code a} = world id,
  * {@code open} to open the screen); {@code LOCK}/{@code UNLOCK} take {@code a} = plot; {@code PASTE} takes {@code a} =
  * source, {@code b} = new id, {@code c} = display name; {@code MOVE} takes {@code a} = plot and {@code confirm} for a
- * claim someone owns; {@code CORNERS} takes {@code a} = region and the box clicked for it (D71); {@code UNDO},
- * {@code REDO}. Boxes and priority as numbers.
+ * claim someone owns; {@code CORNERS} takes {@code a} = region and the box clicked for it (D71); {@code CREATE} takes
+ * {@code a} = new id, {@code b} = type, {@code c} = price, the box and priority (D84); {@code DELETE}, {@code RESET} and
+ * {@code SHELL} take {@code a} = region; {@code RENAME} {@code b} = name; {@code PRIORITY} the number; {@code TYPE}
+ * {@code b} = type (D86); {@code UNDO}, {@code REDO}. Boxes and priority as numbers.
  */
 public record PlotMapActionPacket(String action, String a, String b, String c, int minX, int minY, int minZ, int maxX, int maxY, int maxZ,
                                   int priority, boolean flag, boolean blocks, int rotation) {
     public static final String VIEW = "view", LOCK = "lock", UNLOCK = "unlock", PASTE = "paste", MOVE = "move", UNDO = "undo", REDO = "redo",
-            BACKUP = "backup", BACKUPS = "backups", RESTORE = "restore", CORNERS = "corners";
+            BACKUP = "backup", BACKUPS = "backups", RESTORE = "restore", CORNERS = "corners", CREATE = "create", DELETE = "delete",
+            RENAME = "rename", PRIORITY = "priority", TYPE = "type", RESET = "reset", SHELL = "shell";
 
     public static PlotMapActionPacket simple(String action, String a, boolean flag) {
         return new PlotMapActionPacket(action, a, "", "", 0, 0, 0, 0, 0, 0, 0, flag, false, 0);

@@ -1,0 +1,295 @@
+<title>Region Map Mock-ups</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=VT323&family=IBM+Plex+Sans:wght@400;600&display=swap">
+<style>
+/* Layout: notes, then per option two 16:9 game windows (REGION mode reshaping, MINE mode drawing). Single dark look: these are game screens. */
+:root {
+    color-scheme: dark;
+    --page: #0b0e13; --panel: rgba(16,21,28,.95); --inset: #0c0e12; --line: #2a2f3a;
+    --tq: #19d3b0; --vio: #b58cff; --gold: #ffd23a; --bad: #ff6b5c; --text: #e6eaf2; --muted: #9aa3b5; --hint: #6f7788;
+    --mc: "VT323", ui-monospace, Menlo, monospace; --ui: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+body { background: var(--page); color: var(--text); font-family: var(--ui); }
+.wrap { max-width: 1020px; margin: 0 auto; padding-block: 28px 64px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1 { font-family: var(--mc); font-weight: normal; font-size: 2.6rem; color: var(--tq); margin: 0 0 4px; text-wrap: balance; }
+h2 { font-family: var(--mc); font-weight: normal; font-size: 1.9rem; margin: 44px 0 4px; text-wrap: balance; }
+h2 .tag { color: var(--muted); font-size: 1.2rem; margin-left: 8px; }
+h3 { font-family: var(--mc); font-weight: normal; font-size: 1.3rem; margin: 18px 0 2px; color: var(--muted); }
+p, li { line-height: 1.55; color: var(--muted); max-width: 72ch; }
+p strong, li strong { color: var(--text); font-weight: 600; }
+.lede { color: var(--text); }
+.scroller { overflow-x: auto; margin-top: 8px; padding-bottom: 6px; }
+.win { position: relative; width: 960px; height: 540px; background: #05070a; font-family: var(--mc); overflow: hidden; user-select: none; }
+.terrain { position: absolute; inset: 0;
+    background:
+      radial-gradient(ellipse 30% 22% at 72% 28%, #2d5a8a 0 60%, transparent 61%),
+      radial-gradient(ellipse 18% 30% at 18% 78%, #6a6f3c 0 70%, transparent 71%),
+      repeating-linear-gradient(90deg, rgba(0,0,0,.07) 0 1px, transparent 1px 16px),
+      repeating-linear-gradient(0deg, rgba(0,0,0,.07) 0 1px, transparent 1px 16px),
+      linear-gradient(135deg, #4c7a35, #5d8b3c 40%, #4a7232 70%, #6f8f45); }
+.pnl { position: absolute; background: var(--panel); border: 1px solid var(--line); color: var(--text); }
+.pnl.tq { border-color: var(--tq); } .pnl.gold { border-color: var(--gold); }
+.btn { display: inline-flex; align-items: center; justify-content: center; height: 20px; padding: 0 8px; font-family: var(--mc); font-size: 15px;
+    background: var(--inset); border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+.btn.on { color: var(--tq); border-color: var(--tq); background: rgba(25,211,176,.13); }
+.btn.gold { color: var(--gold); border-color: var(--gold); background: rgba(255,210,58,.12); }
+.btn.vio { color: var(--vio); border-color: var(--vio); background: rgba(181,140,255,.12); }
+.btn.no { color: var(--bad); border-color: var(--bad); background: rgba(255,107,92,.1); }
+.btn.sq { width: 20px; padding: 0; }
+.btn.big { height: 26px; font-size: 18px; padding: 0 14px; }
+.num { width: 50px; height: 20px; background: #050608; border: 1px solid var(--line); color: var(--text); font-family: var(--mc); font-size: 15px; padding: 0 4px; }
+.lbl { font-size: 13px; color: var(--muted); letter-spacing: .04em; }
+.tiny { font-size: 12px; color: var(--hint); }
+.row { display: flex; align-items: center; gap: 5px; padding: 1px 6px; font-size: 14px; border-left: 2px solid transparent; }
+.row.sel { background: rgba(25,211,176,.12); border-left-color: var(--tq); }
+.row .k { font-size: 11px; color: var(--hint); margin-left: auto; }
+.row.dim { opacity: .45; }
+.sw { width: 7px; height: 7px; border: 1px solid; flex: none; }
+.flex { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.col { display: flex; flex-direction: column; gap: 5px; }
+.box { position: absolute; border: 1px solid; }
+.box span { position: absolute; left: 3px; top: 1px; font-size: 13px; }
+.box.dim { opacity: .35; }
+.sel2 { border: 2px solid #fff; }
+.h { position: absolute; width: 8px; height: 8px; background: #fff; border: 1px solid #000; transform: translate(-4px,-4px); }
+.ghost { border: 2px dashed var(--gold); background: rgba(255,210,58,.15); }
+.hud { position: absolute; font-size: 14px; color: var(--text); background: rgba(5,6,8,.78); padding: 1px 6px; }
+.ok { color: var(--tq); } .bad { color: var(--bad); } .muted { color: var(--muted); } .gold { color: var(--gold); } .vio { color: var(--vio); }
+.callout { position: absolute; font-family: var(--ui); font-size: 11px; color: #000; background: var(--gold); padding: 1px 6px; border-radius: 2px; pointer-events: none; z-index: 5; }
+.seg { display: inline-flex; border: 1px solid var(--line); }
+.seg .btn { border: 0; border-right: 1px solid var(--line); }
+.seg .btn:last-child { border-right: 0; }
+.rail .btn { width: 76px; }
+ol.dec li { margin: 4px 0; font-size: .93rem; }
+</style>
+
+<div class="wrap">
+  <h1>REGION MAP</h1>
+  <p class="lede">Three layouts for the one map that edits everything (D82 to D90). REGION, PLOT and MINE mode buttons sit at the top. Each mode shows its own kind of region strongly and dims the rest. Every mode has the same three tools, PICK, DRAW and RESHAPE, plus its own extras.</p>
+  <p>Each option shows two windows. The first is <strong>REGION mode</strong>, reshaping <strong>market_hall</strong> with its eight handles and its card. The second is <strong>MINE mode</strong> just after a box was drawn, with the card that creates the new mine. Holding <strong>SPACE</strong> pans in every mode, so you can click one corner, pan with SPACE and click the second. The <span class="gold">gold tags</span> point at what differs between the options.</p>
+
+  <!-- ============================================================ A -->
+  <h2>A · One top bar <span class="tag">modes, tools and world in a line</span></h2>
+  <p>A single bar runs across the top: the modes on the left, the tools in the middle, and the world, UNDO and REDO on the right. The REGIONS list card sits under it on the left and folds. The picked region's card floats beside the region, as on today's plot map.</p>
+
+  <h3>REGION mode · RESHAPE</h3>
+  <div class="scroller"><div class="win">
+    <div class="terrain"></div>
+    <div class="box dim" style="left:540px;top:120px;width:120px;height:90px;border-color:var(--gold)"><span class="gold">plot_a1</span></div>
+    <div class="box dim" style="left:120px;top:330px;width:90px;height:80px;border-color:var(--gold)"><span class="gold">iron_mine</span></div>
+    <div class="box" style="left:250px;top:110px;width:180px;height:120px;border-color:var(--tq)"><span class="ok">spawn</span></div>
+    <div class="box sel2" style="left:330px;top:260px;width:200px;height:140px;background:rgba(25,211,176,.15)"><span>market_hall</span></div>
+    <div class="h" style="left:330px;top:260px"></div><div class="h" style="left:430px;top:260px"></div><div class="h" style="left:530px;top:260px"></div>
+    <div class="h" style="left:330px;top:330px"></div><div class="h" style="left:530px;top:330px"></div>
+    <div class="h" style="left:330px;top:400px"></div><div class="h" style="left:430px;top:400px"></div><div class="h" style="left:530px;top:400px"></div>
+    <div class="pnl tq" style="left:0;right:0;top:0;height:32px;border-width:0 0 1px 0">
+      <div class="flex" style="padding:5px 8px">
+        <span class="seg"><span class="btn on">REGION</span><span class="btn">PLOT</span><span class="btn">MINE</span></span>
+        <span style="width:14px"></span>
+        <span class="seg"><span class="btn">PICK</span><span class="btn">DRAW</span><span class="btn on">RESHAPE</span></span>
+        <span style="margin-left:auto" class="btn sq">&lt;</span><span style="font-size:15px">overworld</span><span class="btn sq">&gt;</span>
+        <span class="btn on">UNDO 2</span><span class="btn">REDO 0</span><span class="btn sq">↻</span>
+      </div>
+    </div>
+    <span class="callout" style="left:10px;top:36px">modes</span><span class="callout" style="left:200px;top:36px">tools</span>
+    <div class="pnl tq" style="left:8px;top:58px;width:180px">
+      <div class="flex" style="padding:3px 6px"><span style="font-size:15px;color:var(--tq)">REGIONS</span><span class="btn sq" style="margin-left:auto;height:18px">▾</span></div>
+      <div style="margin:0 5px 4px;height:18px;background:#050608;border:1px solid var(--line);font-size:13px;color:var(--hint);padding:0 4px">search regions</div>
+      <div class="row"><i class="sw" style="border-color:var(--tq)"></i>spawn<span class="k">P 10</span></div>
+      <div class="row sel"><i class="sw" style="border-color:var(--tq)"></i>market_hall<span class="k">P 5</span></div>
+      <div class="row"><i class="sw" style="border-color:var(--tq)"></i>arena<span class="k">P 3</span></div>
+      <div class="row dim"><i class="sw" style="border-color:var(--gold)"></i>plot_a1<span class="k">plot</span></div>
+      <div class="row dim"><i class="sw" style="border-color:var(--gold)"></i>iron_mine<span class="k">mine</span></div>
+    </div>
+    <div class="pnl tq" style="left:545px;top:250px;width:250px">
+      <div class="flex" style="padding:4px 6px"><span style="font-size:16px">market_hall</span><span class="btn sq" style="margin-left:auto;height:18px">▾</span></div>
+      <div style="padding:0 6px 6px" class="col">
+        <div class="tiny">200 × 140 · y 62 to 90 · protected</div>
+        <div class="flex"><span class="lbl">PRIORITY</span><span class="btn sq">-</span><span style="font-size:15px">5</span><span class="btn sq">+</span><span class="lbl" style="margin-left:8px">TYPE</span><span class="btn on">PROT</span></div>
+        <div class="flex"><span class="btn">FLAGS</span><span class="btn">ACCESS</span><span class="btn">TELEPORT</span><span class="btn">INFO</span></div>
+        <div class="flex"><span class="btn gold">VERTICAL FILL</span><span class="btn no" style="margin-left:auto">DELETE</span></div>
+      </div>
+    </div>
+    <span class="callout" style="left:800px;top:290px">opens that tab, Esc comes back</span>
+    <div class="pnl tq" style="left:8px;bottom:28px;width:470px;height:30px"><div class="flex" style="padding:4px 6px"><span style="font-size:14px">drag a side or corner</span><span class="lbl" style="margin-left:6px">Y</span><input class="num" value="62" aria-label="lowest y"><span class="tiny">to</span><input class="num" value="90" aria-label="highest y"><span class="btn">SNAP</span><span class="btn on">DONE</span></div></div>
+    <div class="hud" style="right:8px;bottom:6px">x 412  z -288   4 px a block   SPACE pans</div>
+  </div></div>
+
+  <h3>MINE mode · DRAW</h3>
+  <div class="scroller"><div class="win">
+    <div class="terrain"></div>
+    <div class="box dim" style="left:250px;top:110px;width:180px;height:120px;border-color:var(--tq)"><span class="ok">spawn</span></div>
+    <div class="box" style="left:120px;top:330px;width:90px;height:80px;border-color:var(--gold);background:rgba(255,210,58,.12)"><span class="gold">iron_mine</span></div>
+    <div class="box ghost" style="left:520px;top:280px;width:140px;height:100px"></div>
+    <div class="hud" style="left:664px;top:364px">35 × 25</div>
+    <div class="pnl tq" style="left:0;right:0;top:0;height:32px;border-width:0 0 1px 0">
+      <div class="flex" style="padding:5px 8px">
+        <span class="seg"><span class="btn">REGION</span><span class="btn">PLOT</span><span class="btn on">MINE</span></span>
+        <span style="width:14px"></span>
+        <span class="seg"><span class="btn">PICK</span><span class="btn on">DRAW</span><span class="btn">RESHAPE</span></span>
+        <span class="seg" style="margin-left:6px"><span class="btn">RESET</span><span class="btn">SHELL</span></span>
+        <span style="margin-left:auto" class="btn sq">&lt;</span><span style="font-size:15px">overworld</span><span class="btn sq">&gt;</span>
+        <span class="btn on">UNDO 2</span><span class="btn">REDO 0</span><span class="btn sq">↻</span>
+      </div>
+    </div>
+    <span class="callout" style="left:330px;top:36px">mode extras</span>
+    <div class="pnl gold" style="left:670px;top:240px;width:250px">
+      <div style="padding:5px 6px;font-size:16px" class="gold">NEW MINE</div>
+      <div style="padding:0 6px 6px" class="col">
+        <div class="flex"><span class="lbl" style="width:52px">ID</span><input class="num" style="width:150px" value="copper_mine" aria-label="id"></div>
+        <div class="flex"><span class="lbl" style="width:52px">PRIORITY</span><span class="btn sq">-</span><span style="font-size:15px">0</span><span class="btn sq">+</span></div>
+        <div class="flex"><span class="lbl" style="width:52px">Y</span><input class="num" value="20" aria-label="lowest y"><span class="tiny">to</span><input class="num" value="40" aria-label="highest y"></div>
+        <div class="tiny">x 520 z -300 to x 554 z -276 · 35 × 25</div>
+        <div class="flex"><span class="btn on">CREATE</span><span class="btn no">CANCEL</span></div>
+      </div>
+    </div>
+    <span class="callout" style="left:680px;top:216px">the mode sets the type</span>
+    <div class="hud" style="right:8px;bottom:6px">x 554  z -276   4 px a block   SPACE pans</div>
+    <div class="hud" style="left:8px;bottom:6px"><span class="ok">drag a box, or click two corners</span></div>
+  </div></div>
+
+  <!-- ============================================================ B -->
+  <h2>B · Side rail and inspector <span class="tag">tools left, details right</span></h2>
+  <p>A narrow rail down the left edge holds the three modes, and the tools under them. The picked region's details live in an <strong>inspector</strong> docked on the right, which folds to a thin strip. The REGIONS list opens as a drawer from the rail. The map in the middle is never covered by floating cards.</p>
+
+  <h3>REGION mode · RESHAPE</h3>
+  <div class="scroller"><div class="win">
+    <div class="terrain"></div>
+    <div class="box dim" style="left:540px;top:120px;width:120px;height:90px;border-color:var(--gold)"><span class="gold">plot_a1</span></div>
+    <div class="box" style="left:250px;top:110px;width:180px;height:120px;border-color:var(--tq)"><span class="ok">spawn</span></div>
+    <div class="box sel2" style="left:330px;top:260px;width:200px;height:140px;background:rgba(25,211,176,.15)"><span>market_hall</span></div>
+    <div class="h" style="left:330px;top:260px"></div><div class="h" style="left:430px;top:260px"></div><div class="h" style="left:530px;top:260px"></div>
+    <div class="h" style="left:330px;top:330px"></div><div class="h" style="left:530px;top:330px"></div>
+    <div class="h" style="left:330px;top:400px"></div><div class="h" style="left:430px;top:400px"></div><div class="h" style="left:530px;top:400px"></div>
+    <div class="pnl tq rail" style="left:0;top:0;bottom:0;width:90px;border-width:0 1px 0 0;padding:8px 6px" >
+      <div class="col">
+        <span class="lbl">MODE</span>
+        <span class="btn on">REGION</span><span class="btn">PLOT</span><span class="btn">MINE</span>
+        <span class="lbl" style="margin-top:10px">TOOL</span>
+        <span class="btn">PICK</span><span class="btn">DRAW</span><span class="btn on">RESHAPE</span>
+        <span class="lbl" style="margin-top:10px">LIST</span>
+        <span class="btn">REGIONS ▸</span>
+        <span class="lbl" style="margin-top:10px">HISTORY</span>
+        <span class="btn on">UNDO 2</span><span class="btn">REDO 0</span>
+      </div>
+    </div>
+    <span class="callout" style="left:96px;top:30px">rail: modes, tools, list, undo</span>
+    <div class="pnl" style="left:100px;top:8px;height:24px"><div class="flex" style="padding:1px 6px"><span class="btn sq">&lt;</span><span style="font-size:15px">overworld</span><span class="btn sq">&gt;</span><span class="tiny">editable</span><span class="btn sq">↻</span></div></div>
+    <div class="pnl tq" style="right:0;top:0;bottom:0;width:250px;border-width:0 0 0 1px">
+      <div class="flex" style="padding:8px 8px 4px"><span style="font-size:18px">market_hall</span><span class="btn sq" style="margin-left:auto">▸</span></div>
+      <div style="padding:0 8px" class="col">
+        <div class="tiny">protected · priority 5</div>
+        <div class="lbl" style="margin-top:6px">SIZE</div>
+        <div class="flex"><span class="tiny" style="width:30px">FROM</span><input class="num" value="120" aria-label="from x"><input class="num" value="62" aria-label="from y"><input class="num" value="-340" aria-label="from z"></div>
+        <div class="flex"><span class="tiny" style="width:30px">TO</span><input class="num" value="319" aria-label="to x"><input class="num" value="90" aria-label="to y"><input class="num" value="-201" aria-label="to z"></div>
+        <span class="btn gold">VERTICAL FILL</span>
+        <div class="lbl" style="margin-top:6px">QUICK</div>
+        <div class="flex"><span class="lbl">PRIORITY</span><span class="btn sq">-</span><span style="font-size:15px">5</span><span class="btn sq">+</span></div>
+        <div class="flex"><span class="btn on">PROT</span><span class="btn">SALE</span><span class="btn">OPEN</span><span class="btn">MINE</span></div>
+        <div class="lbl" style="margin-top:6px">OPEN IN ADMIN SCREEN</div>
+        <div class="flex"><span class="btn">FLAGS</span><span class="btn">ACCESS</span><span class="btn">RANKS</span><span class="btn">TELEPORT</span><span class="btn">INFO</span></div>
+        <span class="btn no" style="margin-top:10px">DELETE</span>
+      </div>
+    </div>
+    <span class="callout" style="right:256px;top:30px">inspector, folds to a strip</span>
+    <div class="hud" style="left:100px;bottom:6px">x 412  z -288   4 px a block   SPACE pans</div>
+  </div></div>
+
+  <h3>MINE mode · DRAW</h3>
+  <div class="scroller"><div class="win">
+    <div class="terrain"></div>
+    <div class="box dim" style="left:250px;top:110px;width:180px;height:120px;border-color:var(--tq)"><span class="ok">spawn</span></div>
+    <div class="box" style="left:150px;top:330px;width:90px;height:80px;border-color:var(--gold);background:rgba(255,210,58,.12)"><span class="gold">iron_mine</span></div>
+    <div class="box ghost" style="left:420px;top:280px;width:140px;height:100px"></div>
+    <div class="pnl tq rail" style="left:0;top:0;bottom:0;width:90px;border-width:0 1px 0 0;padding:8px 6px" >
+      <div class="col">
+        <span class="lbl">MODE</span>
+        <span class="btn">REGION</span><span class="btn">PLOT</span><span class="btn on">MINE</span>
+        <span class="lbl" style="margin-top:10px">TOOL</span>
+        <span class="btn">PICK</span><span class="btn on">DRAW</span><span class="btn">RESHAPE</span>
+        <span class="lbl" style="margin-top:10px">MINE</span>
+        <span class="btn">RESET</span><span class="btn">SHELL</span>
+        <span class="lbl" style="margin-top:10px">HISTORY</span>
+        <span class="btn on">UNDO 2</span><span class="btn">REDO 0</span>
+      </div>
+    </div>
+    <div class="pnl gold" style="right:0;top:0;bottom:0;width:250px;border-width:0 0 0 1px">
+      <div style="padding:8px;font-size:18px" class="gold">NEW MINE</div>
+      <div style="padding:0 8px" class="col">
+        <div class="flex"><span class="lbl" style="width:52px">ID</span><input class="num" style="width:150px" value="copper_mine" aria-label="id"></div>
+        <div class="flex"><span class="lbl" style="width:52px">PRIORITY</span><span class="btn sq">-</span><span style="font-size:15px">0</span><span class="btn sq">+</span></div>
+        <div class="flex"><span class="lbl" style="width:52px">Y</span><input class="num" value="20" aria-label="lowest y"><span class="tiny">to</span><input class="num" value="40" aria-label="highest y"></div>
+        <div class="tiny">x 420 z -300 to x 454 z -276 · 35 × 25</div>
+        <div class="lbl" style="margin-top:6px">FIRST BLOCKS (optional)</div>
+        <div class="tiny">stone 70 · copper_ore 20 · iron_ore 10</div>
+        <div class="flex" style="margin-top:8px"><span class="btn on">CREATE</span><span class="btn no">CANCEL</span></div>
+      </div>
+    </div>
+    <span class="callout" style="right:256px;top:30px">the new region's card uses the same panel</span>
+    <div class="hud" style="left:100px;bottom:6px"><span class="ok">drag a box, or click two corners · SPACE pans</span></div>
+  </div></div>
+
+  <!-- ============================================================ C -->
+  <h2>C · Mode tabs and a bottom dock <span class="tag">like a drawing program</span></h2>
+  <p>Big REGION, PLOT and MINE tabs sit at the top centre, like the admin screen's tabs. The tools and the height fields sit in a dock along the bottom, as in a drawing program. The picked region's card is docked just above the dock on the right. The list card sits on the left as today, and the world, UNDO and REDO card at the top right.</p>
+
+  <h3>REGION mode · RESHAPE</h3>
+  <div class="scroller"><div class="win">
+    <div class="terrain"></div>
+    <div class="box dim" style="left:540px;top:120px;width:120px;height:90px;border-color:var(--gold)"><span class="gold">plot_a1</span></div>
+    <div class="box" style="left:250px;top:110px;width:180px;height:120px;border-color:var(--tq)"><span class="ok">spawn</span></div>
+    <div class="box sel2" style="left:330px;top:250px;width:200px;height:140px;background:rgba(25,211,176,.15)"><span>market_hall</span></div>
+    <div class="h" style="left:330px;top:250px"></div><div class="h" style="left:430px;top:250px"></div><div class="h" style="left:530px;top:250px"></div>
+    <div class="h" style="left:330px;top:320px"></div><div class="h" style="left:530px;top:320px"></div>
+    <div class="h" style="left:330px;top:390px"></div><div class="h" style="left:430px;top:390px"></div><div class="h" style="left:530px;top:390px"></div>
+    <div class="pnl tq" style="left:50%;transform:translateX(-50%);top:6px"><div class="flex" style="padding:4px"><span class="btn big on">REGION</span><span class="btn big">PLOT</span><span class="btn big">MINE</span></div></div>
+    <span class="callout" style="left:340px;top:46px">mode tabs</span>
+    <div class="pnl tq" style="right:8px;top:8px;height:26px"><div class="flex" style="padding:2px 6px"><span class="btn sq">&lt;</span><span style="font-size:15px">overworld</span><span class="btn sq">&gt;</span><span class="btn on">UNDO 2</span><span class="btn">REDO 0</span><span class="btn sq">↻</span></div></div>
+    <div class="pnl tq" style="left:8px;top:8px;width:170px;height:24px"><div class="flex" style="padding:1px 6px"><span style="font-size:15px;color:var(--tq)">REGIONS</span><span class="btn sq" style="margin-left:auto;height:18px">▸</span></div></div>
+    <div class="pnl tq" style="right:8px;bottom:50px;width:300px">
+      <div class="flex" style="padding:4px 6px"><span style="font-size:16px">market_hall</span><span class="tiny">protected · P 5 · 200 × 140</span><span class="btn sq" style="margin-left:auto;height:18px">▾</span></div>
+      <div class="flex" style="padding:0 6px 6px"><span class="btn">FLAGS</span><span class="btn">ACCESS</span><span class="btn">INFO</span><span class="btn sq">-</span><span style="font-size:14px">P 5</span><span class="btn sq">+</span><span class="btn no" style="margin-left:auto">DELETE</span></div>
+    </div>
+    <div class="pnl tq" style="left:0;right:0;bottom:0;height:40px;border-width:1px 0 0 0">
+      <div class="flex" style="padding:8px">
+        <span class="seg"><span class="btn big">PICK</span><span class="btn big">DRAW</span><span class="btn big on">RESHAPE</span></span>
+        <span class="lbl" style="margin-left:14px">Y</span><input class="num" value="62" aria-label="lowest y"><span class="tiny">to</span><input class="num" value="90" aria-label="highest y">
+        <span class="btn gold">VERTICAL FILL</span><span class="btn">SNAP</span>
+        <span style="margin-left:auto;font-size:14px" class="muted">x 412 z -288 · 4 px · SPACE pans</span>
+      </div>
+    </div>
+    <span class="callout" style="left:10px;bottom:46px">tool dock</span>
+  </div></div>
+
+  <h3>MINE mode · DRAW</h3>
+  <div class="scroller"><div class="win">
+    <div class="terrain"></div>
+    <div class="box dim" style="left:250px;top:110px;width:180px;height:120px;border-color:var(--tq)"><span class="ok">spawn</span></div>
+    <div class="box" style="left:120px;top:300px;width:90px;height:80px;border-color:var(--gold);background:rgba(255,210,58,.12)"><span class="gold">iron_mine</span></div>
+    <div class="box ghost" style="left:420px;top:250px;width:140px;height:100px"></div>
+    <div class="pnl tq" style="left:50%;transform:translateX(-50%);top:6px"><div class="flex" style="padding:4px"><span class="btn big">REGION</span><span class="btn big">PLOT</span><span class="btn big on">MINE</span></div></div>
+    <div class="pnl tq" style="right:8px;top:8px;height:26px"><div class="flex" style="padding:2px 6px"><span class="btn sq">&lt;</span><span style="font-size:15px">overworld</span><span class="btn sq">&gt;</span><span class="btn on">UNDO 2</span><span class="btn">REDO 0</span><span class="btn sq">↻</span></div></div>
+    <div class="pnl gold" style="right:8px;bottom:50px;width:300px">
+      <div class="flex" style="padding:4px 6px"><span style="font-size:16px" class="gold">NEW MINE</span><span class="tiny">35 × 25 · x 420 z -300</span></div>
+      <div class="flex" style="padding:0 6px 6px"><span class="lbl">ID</span><input class="num" style="width:110px" value="copper_mine" aria-label="id"><span class="btn sq">-</span><span style="font-size:14px">P 0</span><span class="btn sq">+</span><span class="btn on">CREATE</span><span class="btn no">CANCEL</span></div>
+    </div>
+    <div class="pnl tq" style="left:0;right:0;bottom:0;height:40px;border-width:1px 0 0 0">
+      <div class="flex" style="padding:8px">
+        <span class="seg"><span class="btn big">PICK</span><span class="btn big on">DRAW</span><span class="btn big">RESHAPE</span></span>
+        <span class="seg" style="margin-left:8px"><span class="btn big">RESET</span><span class="btn big">SHELL</span></span>
+        <span class="lbl" style="margin-left:14px">Y</span><input class="num" value="20" aria-label="lowest y"><span class="tiny">to</span><input class="num" value="40" aria-label="highest y">
+        <span style="margin-left:auto;font-size:14px" class="muted">drag a box · SPACE pans</span>
+      </div>
+    </div>
+  </div></div>
+
+  <h2>Questions with these mock-ups</h2>
+  <ol class="dec">
+    <li><strong>Which layout?</strong> Default <strong>A</strong>: it changes least from the plot map you have tested, and the modes, tools and UNDO stay in one line, so nothing overlaps.</li>
+    <li><strong>The admin screen's MAP tab:</strong> I read your answer as "one map", so the small MAP tab goes and a <strong>MAP</strong> button (where PLOT MAP is now) opens this map on the selected region. Default: yes. The alternative is to keep the small tab as a preview.</li>
+    <li><strong>PLOT mode's DRAW:</strong> Default: it makes a <strong>plot for sale</strong>, and the card also asks for the price. Making an open area for players to outline their own plots stays a type change on the card (OPEN).</li>
+    <li><strong>MINE mode's extras:</strong> Default: RESET NOW and SHELL on the bar. The fill table stays in the admin screen's MINE tab, which the card opens.</li>
+    <li><strong>What dims:</strong> Default: in PLOT and MINE modes the other kinds of region are dimmed and can't be picked. REGION mode shows and picks everything.</li>
+  </ol>
+</div>

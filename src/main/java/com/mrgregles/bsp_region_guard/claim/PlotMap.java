@@ -50,11 +50,14 @@ public final class PlotMap {
         }
     }
 
-    /** One confirmed action: the region as it was before (null for a paste) and after. */
+    /** What an undo step was: a paste, a move, new corners, a region drawn on the map, or one deleted there (D88). */
+    private enum Kind { PASTE, MOVE, CORNERS, CREATE, DELETE }
+
+    /** One confirmed action: the region as it was before (null for a paste or a create) and after. */
     private record Step(String dimension, String id, @Nullable CompoundTag before, CompoundTag after,
-                        @Nullable String source, int rotation, @Nullable PlotBlocks.Job blocks, boolean corners) {
+                        @Nullable String source, int rotation, @Nullable PlotBlocks.Job blocks, Kind kind) {
         Step(String dimension, String id, @Nullable CompoundTag before, CompoundTag after, @Nullable String source, int rotation, @Nullable PlotBlocks.Job blocks) {
-            this(dimension, id, before, after, source, rotation, blocks, false);
+            this(dimension, id, before, after, source, rotation, blocks, before == null ? Kind.PASTE : Kind.MOVE);
         }
     }
 
@@ -318,8 +321,114 @@ public final class PlotMap {
         CompoundTag before = r.save();
         r.setBounds(box);
         store.touch(r);
-        record(admin, new Step(level.dimension().location().toString(), r.id(), before, r.save(), null, 0, null, true));
+        record(admin, new Step(level.dimension().location().toString(), r.id(), before, r.save(), null, 0, null, Kind.CORNERS));
         return Result.ok(r.id() + " now covers " + box + ": " + box.sizeX() + " x " + box.sizeZ() + ", " + box.minY() + " to " + box.maxY() + ".");
+    }
+
+    /**
+     * Where a corner clicked on the plot map lands with SNAP on: within two blocks of a side of one of {@code boxes},
+     * just outside it (touching); otherwise where it was clicked. The region whose corners are being set
+     * ({@code skip}) is never a target, so clicking its old corners again keeps them exact (B9).
+     */
+    public static int[] snapCorner(int x, int z, java.util.Collection<com.mrgregles.bsp_region_guard.network.PlotMapStatePacket.Plot> boxes, @Nullable String skip) {
+        int sx = x, sz = z, bestX = 3, bestZ = 3;
+        for (var p : boxes) {
+            if (p.id().equals(skip)) {
+                continue;
+            }
+            for (int edge : new int[]{p.minX() - 1, p.maxX() + 1}) {
+                if (Math.abs(x - edge) < bestX) {
+                    bestX = Math.abs(x - edge);
+                    sx = edge;
+                }
+            }
+            for (int edge : new int[]{p.minZ() - 1, p.maxZ() + 1}) {
+                if (Math.abs(z - edge) < bestZ) {
+                    bestZ = Math.abs(z - edge);
+                    sz = edge;
+                }
+            }
+        }
+        return new int[]{sx, sz};
+    }
+
+    // ------------------------------------------------------------------ drawing and deleting on the map (D84, D87)
+
+    /**
+     * A region drawn on the map: {@code typeKey} protected, plot_for_sale (with a {@code price} above 0) or mine,
+     * as the map's mode sets it. Plots keep to D59 and need a world where claims are allowed. Can be undone.
+     */
+    public static Result create(ServerPlayer admin, String newId, String typeKey, Cuboid box, int priority, long price) {
+        if (!BspCore.isAdmin(admin)) {
+            return Result.fail("Only BSP-Core admins can use the plot map.");
+        }
+        ServerLevel level = admin.serverLevel();
+        RegionStore store = RegionStore.get(level);
+        String id;
+        try {
+            id = Region.validateId(newId.trim());
+        } catch (IllegalArgumentException e) {
+            return Result.fail("Id: " + e.getMessage() + ".");
+        }
+        if (store.has(id) || id.equals(Region.GLOBAL_ID)) {
+            return Result.fail("A region called " + id + " already exists here.");
+        }
+        String height = com.mrgregles.bsp_region_guard.command.RegionEdits.heightProblem(level, box);
+        if (height != null) {
+            return Result.fail(height);
+        }
+        RegionType type = RegionType.byKey(typeKey);
+        if (type != RegionType.PROTECTED && type != RegionType.PLOT_FOR_SALE && type != RegionType.MINE) {
+            return Result.fail("The map makes protected regions, plots for sale and mines.");
+        }
+        if (type == RegionType.PLOT_FOR_SALE) {
+            if (!com.mrgregles.bsp_region_guard.protection.TotemRule.claimsAllowedIn(level)) {
+                return Result.fail("Claims are not allowed in a PvP world.");
+            }
+            if (price <= 0) {
+                return Result.fail("A plot for sale needs a price above 0.");
+            }
+            String overlap = overlapProblem(store, box, priority, null);
+            if (overlap != null) {
+                return Result.fail("Can't put it here: " + overlap);
+            }
+        }
+        Region r = new Region(id, level.dimension(), box, RegionType.PROTECTED);
+        r.setPriority(priority);
+        store.add(r);
+        if (type == RegionType.PLOT_FOR_SALE) {
+            ClaimData.set(r, ClaimData.PRICE, price);
+            r.setType(RegionType.PLOT_FOR_SALE);
+            store.touch(r);
+        } else if (type == RegionType.MINE) {
+            com.mrgregles.bsp_region_guard.mine.Mines.makeMine(store, r);
+        }
+        record(admin, new Step(level.dimension().location().toString(), id, null, r.save(), null, 0, null, Kind.CREATE));
+        return Result.ok(id + " made: " + type.key().replace('_', ' ') + ", " + box.sizeX() + " x " + box.sizeZ() + ", y " + box.minY() + " to " + box.maxY()
+                + (type == RegionType.PLOT_FOR_SALE ? ", for sale at " + BspCore.money(price) : "") + ".");
+    }
+
+    /** Deletes a region from the map; UNDO brings it back with everything it had (D87). */
+    public static Result delete(ServerPlayer admin, String id) {
+        if (!BspCore.isAdmin(admin)) {
+            return Result.fail("Only BSP-Core admins can use the plot map.");
+        }
+        ServerLevel level = admin.serverLevel();
+        RegionStore store = RegionStore.get(level);
+        Region r = store.get(id);
+        if (r == null || r.isGlobal()) {
+            return Result.fail(r == null ? "No region called '" + id + "' in this world." : "The world default can't be deleted.");
+        }
+        if (PlotBlocks.busy(r.id())) {
+            return Result.fail("The blocks of " + r.id() + " are still being worked on.");
+        }
+        CompoundTag before = r.save();
+        var removed = com.mrgregles.bsp_region_guard.command.RegionEdits.remove(store, r);
+        if (!removed.ok()) {
+            return Result.fail(removed.message());
+        }
+        record(admin, new Step(level.dimension().location().toString(), r.id(), before, before, null, 0, null, Kind.DELETE));
+        return Result.ok(r.id() + " deleted. UNDO brings it back.");
     }
 
     // ------------------------------------------------------------------ backups (D69)
@@ -401,7 +510,28 @@ public final class PlotMap {
         RegionStore store = RegionStore.get(level);
         Region now = store.get(s.id());
         String done;
-        if (s.before() == null) { // a paste
+        if (s.kind() == Kind.CREATE || s.kind() == Kind.DELETE) {
+            boolean add = s.kind() == Kind.CREATE ? !undo : undo; // undoing a create removes, undoing a delete adds back
+            if (add) {
+                if (now != null) {
+                    return Result.fail("A region called " + s.id() + " exists again, so it can't come back.");
+                }
+                Region back = Region.load(s.kind() == Kind.CREATE ? s.after() : s.before());
+                if (isPlot(back) && back.hasCorners()) {
+                    String overlap = overlapProblem(store, back.bounds(), back.priority(), null);
+                    if (overlap != null) {
+                        return Result.fail("Can't bring it back: " + overlap);
+                    }
+                }
+                store.add(back);
+            } else if (now != null) {
+                if (isPlot(now) && !now.owners().isEmpty()) {
+                    return Result.fail(s.id() + " has been bought since, so it stays. Give it up from the claim first.");
+                }
+                store.remove(s.id());
+            }
+            done = (undo ? "Undone" : "Redone") + (s.kind() == Kind.CREATE ? ": making " : ": deleting ") + s.id() + ".";
+        } else if (s.before() == null) { // a paste
             if (undo) {
                 if (now == null) {
                     done = s.id() + " is already gone.";
@@ -429,7 +559,7 @@ public final class PlotMap {
                 Region source = s.source() == null ? null : store.get(s.source());
                 if (s.blocks() != null && source != null && source.bounds() != null) {
                     PlotBlocks.Job job = PlotBlocks.transfer(admin, s.id(), source.bounds(), back.bounds(), s.rotation(), false, null);
-                    s = new Step(s.dimension(), s.id(), s.before(), s.after(), s.source(), s.rotation(), job);
+                    s = new Step(s.dimension(), s.id(), s.before(), s.after(), s.source(), s.rotation(), job, s.kind());
                     done += " Its blocks are being copied again.";
                 }
             }
@@ -453,7 +583,7 @@ public final class PlotMap {
             now.setFlag(Flags.SPAWN, target.flag(Flags.SPAWN));
             Cuboid leaving = now.bounds();
             store.touch(now);
-            done = (undo ? "Undone" : "Redone") + (s.corners() ? ": the corners of " : ": the move of ") + s.id() + ".";
+            done = (undo ? "Undone" : "Redone") + (s.kind() == Kind.CORNERS ? ": the corners of " : ": the move of ") + s.id() + ".";
             if (s.blocks() != null) {
                 if (undo) { // both spots back as they were before the move, from that move's backups
                     PlotBlocks.Job moved = s.blocks();
@@ -467,7 +597,7 @@ public final class PlotMap {
                     done += " Its blocks are being put back.";
                 } else {
                     PlotBlocks.Job job = PlotBlocks.transfer(admin, s.id(), Region.load(s.before()).bounds(), target.bounds(), s.rotation(), true, null);
-                    s = new Step(s.dimension(), s.id(), s.before(), s.after(), s.source(), s.rotation(), job);
+                    s = new Step(s.dimension(), s.id(), s.before(), s.after(), s.source(), s.rotation(), job, s.kind());
                     done += " Its blocks are moving again.";
                 }
             }

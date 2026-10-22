@@ -241,6 +241,15 @@ public final class RegionCommands {
             com.mrgregles.bsp_region_guard.network.PlotMapSync.open(p);
             return 1;
         }));
+        rg.then(Commands.literal("map").executes(ctx -> {
+            ServerPlayer p = player(ctx.getSource());
+            if (!com.mrgregles.bsp_region_guard.compat.BspCore.isAdmin(p)) {
+                ctx.getSource().sendFailure(Component.literal("Only BSP-Core admins can use the plot map."));
+                return 0;
+            }
+            com.mrgregles.bsp_region_guard.network.PlotMapSync.open(p);
+            return 1;
+        }));
         // D69: backups of a plot's blocks
         rg.then(Commands.literal("plot")
                 .then(Commands.literal("backup").then(id().executes(ctx -> plotResult(ctx.getSource(),

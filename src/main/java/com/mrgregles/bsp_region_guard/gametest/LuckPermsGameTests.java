@@ -20,7 +20,7 @@ import net.minecraftforge.gametest.PrefixGameTestTemplate;
 import java.util.Set;
 
 /**
- * The LuckPerms bridge against the real LuckPerms Forge mod (5.4.102, dev runs only: see build.gradle and
+ * The LuckPerms bridge against the real LuckPerms Forge mod (luckperms_dev_version in gradle.properties, dev runs only: see build.gradle and
  * tools/make_luckperms_dev_jar.py). Skips itself with a note when LuckPerms is not on the classpath, so the suite
  * still passes in a checkout without the jar.
  */

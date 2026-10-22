@@ -253,6 +253,45 @@ public class RegionShapeGameTests {
         }, "rs_plot_a", "rs_plot_b", "rs_prot");
     }
 
+    /** B10: the plot map lists every region with corners (plots, protected areas, mines), never the world default or one without corners. */
+    @GameTest(template = EMPTY)
+    public void the_plot_map_lists_every_region(GameTestHelper h) {
+        run(h, admin -> {
+            ServerLevel level = h.getLevel();
+            RegionEdits.create(level, "rs_l_prot", box(h, 1, 1, 3, 3), 2);
+            RegionEdits.create(level, "rs_l_mine", box(h, 6, 1, 3, 3), 0);
+            store(h).get("rs_l_mine").setType(RegionType.MINE);
+            RegionEdits.create(level, "rs_l_none", null, 0);
+            Region sale = new Region("rs_l_sale", level.dimension(), box(h, 1, 6, 3, 3), RegionType.PLOT_FOR_SALE);
+            store(h).add(sale);
+            PlotMapStatePacket view = PlotMapSync.apply(admin, PlotMapActionPacket.simple(PlotMapActionPacket.VIEW, level.dimension().location().toString(), true));
+            h.assertTrue(view.others().stream().anyMatch(p -> p.id().equals("rs_l_prot") && p.type().equals("protected") && p.priority() == 2),
+                    "a protected region is listed with its type and priority");
+            h.assertTrue(view.others().stream().anyMatch(p -> p.id().equals("rs_l_mine") && p.type().equals("mine")), "a mine is listed");
+            h.assertTrue(view.plots().stream().anyMatch(p -> p.id().equals("rs_l_sale")) && view.others().stream().noneMatch(p -> p.id().equals("rs_l_sale")),
+                    "plots stay in the plots list");
+            h.assertTrue(view.others().stream().noneMatch(p -> p.id().equals("rs_l_none") || p.id().equals(Region.GLOBAL_ID)),
+                    "neither a region without corners nor the world default");
+            h.assertTrue(PlotMapSync.apply(admin, corners("rs_l_prot", box(h, 1, 1, 5, 5))).ok() && store(h).get("rs_l_prot").bounds().equals(box(h, 1, 1, 5, 5)),
+                    "SET CORNERS on a protected region from the map");
+        }, "rs_l_prot", "rs_l_mine", "rs_l_none", "rs_l_sale");
+    }
+
+    /** B9: corner SNAP never pulls a corner toward the region's own old box, and only within two blocks of another's side. */
+    @GameTest(template = EMPTY)
+    public void corner_snap_keeps_clicks_exact_near_the_region_itself(GameTestHelper h) {
+        var self = new PlotMapStatePacket.Plot("rs_self", "rs_self", "protected", 0, 64, -64, 112, 79, 319, 127, "", true);
+        var other = new PlotMapStatePacket.Plot("rs_other", "rs_other", "plot_for_sale", 0, 90, 60, 150, 99, 70, 159, "", true);
+        List<PlotMapStatePacket.Plot> boxes = List.of(self, other);
+        int[] own = PlotMap.snapCorner(65, 113, boxes, "rs_self");
+        h.assertTrue(own[0] == 65 && own[1] == 113, "near its own old corner: exactly where clicked, got " + own[0] + ", " + own[1]);
+        int[] far = PlotMap.snapCorner(84, 140, boxes, "rs_self");
+        h.assertTrue(far[0] == 84 && far[1] == 140, "more than two blocks from any side: exactly where clicked");
+        int[] near = PlotMap.snapCorner(87, 147, boxes, "rs_self");
+        h.assertTrue(near[0] == 89 && near[1] == 149, "within two blocks of a neighbour: just outside its side, got " + near[0] + ", " + near[1]);
+        h.succeed();
+    }
+
     private static PlotMapActionPacket corners(String id, Cuboid b) {
         return new PlotMapActionPacket(PlotMapActionPacket.CORNERS, id, "", "", b.minX(), b.minY(), b.minZ(), b.maxX(), b.maxY(), b.maxZ(), 0, false, false, 0);
     }

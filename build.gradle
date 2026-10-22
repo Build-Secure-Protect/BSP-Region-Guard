@@ -88,11 +88,11 @@ dependencies {
 
     // LuckPerms in dev runs only (the GameTests exercise the bridge). The inner jar is remapped by ForgeGradle here;
     // tools/make_luckperms_dev_jar.py repackages the remapped inner jar into the loader as LuckPerms-Forge-dev.
-    if (file('libs/LuckPerms-Forge-inner-5.4.102.jar').exists()) {
-        runtimeOnly fg.deobf("blank:LuckPerms-Forge-inner:5.4.102")
+    if (file("libs/LuckPerms-Forge-inner-${luckperms_dev_version}.jar").exists()) {
+        runtimeOnly fg.deobf("blank:LuckPerms-Forge-inner:${luckperms_dev_version}")
     }
-    if (file('libs/LuckPerms-Forge-dev-5.4.102.jar').exists()) {
-        runtimeOnly files('libs/LuckPerms-Forge-dev-5.4.102.jar')
+    if (file("libs/LuckPerms-Forge-dev-${luckperms_dev_version}.jar").exists()) {
+        runtimeOnly files("libs/LuckPerms-Forge-dev-${luckperms_dev_version}.jar")
     }
 }
 

@@ -40,7 +40,7 @@ public class PlotMapScreen extends Screen {
     private static final int BG = RegionScreen.BG, INSET = RegionScreen.INSET, LINE = RegionScreen.LINE, TQ = RegionScreen.TQ, VIO = RegionScreen.VIO,
             GOLD = RegionScreen.GOLD, BAD = RegionScreen.BAD, TEXT = RegionScreen.TEXT, MUTED = RegionScreen.MUTED;
     private static final float MIN_SCALE = 1, MAX_SCALE = 16;
-    private static final int ROW = 11, LIST_W = 170, LIST_ROWS = 18;
+    private static final int ROW = 11, LIST_W = 200, LIST_ROWS = 18;
     /** The cards, bars and text are drawn at this size; the map itself at full size (D80). */
     private static final float UI = 0.8f;
 
@@ -72,6 +72,8 @@ public class PlotMapScreen extends Screen {
     @Nullable
     private String unlocking;
     private boolean askOwner, folded, snap = true, panning;
+    /** SNAP while placing corners: off at first, so a corner lands exactly on the block clicked (B9). */
+    private boolean cornerSnap;
     /** A backup file clicked once: a second click restores it. */
     @Nullable
     private String restoreArmed;
@@ -94,6 +96,8 @@ public class PlotMapScreen extends Screen {
     private int[] corner1, corner2;
     private int bottom, top;
     private boolean cornersSent, pressed;
+    /** Corner mode started from a card on this map (stay here afterwards), not from the admin screen (go back there). */
+    private boolean cornersFromMap;
     private double pressX, pressY;
 
     public PlotMapScreen(PlotMapStatePacket state) {
@@ -105,16 +109,47 @@ public class PlotMapScreen extends Screen {
     }
 
     private void startCorners(PlotMapStatePacket msg) {
+        Plot had = plot(msg.corners());
         corners = msg.corners();
         corner1 = corner2 = null;
         bottom = msg.bottom();
         top = msg.top();
         cornersSent = false;
+        cornersFromMap = false;
         ghost = null;
         picked = null;
+        // a new region spans the whole height (D72); one that has corners keeps its own height until changed
         if (minY != null) {
-            minY.setValue(String.valueOf(bottom));
-            maxY.setValue(String.valueOf(top));
+            minY.setValue(String.valueOf(had == null ? bottom : had.minY()));
+            maxY.setValue(String.valueOf(had == null ? top : had.maxY()));
+        }
+    }
+
+    /** SET CORNERS on a card: corner mode for that region, staying on this map afterwards. */
+    private void startCornersHere(Plot p) {
+        corners = p.id();
+        corner1 = corner2 = null;
+        bottom = state.bottom();
+        top = state.top();
+        cornersSent = false;
+        cornersFromMap = true;
+        ghost = null;
+        minY.setValue(String.valueOf(p.minY()));
+        maxY.setValue(String.valueOf(p.maxY()));
+    }
+
+    /** Leaves corner mode: back to the admin screen, or, when it began on this map, stays here with the region picked. */
+    private void endCorners() {
+        if (corners == null) {
+            return;
+        }
+        if (cornersFromMap) {
+            picked = corners;
+            corners = null;
+            corner1 = corner2 = null;
+            cornersSent = false;
+        } else {
+            backToRegions(corners);
         }
     }
 
@@ -140,7 +175,7 @@ public class PlotMapScreen extends Screen {
         } else if (corners != null && cornersSent) {
             cornersSent = false;
             if (msg.ok() && !msg.message().isEmpty()) {
-                backToRegions(corners); // the corners are set: back to the admin screen
+                endCorners(); // the corners are set
                 return;
             }
         }
@@ -201,9 +236,20 @@ public class PlotMapScreen extends Screen {
         oz = bz - height / scale / 2;
     }
 
+    /** Every region with corners in the world shown: plots first (they draw on top of the rest), then the others. */
+    private List<Plot> all() {
+        List<Plot> out = new ArrayList<>(state.others());
+        out.addAll(state.plots());
+        return out;
+    }
+
+    private static boolean isPlot(Plot p) {
+        return p.type().equals("plot_for_sale") || p.type().equals("claim") || p.type().equals("open_for_buying");
+    }
+
     @Nullable
     private Plot plot(String id) {
-        for (Plot p : state.plots()) {
+        for (Plot p : all()) {
             if (p.id().equals(id)) {
                 return p;
             }
@@ -219,11 +265,9 @@ public class PlotMapScreen extends Screen {
         return (int) Math.round((bz - oz) * scale);
     }
 
+    /** The admin screen's colours: claims violet, plots for sale, open areas and mines gold, protected areas teal. */
     private static int colour(String type) {
-        return switch (type) {
-            case "claim" -> VIO;
-            default -> GOLD;
-        };
+        return 0xFF000000 | RegionScreen.typeColour(type);
     }
 
     @Override
@@ -241,9 +285,6 @@ public class PlotMapScreen extends Screen {
         mouseBX = (int) Math.floor(mouseX / scale + ox);
         mouseBZ = (int) Math.floor(mouseY / scale + oz);
         drawTerrain(g);
-        if (corners != null) {
-            drawOthers(g);
-        }
         drawPlots(g);
         if (corners != null) {
             drawCorners(g);
@@ -256,8 +297,16 @@ public class PlotMapScreen extends Screen {
             }
             drawGhost(g);
         }
-        if (scale >= 4) {
-            frame(g, sx(mouseBX), sz(mouseBZ), Math.max(1, (int) scale), Math.max(1, (int) scale), 0xCCFFFFFF);
+        if (corners != null) { // at every zoom: the block a click will use, snapped or not
+            int[] at = snapCorner(mouseBX, mouseBZ);
+            int x0 = sx(at[0]), z0 = sz(at[1]), w0 = sx(at[0] + 1) - x0, h0 = sz(at[1] + 1) - z0;
+            if (w0 < 4) { // blocks too small to see one by one: a ring around it
+                frame(g, x0 - 2, z0 - 2, w0 + 4, h0 + 4, 0xFFFFFFFF);
+            } else {
+                frame(g, x0, z0, w0, h0, 0xFFFFFFFF);
+            }
+        } else if (scale >= 4) {
+            frame(g, sx(mouseBX), sz(mouseBZ), sx(mouseBX + 1) - sx(mouseBX), sz(mouseBZ + 1) - sz(mouseBZ), 0xCCFFFFFF);
         }
         boolean ro = !state.editable();
         if (ro) {
@@ -348,37 +397,20 @@ public class PlotMapScreen extends Screen {
         }
     }
 
+    /** Every region: plots filled lightly, open areas, protected areas and mines as outlines (they can be large). */
     private void drawPlots(GuiGraphics g) {
-        for (Plot p : state.plots()) {
+        for (Plot p : all()) {
             if (ghost != null && p.id().equals(ghost.moving)) {
                 continue;
             }
             int c = colour(p.type());
             int x0 = sx(p.minX()), z0 = sz(p.minZ()), x1 = sx(p.maxX() + 1), z1 = sz(p.maxZ() + 1);
-            if (!p.type().equals("open_for_buying")) {
+            if (isPlot(p) && !p.type().equals("open_for_buying")) {
                 g.fill(x0, z0, x1, z1, (c & 0xFFFFFF) | 0x30000000);
             }
             frame(g, x0, z0, x1 - x0, z1 - z0, p.id().equals(picked) ? 0xFFFFFFFF : c);
             if (x1 - x0 > 30 && z1 - z0 > 10) {
                 g.drawString(font, font.plainSubstrByWidth(p.id() + (p.locked() ? "" : "  " + Tr.t("unlocked")), x1 - x0 - 4), x0 + 3, z0 + 2, c, false);
-            }
-        }
-    }
-
-    /** Corner mode: the world's protected areas and mines as grey dotted outlines, to line up against (D80). */
-    private void drawOthers(GuiGraphics g) {
-        for (Plot p : state.others()) {
-            int x0 = sx(p.minX()), z0 = sz(p.minZ()), x1 = sx(p.maxX() + 1), z1 = sz(p.maxZ() + 1);
-            for (int x = x0; x < x1; x += 4) {
-                g.fill(x, z0, Math.min(x + 2, x1), z0 + 1, 0xC09AA3B5);
-                g.fill(x, z1 - 1, Math.min(x + 2, x1), z1, 0xC09AA3B5);
-            }
-            for (int z = z0; z < z1; z += 4) {
-                g.fill(x0, z, x0 + 1, Math.min(z + 2, z1), 0xC09AA3B5);
-                g.fill(x1 - 1, z, x1, Math.min(z + 2, z1), 0xC09AA3B5);
-            }
-            if (x1 - x0 > 30 && z1 - z0 > 10) {
-                g.drawString(font, font.plainSubstrByWidth(p.id(), x1 - x0 - 4), x0 + 3, z0 + 2, MUTED, false);
             }
         }
     }
@@ -402,27 +434,14 @@ public class PlotMapScreen extends Screen {
         }
     }
 
-    /** With SNAP on (SHIFT flips it), a corner within two blocks of a plot's or region's side lands just outside it, touching. */
+    /** With corner SNAP on (SHIFT flips it), see {@link PlotMap#snapCorner}; otherwise the block clicked. */
     private int[] snapCorner(int bx, int bz) {
-        if (snap == hasShiftDown()) {
+        if (cornerSnap == hasShiftDown()) {
             return new int[]{bx, bz};
         }
-        int x = bx, z = bz;
         List<Plot> all = new ArrayList<>(state.plots());
         all.addAll(state.others());
-        for (Plot p : all) {
-            for (int edge : new int[]{p.minX() - 1, p.maxX() + 1}) {
-                if (Math.abs(bx - edge) <= 2) {
-                    x = edge;
-                }
-            }
-            for (int edge : new int[]{p.minZ() - 1, p.maxZ() + 1}) {
-                if (Math.abs(bz - edge) <= 2) {
-                    z = edge;
-                }
-            }
-        }
-        return new int[]{x, z};
+        return com.mrgregles.bsp_region_guard.claim.PlotMap.snapCorner(bx, bz, all, corners);
     }
 
     /** A corner clicked on the map: the first, then the second; a click after both starts again. */
@@ -448,11 +467,12 @@ public class PlotMapScreen extends Screen {
     /** Why the corners can't be confirmed yet, or null. */
     @Nullable
     private String cornerProblem() {
+        int[] at = snapCorner(mouseBX, mouseBZ);
         if (corner1 == null) {
-            return Tr.t("pm_click_first_corner", corners);
+            return Tr.t("pm_click_first_corner", corners, at[0], at[1]);
         }
         if (corner2 == null) {
-            return Tr.t("pm_click_second_corner");
+            return Tr.t("pm_click_second_corner", corner1[0], corner1[1], at[0], at[1]);
         }
         Integer lo = yValue(minY), hi = yValue(maxY);
         if (lo == null || hi == null || lo > hi || lo < bottom || hi > top) {
@@ -489,13 +509,13 @@ public class PlotMapScreen extends Screen {
             minY.setValue(String.valueOf(bottom));
             maxY.setValue(String.valueOf(top));
         });
-        chip(g, cx + 80, ry, 36, 12, Tr.t("pm_snap"), snap, TQ, () -> snap = !snap);
+        chip(g, cx + 80, ry, 36, 12, Tr.t("pm_snap"), cornerSnap, TQ, () -> cornerSnap = !cornerSnap);
         chip(g, x + w - 112, ry, 54, 12, Tr.t("pm_confirm"), ready && !cornersSent, TQ, ready && !cornersSent ? this::confirmCorners : null);
         chip(g, x + w - 54, ry, 48, 12, Tr.t("cancel"), false, BAD, this::cancelCorners);
         String line = problem;
         if (ready) {
             int wide = Math.abs(corner1[0] - corner2[0]) + 1, deep = Math.abs(corner1[1] - corner2[1]) + 1;
-            line = Tr.t("pm_corners_size", wide, deep, yValue(minY), yValue(maxY));
+            line = Tr.t("pm_corners_size", corner1[0], corner1[1], corner2[0], corner2[1], wide, deep, yValue(minY), yValue(maxY));
         }
         g.drawString(font, font.plainSubstrByWidth(line, w - 10), x + 5, ry + 17, ready ? MUTED : corner2 != null ? BAD : TQ, false);
     }
@@ -510,11 +530,9 @@ public class PlotMapScreen extends Screen {
         cornersSent = true;
     }
 
-    /** CANCEL or Esc in corner mode: nothing is changed; back to the admin screen the admin came from. */
+    /** CANCEL or Esc in corner mode: nothing is changed; back where corner mode began. */
     private void cancelCorners() {
-        if (corners != null) {
-            backToRegions(corners);
-        }
+        endCorners();
     }
 
     private void backToRegions(String id) {
@@ -590,12 +608,13 @@ public class PlotMapScreen extends Screen {
     private void drawList(GuiGraphics g, int mouseX, int mouseY) {
         int x = 8, y = 8, h = folded ? 20 : 58 + LIST_ROWS * ROW + 6;
         card(g, x, y, LIST_W, h, TQ);
-        g.drawString(font, Tr.t("plots"), x + 6, y + 6, TQ, false);
+        g.drawString(font, Tr.t("pm_regions"), x + 6, y + 6, TQ, false);
         chip(g, x + LIST_W - 18, y + 4, 12, 12, folded ? "▸" : "▾", false, MUTED, () -> folded = !folded);
         if (folded) {
             return;
         }
-        String[][] filters = {{"all", Tr.t("filter.all")}, {"plot_for_sale", Tr.t("filter.sale")}, {"claim", Tr.t("filter.claim")}, {"open_for_buying", Tr.t("pm_open")}};
+        String[][] filters = {{"all", Tr.t("filter.all")}, {"plot_for_sale", Tr.t("filter.sale")}, {"claim", Tr.t("filter.claim")}, {"open_for_buying", Tr.t("pm_open")},
+                {"protected", Tr.t("filter.prot")}, {"mine", Tr.t("filter.mine")}};
         int fx = x + 6;
         for (String[] f : filters) {
             int w = font.width(f[1]) + 8;
@@ -604,7 +623,7 @@ public class PlotMapScreen extends Screen {
         }
         List<Plot> rows = new ArrayList<>();
         String q = search.getValue().toLowerCase(Locale.ROOT);
-        for (Plot p : state.plots()) {
+        for (Plot p : all()) {
             if ((filter.equals("all") || p.type().equals(filter)) && (q.isEmpty() || p.id().contains(q) || p.name().toLowerCase(Locale.ROOT).contains(q))) {
                 rows.add(p);
             }
@@ -690,7 +709,8 @@ public class PlotMapScreen extends Screen {
         if (p == null) {
             return;
         }
-        int w = 150, h = cardFolded ? 18 : state.editable() ? 78 : 46;
+        boolean plot = isPlot(p);
+        int w = 150, h = cardFolded ? 18 : !state.editable() ? 46 : plot ? 94 : 62;
         int x = Math.max(LIST_W + 16, Math.min(uw - w - 8, ui(sx(p.maxX() + 1)) + 8)), y = Math.max(32, Math.min(uh - h - 24, ui(sz(p.minZ()))));
         card(g, x, y, w, h, colour(p.type()));
         g.drawString(font, font.plainSubstrByWidth(p.name().equals(p.id()) ? p.id() : p.name() + " (" + p.id() + ")", w - 26), x + 5, y + 5, TEXT, false);
@@ -700,7 +720,11 @@ public class PlotMapScreen extends Screen {
         }
         g.drawString(font, Tr.t("pm_size", p.width(), p.depth(), p.minY(), p.maxY(), p.priority()), x + 5, y + 17, MUTED, false);
         g.drawString(font, p.owner().isEmpty() ? Tr.t("type." + p.type()) : Tr.t("pm_owner", p.owner()), x + 5, y + 29, MUTED, false);
-        if (state.editable()) {
+        if (state.editable() && !plot) { // protected areas and mines: their corners only; copying and moving are for plots
+            chip(g, x + 5, y + 44, 125, 13, Tr.t("set_corners_on_map"), false, TQ, () -> startCornersHere(p));
+        }
+        if (state.editable() && plot) {
+            chip(g, x + 5, y + 76, 125, 13, Tr.t("set_corners_on_map"), false, TQ, () -> startCornersHere(p));
             chip(g, x + 5, y + 44, 50, 13, Tr.t("pm_copy"), true, GOLD, () -> startCopy(p));
             chip(g, x + 60, y + 44, 70, 13, p.locked() ? Tr.t("pm_unlock") : Tr.t("pm_lock"), !p.locked(), BAD, () -> {
                 if (p.locked()) {
@@ -903,7 +927,7 @@ public class PlotMapScreen extends Screen {
             }
         } else {
             Plot best = null;
-            for (Plot p : state.plots()) {
+            for (Plot p : all()) {
                 if (mouseBX >= p.minX() && mouseBX <= p.maxX() && mouseBZ >= p.minZ() && mouseBZ <= p.maxZ()
                         && (best == null || p.width() * p.depth() < best.width() * best.depth())) {
                     best = p;

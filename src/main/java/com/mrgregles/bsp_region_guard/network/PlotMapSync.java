@@ -2,6 +2,7 @@ package com.mrgregles.bsp_region_guard.network;
 
 import com.mrgregles.bsp_region_guard.api.Cuboid;
 import com.mrgregles.bsp_region_guard.claim.PlotMap;
+import com.mrgregles.bsp_region_guard.command.RegionEdits;
 import com.mrgregles.bsp_region_guard.compat.BspCore;
 import com.mrgregles.bsp_region_guard.region.Region;
 import com.mrgregles.bsp_region_guard.region.RegionStore;
@@ -57,6 +58,18 @@ public final class PlotMapSync {
             case PlotMapActionPacket.UNDO -> PlotMap.undo(player);
             case PlotMapActionPacket.REDO -> PlotMap.redo(player);
             case PlotMapActionPacket.CORNERS -> PlotMap.setCorners(player, m.a(), box);
+            case PlotMapActionPacket.CREATE -> {
+                long price;
+                try {
+                    price = m.c().isBlank() ? 0 : Long.parseLong(m.c().trim());
+                } catch (NumberFormatException e) {
+                    price = -1;
+                }
+                yield PlotMap.create(player, m.a(), m.b(), box, m.priority(), price);
+            }
+            case PlotMapActionPacket.DELETE -> PlotMap.delete(player, m.a());
+            case PlotMapActionPacket.RENAME, PlotMapActionPacket.PRIORITY, PlotMapActionPacket.TYPE, PlotMapActionPacket.RESET, PlotMapActionPacket.SHELL ->
+                    quickEdit(player, m);
             default -> new PlotMap.Result(false, "Unknown action " + m.action(), false);
         };
         if (m.action().equals(PlotMapActionPacket.VIEW)) {
@@ -71,6 +84,24 @@ public final class PlotMapSync {
             default -> "";
         };
         return state(player, own, false, r, of);
+    }
+
+    /** The card's quick edits and MINE mode's extras (D86, D91), through the same {@link RegionEdits} the admin screen uses. */
+    private static PlotMap.Result quickEdit(ServerPlayer player, PlotMapActionPacket m) {
+        ServerLevel level = player.serverLevel();
+        RegionStore store = RegionStore.get(level);
+        Region r = store.get(m.a());
+        if (r == null || r.isGlobal()) {
+            return new PlotMap.Result(false, "No region called '" + m.a() + "' in this world.", false);
+        }
+        RegionEdits.Result out = switch (m.action()) {
+            case PlotMapActionPacket.RENAME -> RegionEdits.rename(store, r, m.b());
+            case PlotMapActionPacket.PRIORITY -> RegionEdits.priority(store, r, m.priority());
+            case PlotMapActionPacket.TYPE -> RegionEdits.type(level, store, r, m.b());
+            case PlotMapActionPacket.RESET -> RegionEdits.mineReset(level, store, r);
+            default -> RegionEdits.mineShell(level, store, r, 5);
+        };
+        return new PlotMap.Result(out.ok(), out.message(), false);
     }
 
     /**
