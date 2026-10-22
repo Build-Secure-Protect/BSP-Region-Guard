@@ -2,11 +2,11 @@
 
 # BSP Region Guard
 
-**World protection, banned blocks, land claims with a plot map, automated mines and linked servers for Minecraft 1.20.1, all run from in-game screens.**
+**World protection, banned blocks, land claims, a map that draws and edits every region, automated mines and linked servers for Minecraft 1.20.1, all run from in-game screens.**
 
 BSP Region Guard looks after the world on a Build Secure Protect server:
 - Admins draw regions and decide what may happen inside them, down to which blocks and items may be placed, used, broken or even carried in.
-- Players buy land and run their own plots, and admins copy, move and back up plots on a full-window map.
+- Players buy land and run their own plots. Admins draw, reshape, copy, move and back up regions, plots and mines on one full-window map.
 - Mines refill themselves on a timer.
 - Several servers share regions, and players can walk from one server's world into the next.
 
@@ -14,7 +14,7 @@ It takes WorldGuard's ideas to Forge and drives them from screens rather than lo
 
 It is made for the [Build Secure Protect](https://www.curseforge.com/minecraft/modpacks/build-secure-protect) modpack and works closely with its sister mods: **BSP-Core** (required), and **BSP-Teleport** and **BSP-RankUp** (optional).
 
-> Version 0.3.0. The screens in this description are drawn from the mod's own layout and colours, as illustrations.
+> Version 0.4.0. The screens in this description are drawn from the mod's own layout and colours, as illustrations.
 
 ---
 
@@ -37,6 +37,8 @@ Everything starts with the **Region Wand** (`/rg wand`):
 2. The box appears in the world as a glowing wire cube.
 3. Open the admin screen and press **+ NEW**, or type `/rg define <name>`, and the box becomes a region.
 
+No wand outline? Press **+ NEW** anyway: the region is made without corners (it protects nothing yet) and the region map opens, so you click its two corners there instead of flying to the spot. You can also draw regions straight onto the region map (section 8).
+
 ![Regions drawn in the world](https://raw.githubusercontent.com/Build-Secure-Protect/BSP-Region-Guard/main/docs/curseforge/images/wand_world.png)
 
 Regions are drawn as see-through boxes in their type colour:
@@ -48,20 +50,28 @@ Admins always see them. Players press **B** to see their own claims.
 
 ## 2. The admin screen
 
-Open it with `/rg gui`, or sneak and right-click with the wand. Every region in the world is listed on the left, with a search box and filters (protected, claims, mines, for sale). The **MAP** tab shows them from above: click a region on the map to pick it, and use the wheel to zoom. The other tabs hold the picked region's settings: FLAGS, ACCESS, RANKS, SALE, MINE, TELEPORT, INFO, and BANNED for its banned blocks (sections 3 to 10 below).
+Open it with `/rg gui`, or sneak and right-click with the wand. It fills the window. Every region in the world is listed on the left, with a search box and filters (protected, claims, mines, for sale). The tabs on the right hold the picked region's settings: FLAGS, ACCESS, RANKS, SALE, MINE, TELEPORT, INFO, and BANNED for its banned blocks (sections 3 to 10 below).
 
-![The admin screen, MAP tab](https://raw.githubusercontent.com/Build-Secure-Protect/BSP-Region-Guard/main/docs/curseforge/images/admin_map.png)
+![The admin screen, INFO tab](https://raw.githubusercontent.com/Build-Secure-Protect/BSP-Region-Guard/main/docs/curseforge/images/admin_info.png)
 
-Under the region list, **+ NEW** makes a region from the wand outline, **WAND** gives you a wand, and **PLOT MAP** opens the plot map (section 8).
+Under the region list:
+- **+ NEW:** makes a region from the wand outline, or, without one, a region whose corners you then click on the map.
+- **WAND:** gives you a wand.
+- **MAP:** opens the region map on the picked region (section 8).
+
+**Size on the INFO tab:**
+- **The corners:** six numbers. Click one, type, and press Enter to save it.
+- **VERTICAL FILL:** stretches the region from the bottom of the world to the top.
+- **SET CORNERS ON MAP:** click new corners on the region map.
+- **USE WAND SELECTION:** takes the wand's outline.
 
 The buttons under the pane:
 - **TELEPORT:** go to the picked region.
-- **REDEFINE:** move it to the wand's new outline.
 - **SELECT:** put its corners back into the wand.
 
 Every change saves as soon as you make it.
 
-The screens are drawn **twice as big** as a normal Minecraft screen and shrink to fit smaller windows. Each player can change that with `ui.scale` in `config/bsp_region_guard-client.toml`.
+The screens are drawn larger than a normal Minecraft screen: twice as big, and the admin screen and the map's cards a little less so they fit more. They shrink to fit smaller windows. Each player can change that with `ui.scale` in `config/bsp_region_guard-client.toml`.
 
 ## 3. Set the rules: flags
 
@@ -190,19 +200,40 @@ Plots for sale are bought at the Land Office block too.
 
 **Starting a new season:** admins can wipe one world's claims from the admin screen or `/rg claims wipe`. You type back a one-time code, a backup is written first (`/rg claims restore` brings it back), and every admin online is told. Other worlds and servers are never touched.
 
-## 8. The plot map: copy, move and back up plots
+## 8. The region map: draw, reshape, copy and move
 
-Setting up a street of shops one plot at a time is slow. The **plot map** lets you make one plot just right, then copy it as often as you need. Open it with `/rg plotmap` or **PLOT MAP** under the admin screen's region list.
+One full-window map for every region, plot and mine in the world. Open it with the admin screen's **MAP** button (it opens on the picked region), or `/rg map`.
 
-![The plot map](https://raw.githubusercontent.com/Build-Secure-Protect/BSP-Region-Guard/main/docs/curseforge/images/plot_map.png)
+![The region map, reshaping a region](https://raw.githubusercontent.com/Build-Secure-Protect/BSP-Region-Guard/main/docs/curseforge/images/region_map.png)
 
 **The map:**
-- **What it shows:** the whole window is the world, drawn the way a Minecraft map draws it, with plots for sale, claims and open areas on top.
-- **Zoom:** from 1 pixel a block up to 16, with a block grid and the exact x/z under the cursor, so placing is accurate to the block.
-- **Far-away ground:** places you've never visited are read from the saved world; ground that was never generated stays dark and is never generated.
-- **Finding plots:** the folding **PLOTS** card searches and filters plots; click one to snap the map to it.
+- **What it shows:** the whole window is the world, drawn the way a Minecraft map draws it, with every region on top in its colour.
+- **Zoom:** from 1 pixel a block up to 16, with a block grid and the exact x/z under the cursor, so you can place to the block.
+- **Panning:** hold **SPACE** and drag, or drag with the right mouse button.
+- **Far-away ground:** places you've never visited are read from the saved world. Ground that was never generated stays dark and is never generated.
+- **Finding regions:** the folding **REGIONS** card searches and filters them. Click one to snap the map to it.
 
-**Copying a plot:**
+**Modes** along the top:
+- **REGION:** every region.
+- **PLOT:** plots for sale, claims and open areas.
+- **MINE:** mines and their shells.
+
+Each mode dims the other kinds of region.
+
+**Tools** in every mode:
+- **PICK:** click a region to open its card.
+  - **On every card:** its name, priority, VERTICAL FILL, RESHAPE and DELETE (click twice).
+  - **REGION mode:** the type.
+  - **PLOT mode:** copy, lock and backups.
+  - **Admin screen tabs:** buttons open the region's FLAGS, ACCESS, SALE, MINE, TELEPORT or INFO tab, and Esc there brings you back to the map.
+- **DRAW:** drag a box, or click two corners. Panning with SPACE in between lets you reach far corners. A card asks for an id, a priority and a height, plus a price in PLOT mode. CREATE makes a protected region, a plot for sale or a mine, depending on the mode.
+- **RESHAPE:** drag the handles on the picked region's sides and corners, set its height, then DONE.
+
+![Drawing a new plot for sale](https://raw.githubusercontent.com/Build-Secure-Protect/BSP-Region-Guard/main/docs/curseforge/images/region_map_draw.png)
+
+**UNDO and REDO** take back or redo your last 15 actions on the map: regions drawn, reshaped, deleted, pasted and moved. A deleted region comes back with its flags, owners and everything else. Other worlds can be viewed read-only (gold frame); only the world you stand in can be edited.
+
+**Copying a plot** (PLOT mode):
 1. Click a plot, then **COPY** on its card. The copy follows your mouse.
 2. Click to drop it, then drag it into place. **ROTATE** (or R) turns it, ▲/▼ shift its height, and **SNAP** lines its edges up with its neighbours (hold SHIFT to place freely).
 3. Give it a new name and press **CONFIRM**.
@@ -212,8 +243,6 @@ The copy becomes a new **plot for sale** with the original's size, flags, banned
 **Moving a plot:** plots are **locked** so nothing moves by accident. Press **UNLOCK**, drag the plot to its new place and CONFIRM; it locks again. A claim someone owns asks before it moves.
 
 **Plots inside plots:** a plot may sit **wholly inside** another plot, claim or open area when its priority is higher, and there its own flags win, like a market stall inside a market. A plot may never *partly* overlap another; the copy turns red, with the reason, until it fits.
-
-**UNDO and REDO** take back or redo your last 15 pastes and moves. Other worlds can be viewed read-only (gold frame); only the world you stand in can be edited.
 
 **Moving the build too.** Switch **MOVE BLOCKS** (or **COPY BLOCKS** when pasting) on in the toolbar, and the plot's build goes with it:
 - **What goes:** blocks, chest contents, signs, item frames, armour stands and animals, all turned with the plot.
@@ -233,6 +262,7 @@ Any region can become a **mine**:
 - **Fill table:** list blocks with weights (stone 90, iron ore 8, diamond ore 1...). The heaviest block fills the mine and the others grow as fresh veins at every reset, so no two resets look alike.
 - **Resets:** on a timer, with warnings at 60 and 10 seconds, or straight away with **RESET NOW**. Players inside are moved to the mine's spawn point.
 - **Shell:** an optional ring around the mine where only the mine's blocks may be dug.
+- **On the region map:** in MINE mode, draw a new mine where you want it, and use RESET and SHELL on the picked one.
 - **Ranks:** with LuckPerms or BSP-RankUp, keep the best mines for the higher ranks.
 
 ![The admin screen, MINE tab](https://raw.githubusercontent.com/Build-Secure-Protect/BSP-Region-Guard/main/docs/curseforge/images/admin_mine.png)
@@ -298,10 +328,12 @@ When a player reaches a linked edge, a window asks whether to travel:
 |---|---|
 | `/rg gui` | the admin screen |
 | `/rg wand` | the Region Wand |
-| `/rg define <id>`, `/rg redefine <id>`, `/rg remove <id>` | make, move or delete a region from the wand outline |
+| `/rg define <id>` (or `/rg create <id>`), `/rg redefine <id>`, `/rg remove <id>` | make, move or delete a region from the wand outline; without an outline, `define` makes a region without corners yet |
+| `/rg redefine <id> <x1 y1 z1> <x2 y2 z2>` | give a region typed corners |
+| `/rg vfill <id>`, `/rg vfill` | stretch a region, or your wand outline, from the bottom to the top of the world |
 | `/rg flag <id> <flag> <value>` | set a flag (`clear` removes it) |
 | `/rg flag <id> deny-carry minecraft:tnt,@create` | banned blocks by command (also `deny-place`, `deny-use`, `deny-break`) |
-| `/rg plotmap` | the plot map |
+| `/rg map` (or `/rg plotmap`) | the region map |
 | `/rg plot backup <id>`, `/rg plot backups <id>`, `/rg plot restore <file>` | back up a plot's blocks, list its backups, restore one |
 | `/rg addowner`, `/rg removeowner`, `/rg addmember`, `/rg removemember` | owners and members |
 | `/rg addrank`, `/rg removerank` | the LuckPerms groups that may enter |
@@ -330,6 +362,6 @@ Full reference in [`docs/API.md`](https://github.com/Build-Secure-Protect/BSP-Re
 
 ---
 
-**Early release:** 0.3.0 is an early version and has not yet run on a large live network. Please report problems on the [issue tracker](https://github.com/Build-Secure-Protect/BSP-Region-Guard/issues).
+**Early release:** 0.4.0 is an early version and has not yet run on a large live network. Please report problems on the [issue tracker](https://github.com/Build-Secure-Protect/BSP-Region-Guard/issues).
 
 Source: [github.com/Build-Secure-Protect/BSP-Region-Guard](https://github.com/Build-Secure-Protect/BSP-Region-Guard) · MIT licence · Made for [Build Secure Protect](https://www.curseforge.com/minecraft/modpacks/build-secure-protect)

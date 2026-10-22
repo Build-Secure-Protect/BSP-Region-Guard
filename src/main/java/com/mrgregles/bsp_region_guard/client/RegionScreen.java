@@ -94,9 +94,18 @@ public class RegionScreen extends HoloScreen {
     @Nullable
     private String editingFlag;
 
+    /** Opened from the region map's card on {@code tab}: Esc brings the map back (D86). */
+    private final boolean returnToMap;
+
     public RegionScreen(@Nullable String select) {
+        this(select, 1, false);
+    }
+
+    public RegionScreen(@Nullable String select, int tab, boolean returnToMap) {
         super(Component.literal(Tr.t("regions")), W, H);
         this.selected = select;
+        this.tab = tab;
+        this.returnToMap = returnToMap;
     }
 
     // ------------------------------------------------------------------ data
@@ -560,10 +569,8 @@ public class RegionScreen extends HoloScreen {
             }
         });
         button(g, x + LIST_X + 43, y + winH - 32, 40, 14, Tr.t("wand"), MUTED, () -> send(RegionActionPacket.of(RegionActionPacket.WAND, "")));
-        // the plot map (D57): copy, move and find plots on a full-window map
-        button(g, x + LIST_X + 86, y + winH - 32, 44, 14, Tr.t("plot_map_button"), GOLD, () -> com.mrgregles.bsp_region_guard.network.RegionNetwork.CHANNEL.sendToServer(
-                com.mrgregles.bsp_region_guard.network.PlotMapActionPacket.simple(com.mrgregles.bsp_region_guard.network.PlotMapActionPacket.VIEW,
-                        minecraft == null || minecraft.level == null ? "" : minecraft.level.dimension().location().toString(), true)));
+        // the region map (D57, D82): every region of this world on a full-window map, opened on the selected one
+        button(g, x + LIST_X + 86, y + winH - 32, 44, 14, Tr.t("plot_map_button"), GOLD, this::openMap);
     }
 
     /** The right pane as the wipe's confirmation (D45): what goes, the code to type back, the backups. */
@@ -635,7 +642,10 @@ public class RegionScreen extends HoloScreen {
         boolean global = s.type().equals("global");
         // the world default can be neither sold nor a mine, so it shows BORDER instead of SALE and MINE (and the row fits)
         if (global ? tab == 4 || tab == 5 : tab == BORDER_TAB) {
-            tab = 0;
+            tab = 1;
+        }
+        if (tab == 0 && !remote()) {
+            tab = 1;
         }
         List<Integer> visible = new ArrayList<>();
         int textWidth = 0;
@@ -645,6 +655,9 @@ public class RegionScreen extends HoloScreen {
             }
             if (remote() && i != 0 && i != 1 && i != 7) {
                 continue;
+            }
+            if (i == 0 && !remote()) {
+                continue; // this server's map is the region map (D91); the small map stays for other servers' regions
             }
             visible.add(i);
             textWidth += (int) (font.width(Tr.t("tab." + TABS[i].toLowerCase(Locale.ROOT))) * 0.75f);
@@ -1414,11 +1427,22 @@ public class RegionScreen extends HoloScreen {
         return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
+    /** Opens the region map on this world, centred on the selected region. */
+    private void openMap() {
+        PlotMapScreen.focusNext = selected;
+        com.mrgregles.bsp_region_guard.network.RegionNetwork.CHANNEL.sendToServer(
+                com.mrgregles.bsp_region_guard.network.PlotMapActionPacket.simple(com.mrgregles.bsp_region_guard.network.PlotMapActionPacket.VIEW,
+                        minecraft == null || minecraft.level == null ? "" : minecraft.level.dimension().location().toString(), true));
+    }
+
     @Override
     public void onClose() {
         if (remote()) {
             send(new RegionActionPacket(RegionActionPacket.VIEW_SERVER, "", "", "")); // the server forgets the view too
         }
         super.onClose();
+        if (returnToMap && !remote()) {
+            openMap(); // came from the region map's card: back to it
+        }
     }
 }

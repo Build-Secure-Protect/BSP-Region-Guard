@@ -4,7 +4,9 @@ All notable changes to BSP Region Guard. Format follows Keep a Changelog; versio
 
 ## [Unreleased]
 
-Network protocol 7: servers and players need this version together.
+## [0.4.0] - 2026-10-23
+
+The region map: one map that makes, reshapes and manages every region, plot and mine; regions made without the wand; size editing and vertical fill. Network protocol 7: servers and players need this version together. The API is unchanged (version 5).
 
 ### Added (2026-10-22, region size and corners: B6, B7)
 - **Regions without corners** (owner decisions D71 to D79): **+ NEW** with no wand selection, `/rg define <id>` or the new alias `/rg create <id>` without one, makes a region that protects nothing and applies nowhere until it has corners.
@@ -28,6 +30,25 @@ Network protocol 7: servers and players need this version together.
   - UNDO and REDO sit in the world card at the top right, so they no longer overlap the other cards.
   - The picked plot's card and the toolbar under a copied or moved plot fold to one line with ▾ / ▸; the PLOTS card uses the same button.
   - The toolbar has a title line (COPY OF ..., MOVING ...).
+
+### Added (2026-10-23, the region map: one map that edits everything; D82 to D91, mock-up option A)
+- **One map for everything.** The plot map is now the region map. The admin screen's **MAP** button (formerly PLOT MAP) opens it centred on the selected region, and so do `/rg map` and `/rg plotmap`. On this server the admin screen's small MAP tab is gone; it still shows while you look at another server's regions.
+- **One top bar:**
+  - **REGION, PLOT, MINE modes.** Each mode shows its own kind of region and dims the rest, which can't be picked. REGION shows everything.
+  - **PICK, DRAW, RESHAPE tools.**
+  - In MINE mode, **RESET** and **SHELL** (5 blocks) for the picked mine.
+  - The world switcher, UNDO and REDO.
+- **DRAW:** drag a box, or click two corners. A card then makes a protected region, a plot for sale (with its price) or a mine, depending on the mode, with an id, a priority and a height. A new mine starts 16 blocks below your feet rather than the whole height.
+- **RESHAPE:** drag the eight handles on the picked region's sides and corners, set the height in the bar, then DONE.
+- **Panning:** hold **SPACE** and drag, or drag with the right button, in every mode, so you can click one corner, pan, and click the second.
+- **The card:**
+  - Every mode: the name (Enter saves) and priority.
+  - REGION mode: the type.
+  - PLOT mode: copy, lock and backups.
+  - Buttons open the region's FLAGS, ACCESS, TELEPORT, INFO, SALE or MINE tab in the admin screen; Esc there brings the map back.
+  - VERTICAL FILL, RESHAPE and **DELETE** (click twice).
+- **UNDO and REDO** now also cover regions drawn and deleted on the map. Undoing a delete brings the region back with its flags, owners and everything else.
+- Three GameTests (103 in all). Network protocol 7 (unchanged since 2026-10-22).
 
 ### Changed (2026-10-22, every region on the plot map; B10, D81)
 - **The plot map lists and draws every region**, not only plots. Protected areas show in teal and mines in gold, as outlines. The list card is now called REGIONS and has PROT and MINE filters.

@@ -96,9 +96,37 @@ public class PlotMapScreen extends Screen {
     private int[] corner1, corner2;
     private int bottom, top;
     private boolean cornersSent, pressed;
-    /** Corner mode started from a card on this map (stay here afterwards), not from the admin screen (go back there). */
-    private boolean cornersFromMap;
     private double pressX, pressY;
+
+    /** The map's modes (D83, D91): REGION shows and picks every region, PLOT and MINE their own kind and dim the rest. */
+    private enum Mode { REGION, PLOT, MINE }
+
+    /** The tools of every mode: pick a region, draw a new one, reshape the picked one with handles (D84, D85). */
+    private enum Tool { PICK, DRAW, RESHAPE }
+
+    /** Kept between openings of the map. */
+    private static Mode mode = Mode.REGION;
+    private static Tool tool = Tool.PICK;
+    /** The region to centre on and pick when the map next opens (the admin screen's MAP button). */
+    @Nullable
+    static String focusNext;
+    /** The top bar's height and where the list card starts, in card units. */
+    private static final int BAR_H = 26, LIST_Y = 34;
+    /** DRAW: the box's two corners; waiting for a second click; being dragged out; the CREATE sent and not answered yet. */
+    @Nullable
+    private int[] draw1, draw2;
+    private boolean drawSecond, drawDragging;
+    @Nullable
+    private String createSent;
+    private int draftPriority;
+    /** RESHAPE: the picked region's box being changed (minX, minZ, maxX, maxZ); the handle dragged (W 1, E 2, N 4, S 8); DONE sent. */
+    @Nullable
+    private int[] shape;
+    @Nullable
+    private String shapeFor;
+    private int handle;
+    private boolean shapeSent, spaceDown, deleteArmed;
+    private EditBox newId, price, cardName;
 
     public PlotMapScreen(PlotMapStatePacket state) {
         super(Component.literal(Tr.t("plot_map")));
@@ -115,7 +143,6 @@ public class PlotMapScreen extends Screen {
         bottom = msg.bottom();
         top = msg.top();
         cornersSent = false;
-        cornersFromMap = false;
         ghost = null;
         picked = null;
         // a new region spans the whole height (D72); one that has corners keeps its own height until changed
@@ -125,30 +152,9 @@ public class PlotMapScreen extends Screen {
         }
     }
 
-    /** SET CORNERS on a card: corner mode for that region, staying on this map afterwards. */
-    private void startCornersHere(Plot p) {
-        corners = p.id();
-        corner1 = corner2 = null;
-        bottom = state.bottom();
-        top = state.top();
-        cornersSent = false;
-        cornersFromMap = true;
-        ghost = null;
-        minY.setValue(String.valueOf(p.minY()));
-        maxY.setValue(String.valueOf(p.maxY()));
-    }
-
-    /** Leaves corner mode: back to the admin screen, or, when it began on this map, stays here with the region picked. */
+    /** Leaves corner mode: back to the admin screen it was started from. */
     private void endCorners() {
-        if (corners == null) {
-            return;
-        }
-        if (cornersFromMap) {
-            picked = corners;
-            corners = null;
-            corner1 = corner2 = null;
-            cornersSent = false;
-        } else {
+        if (corners != null) {
             backToRegions(corners);
         }
     }
@@ -179,6 +185,24 @@ public class PlotMapScreen extends Screen {
                 return;
             }
         }
+        if (createSent != null) { // the new region came back: pick it
+            if (msg.ok() && plot(createSent) != null) {
+                picked = createSent;
+                draw1 = draw2 = null;
+                drawSecond = false;
+                tool = Tool.PICK;
+            }
+            createSent = null;
+        }
+        if (shapeSent) {
+            shapeSent = false;
+            if (msg.ok()) {
+                shape = null; // taken from the region's new box next frame
+            }
+        }
+        if (picked != null && plot(picked) == null) {
+            picked = null; // deleted
+        }
         askOwner = msg.askOwner();
         if (worldChanged) {
             releaseTextures();
@@ -207,11 +231,12 @@ public class PlotMapScreen extends Screen {
 
     @Override
     protected void init() {
-        if (search == null) {
+        boolean first = search == null;
+        if (first) {
             centreOn(state.playerX(), state.playerZ());
         }
         String q = search == null ? "" : search.getValue(), n = name == null ? "" : name.getValue();
-        search = new EditBox(font, 14, 26, LIST_W - 12, 12, Component.literal(Tr.t("search_plots")));
+        search = new EditBox(font, 14, LIST_Y + 18, LIST_W - 12, 12, Component.literal(Tr.t("search_plots")));
         search.setHint(Component.literal(Tr.t("search_plots")).withStyle(s -> s.withColor(0x9AA3B5)));
         search.setValue(q);
         addRenderableWidget(search);
@@ -229,6 +254,63 @@ public class PlotMapScreen extends Screen {
             b.setFilter(t -> t.matches("-?\\d*"));
             addRenderableWidget(b);
         }
+        String id = newId == null ? "" : newId.getValue(), pr = price == null ? "" : price.getValue(), cn = cardName == null ? "" : cardName.getValue();
+        newId = new EditBox(font, 0, 0, 120, 12, Component.literal(Tr.t("pm_id")));
+        newId.setMaxLength(32);
+        newId.setValue(id);
+        price = new EditBox(font, 0, 0, 70, 12, Component.literal(Tr.t("pm_price")));
+        price.setMaxLength(12);
+        price.setFilter(t -> t.matches("\\d*"));
+        price.setValue(pr);
+        cardName = new EditBox(font, 0, 0, 110, 12, Component.literal(Tr.t("name")));
+        cardName.setMaxLength(64);
+        cardName.setValue(cn);
+        for (EditBox b : new EditBox[]{newId, price, cardName}) {
+            b.visible = false;
+            addRenderableWidget(b);
+        }
+        if (first && focusNext != null) { // the admin screen's MAP button: centre on its region and pick it
+            Plot p = plot(focusNext);
+            if (p != null) {
+                snapTo(p);
+            }
+            focusNext = null;
+        }
+    }
+
+    /** Whether a region belongs to the current mode: everything in REGION, plots in PLOT, mines and their shells in MINE. */
+    private boolean inMode(Plot p) {
+        return switch (mode) {
+            case REGION -> true;
+            case PLOT -> isPlot(p);
+            case MINE -> p.type().equals("mine") || p.id().endsWith("_shell") && plot(p.id().substring(0, p.id().length() - 6)) != null
+                    && plot(p.id().substring(0, p.id().length() - 6)).type().equals("mine");
+        };
+    }
+
+    private void setMode(Mode m) {
+        mode = m;
+        filter = "all";
+        listScroll = 0;
+        Plot p = picked == null ? null : plot(picked);
+        if (p != null && !inMode(p)) {
+            picked = null;
+        }
+        resetTools();
+    }
+
+    private void setTool(Tool t) {
+        tool = t;
+        resetTools();
+    }
+
+    /** Drops a half-drawn box, a pending reshape and an armed DELETE. */
+    private void resetTools() {
+        draw1 = draw2 = null;
+        drawSecond = drawDragging = false;
+        shape = null;
+        handle = 0;
+        deleteArmed = false;
     }
 
     private void centreOn(double bx, double bz) {
@@ -289,6 +371,12 @@ public class PlotMapScreen extends Screen {
         if (corners != null) {
             drawCorners(g);
         }
+        if (draw1 != null) {
+            drawDraft(g);
+        }
+        if (tool == Tool.RESHAPE && corners == null && ghost == null) {
+            drawHandles(g);
+        }
         if (ghost != null) {
             if (ghost.following) {
                 ghost.x = mouseBX - ghost.w / 2;
@@ -319,22 +407,33 @@ public class PlotMapScreen extends Screen {
         uw = (int) Math.ceil(width / UI);
         uh = (int) Math.ceil(height / UI);
         int ux = (int) (mouseX / UI), uy = (int) (mouseY / UI);
+        drawTopBar(g, ro);
         drawList(g, ux, uy);
-        drawWorldBar(g, ro);
-        minY.visible = maxY.visible = false;
+        minY.visible = maxY.visible = newId.visible = price.visible = cardName.visible = false;
         if (corners != null) {
             drawCornerBar(g);
-        } else if (ghost == null) {
-            drawPickedCard(g);
-        } else {
+        } else if (ghost != null) {
             drawToolbar(g);
+        } else if (draw2 != null) {
+            drawDraftCard(g);
+        } else {
+            drawPickedCard(g);
+            if (tool == Tool.RESHAPE && shapeTarget() != null) {
+                drawReshapeBar(g);
+            }
+        }
+        boolean drawHint = tool == Tool.DRAW && draw2 == null, shapeHint = tool == Tool.RESHAPE && shapeTarget() == null;
+        if ((drawHint || shapeHint) && state.editable() && corners == null && ghost == null && message.isEmpty()) {
+            String hint = shapeHint ? Tr.t("pm_pick_to_reshape") : draw1 == null ? Tr.t("pm_draw_hint") : Tr.t("pm_draw_second", draw1[0], draw1[1], mouseBX, mouseBZ);
+            g.fill(4, uh - 16, 8 + font.width(hint), uh - 4, 0xC0050608);
+            g.drawString(font, hint, 6, uh - 14, TQ, false);
         }
         name.visible = ghost != null && ghost.source != null && !toolFolded;
         search.visible = !folded;
         if (askOwner) {
             drawOwnerQuestion(g);
         }
-        String hud = "x " + mouseBX + "  z " + mouseBZ + "   " + (scale >= 1 ? (int) scale + " px a block" : "");
+        String hud = "x " + mouseBX + "  z " + mouseBZ + "   " + (scale >= 1 ? (int) scale + " px a block" : "") + "   " + Tr.t("pm_space_pans");
         g.fill(uw - font.width(hud) - 12, uh - 16, uw - 4, uh - 4, 0xC0050608);
         g.drawString(font, hud, uw - font.width(hud) - 8, uh - 14, TEXT, false);
         if (!message.isEmpty()) {
@@ -403,13 +502,14 @@ public class PlotMapScreen extends Screen {
             if (ghost != null && p.id().equals(ghost.moving)) {
                 continue;
             }
-            int c = colour(p.type());
+            boolean in = inMode(p);
+            int c = in ? colour(p.type()) : (colour(p.type()) & 0xFFFFFF) | 0x50000000; // other kinds dimmed (D91)
             int x0 = sx(p.minX()), z0 = sz(p.minZ()), x1 = sx(p.maxX() + 1), z1 = sz(p.maxZ() + 1);
-            if (isPlot(p) && !p.type().equals("open_for_buying")) {
+            if (in && (isPlot(p) && !p.type().equals("open_for_buying") || mode == Mode.MINE)) {
                 g.fill(x0, z0, x1, z1, (c & 0xFFFFFF) | 0x30000000);
             }
             frame(g, x0, z0, x1 - x0, z1 - z0, p.id().equals(picked) ? 0xFFFFFFFF : c);
-            if (x1 - x0 > 30 && z1 - z0 > 10) {
+            if (in && x1 - x0 > 30 && z1 - z0 > 10) {
                 g.drawString(font, font.plainSubstrByWidth(p.id() + (p.locked() ? "" : "  " + Tr.t("unlocked")), x1 - x0 - 4), x0 + 3, z0 + 2, c, false);
             }
         }
@@ -606,15 +706,19 @@ public class PlotMapScreen extends Screen {
     }
 
     private void drawList(GuiGraphics g, int mouseX, int mouseY) {
-        int x = 8, y = 8, h = folded ? 20 : 58 + LIST_ROWS * ROW + 6;
+        int x = 8, y = LIST_Y, h = folded ? 20 : 58 + LIST_ROWS * ROW + 6;
         card(g, x, y, LIST_W, h, TQ);
         g.drawString(font, Tr.t("pm_regions"), x + 6, y + 6, TQ, false);
         chip(g, x + LIST_W - 18, y + 4, 12, 12, folded ? "▸" : "▾", false, MUTED, () -> folded = !folded);
         if (folded) {
             return;
         }
-        String[][] filters = {{"all", Tr.t("filter.all")}, {"plot_for_sale", Tr.t("filter.sale")}, {"claim", Tr.t("filter.claim")}, {"open_for_buying", Tr.t("pm_open")},
-                {"protected", Tr.t("filter.prot")}, {"mine", Tr.t("filter.mine")}};
+        String[][] filters = switch (mode) {
+            case REGION -> new String[][]{{"all", Tr.t("filter.all")}, {"protected", Tr.t("filter.prot")}, {"plot_for_sale", Tr.t("filter.sale")}, {"claim", Tr.t("filter.claim")},
+                    {"open_for_buying", Tr.t("pm_open")}, {"mine", Tr.t("filter.mine")}};
+            case PLOT -> new String[][]{{"all", Tr.t("filter.all")}, {"plot_for_sale", Tr.t("filter.sale")}, {"claim", Tr.t("filter.claim")}, {"open_for_buying", Tr.t("pm_open")}};
+            case MINE -> new String[][]{{"all", Tr.t("filter.all")}};
+        };
         int fx = x + 6;
         for (String[] f : filters) {
             int w = font.width(f[1]) + 8;
@@ -624,7 +728,7 @@ public class PlotMapScreen extends Screen {
         List<Plot> rows = new ArrayList<>();
         String q = search.getValue().toLowerCase(Locale.ROOT);
         for (Plot p : all()) {
-            if ((filter.equals("all") || p.type().equals(filter)) && (q.isEmpty() || p.id().contains(q) || p.name().toLowerCase(Locale.ROOT).contains(q))) {
+            if (inMode(p) && (filter.equals("all") || p.type().equals(filter)) && (q.isEmpty() || p.id().contains(q) || p.name().toLowerCase(Locale.ROOT).contains(q))) {
                 rows.add(p);
             }
         }
@@ -655,29 +759,59 @@ public class PlotMapScreen extends Screen {
         centreOn(p.minX() + p.width() / 2.0, p.minZ() + p.depth() / 2.0);
     }
 
-    /** The world card, top right: the world switcher, editable or read-only, UNDO and REDO (D80, kept clear of the other cards), refresh. */
-    private void drawWorldBar(GuiGraphics g, boolean ro) {
+    /**
+     * The top bar (layout A of D91): REGION, PLOT and MINE; PICK, DRAW and RESHAPE; MINE mode's RESET and SHELL for the
+     * picked mine; the world switcher, UNDO and REDO (D80), refresh.
+     */
+    private void drawTopBar(GuiGraphics g, boolean ro) {
+        card(g, 0, 0, uw, BAR_H, state.editable() ? TQ : GOLD);
+        int x = 6, y = 7;
+        for (Mode m : Mode.values()) {
+            String label = Tr.t("mode." + m.name().toLowerCase(Locale.ROOT));
+            int w = font.width(label) + 12;
+            chip(g, x, y, w, 13, label, mode == m, TQ, () -> setMode(m));
+            x += w + 1;
+        }
+        x += 10;
+        if (!ro) {
+            for (Tool t : Tool.values()) {
+                String label = Tr.t("tool." + t.name().toLowerCase(Locale.ROOT));
+                int w = font.width(label) + 12;
+                chip(g, x, y, w, 13, label, tool == t, TQ, () -> setTool(t));
+                x += w + 1;
+            }
+            Plot p = picked == null ? null : plot(picked);
+            if (mode == Mode.MINE) {
+                x += 10;
+                boolean mine = p != null && p.type().equals("mine");
+                String reset = Tr.t("pm_reset"), shell = Tr.t("pm_shell");
+                chip(g, x, y, font.width(reset) + 12, 13, reset, mine, BAD, mine ? () -> send(PlotMapActionPacket.simple(PlotMapActionPacket.RESET, p.id(), false)) : null);
+                x += font.width(reset) + 13;
+                chip(g, x, y, font.width(shell) + 12, 13, shell, false, MUTED, mine ? () -> send(PlotMapActionPacket.simple(PlotMapActionPacket.SHELL, p.id(), false)) : null);
+            }
+        }
         String world = state.dimension().replace("minecraft:", "");
         String access = state.editable() ? Tr.t("pm_editable") : Tr.t("read_only");
         String u = Tr.t("pm_undo", state.undo()), r = Tr.t("pm_redo", state.redo());
-        int undoW = ro ? 0 : font.width(u) + font.width(r) + 30;
-        int w = 70 + font.width(world) + font.width(access) + 40 + undoW;
-        int x = uw - w - 8, y = 8;
-        card(g, x, y, w, 20, state.editable() ? TQ : GOLD);
-        chip(g, x + 4, y + 4, 12, 12, "<", false, TEXT, () -> switchWorld(-1));
-        g.drawString(font, world, x + 20, y + 6, TEXT, false);
-        chip(g, x + 24 + font.width(world), y + 4, 12, 12, ">", false, TEXT, () -> switchWorld(1));
-        g.drawString(font, access, x + 42 + font.width(world), y + 6, state.editable() ? MUTED : GOLD, false);
-        if (!ro) {
-            int ux = x + w - 30 - undoW;
-            g.fill(ux - 4, y + 4, ux - 3, y + 16, LINE);
-            chip(g, ux, y + 4, font.width(u) + 10, 12, u, state.undo() > 0, TQ, state.undo() > 0 ? () -> send(PlotMapActionPacket.simple(PlotMapActionPacket.UNDO, "", false)) : null);
-            chip(g, ux + font.width(u) + 14, y + 4, font.width(r) + 10, 12, r, state.redo() > 0, TQ, state.redo() > 0 ? () -> send(PlotMapActionPacket.simple(PlotMapActionPacket.REDO, "", false)) : null);
-        }
-        chip(g, x + w - 26, y + 4, 22, 12, "↻", false, MUTED, () -> {
+        int right = uw - 6;
+        chip(g, right - 22, y, 22, 13, "↻", false, MUTED, () -> {
             releaseTextures();
             visibleChunks(true);
         });
+        right -= 28;
+        if (!ro) {
+            chip(g, right - font.width(r) - 10, y, font.width(r) + 10, 13, r, state.redo() > 0, TQ,
+                    state.redo() > 0 ? () -> send(PlotMapActionPacket.simple(PlotMapActionPacket.REDO, "", false)) : null);
+            right -= font.width(r) + 14;
+            chip(g, right - font.width(u) - 10, y, font.width(u) + 10, 13, u, state.undo() > 0, TQ,
+                    state.undo() > 0 ? () -> send(PlotMapActionPacket.simple(PlotMapActionPacket.UNDO, "", false)) : null);
+            right -= font.width(u) + 18;
+        }
+        g.drawString(font, access, right - font.width(access), y + 3, state.editable() ? MUTED : GOLD, false);
+        right -= font.width(access) + 8;
+        chip(g, right - 12, y, 12, 13, ">", false, TEXT, () -> switchWorld(1));
+        g.drawString(font, world, right - 16 - font.width(world), y + 3, TEXT, false);
+        chip(g, right - 32 - font.width(world), y, 12, 13, "<", false, TEXT, () -> switchWorld(-1));
     }
 
     private void visibleChunks(boolean refresh) {
@@ -704,14 +838,24 @@ public class PlotMapScreen extends Screen {
         send(PlotMapActionPacket.simple(PlotMapActionPacket.VIEW, next, false));
     }
 
+    /**
+     * The picked region's card (D86): its size and owner; when editable, its name and priority, a row for the mode
+     * (REGION: type; PLOT: copy, lock, backups), buttons that open the admin screen's tabs, then VERTICAL FILL,
+     * RESHAPE and DELETE (SURE?, undoable, D87). Folds to its name.
+     */
     private void drawPickedCard(GuiGraphics g) {
         Plot p = picked == null ? null : plot(picked);
         if (p == null) {
             return;
         }
-        boolean plot = isPlot(p);
-        int w = 150, h = cardFolded ? 18 : !state.editable() ? 46 : plot ? 94 : 62;
-        int x = Math.max(LIST_W + 16, Math.min(uw - w - 8, ui(sx(p.maxX() + 1)) + 8)), y = Math.max(32, Math.min(uh - h - 24, ui(sz(p.minZ()))));
+        boolean plot = isPlot(p), edit = state.editable();
+        boolean rowB = edit && (mode == Mode.REGION || mode == Mode.PLOT && plot);
+        int w = 210, h = cardFolded ? 18 : !edit ? 46 : rowB ? 108 : 92;
+        int x = Math.max(LIST_W + 16, Math.min(uw - w - 8, ui(sx(p.maxX() + 1)) + 8)), y = Math.max(BAR_H + 6, Math.min(uh - h - 24, ui(sz(p.minZ()))));
+        if (tool == Tool.RESHAPE) {
+            y = BAR_H + 6; // out of the way of the handles
+            x = uw - w - 8;
+        }
         card(g, x, y, w, h, colour(p.type()));
         g.drawString(font, font.plainSubstrByWidth(p.name().equals(p.id()) ? p.id() : p.name() + " (" + p.id() + ")", w - 26), x + 5, y + 5, TEXT, false);
         chip(g, x + w - 16, y + 3, 12, 12, cardFolded ? "▸" : "▾", false, MUTED, () -> cardFolded = !cardFolded);
@@ -720,13 +864,36 @@ public class PlotMapScreen extends Screen {
         }
         g.drawString(font, Tr.t("pm_size", p.width(), p.depth(), p.minY(), p.maxY(), p.priority()), x + 5, y + 17, MUTED, false);
         g.drawString(font, p.owner().isEmpty() ? Tr.t("type." + p.type()) : Tr.t("pm_owner", p.owner()), x + 5, y + 29, MUTED, false);
-        if (state.editable() && !plot) { // protected areas and mines: their corners only; copying and moving are for plots
-            chip(g, x + 5, y + 44, 125, 13, Tr.t("set_corners_on_map"), false, TQ, () -> startCornersHere(p));
+        if (!edit) {
+            return;
         }
-        if (state.editable() && plot) {
-            chip(g, x + 5, y + 76, 125, 13, Tr.t("set_corners_on_map"), false, TQ, () -> startCornersHere(p));
-            chip(g, x + 5, y + 44, 50, 13, Tr.t("pm_copy"), true, GOLD, () -> startCopy(p));
-            chip(g, x + 60, y + 44, 70, 13, p.locked() ? Tr.t("pm_unlock") : Tr.t("pm_lock"), !p.locked(), BAD, () -> {
+        int ry = y + 42;
+        // name (Enter saves) and priority
+        if (!p.id().equals(cardNameFor)) {
+            cardName.setValue(p.name());
+            cardNameFor = p.id();
+        }
+        cardName.setX(x + 5);
+        cardName.setY(ry);
+        cardName.setWidth(110);
+        cardName.visible = true;
+        g.drawString(font, "P " + p.priority(), x + 122, ry + 2, TEXT, false);
+        chip(g, x + 150, ry, 12, 12, "-", false, TEXT, () -> sendPriority(p, p.priority() - 1));
+        chip(g, x + 164, ry, 12, 12, "+", false, TEXT, () -> sendPriority(p, p.priority() + 1));
+        ry += 16;
+        if (rowB && mode == Mode.REGION) {
+            String[][] types = {{"protected", Tr.t("filter.prot")}, {"plot_for_sale", Tr.t("filter.sale")}, {"open_for_buying", Tr.t("pm_open")}, {"mine", Tr.t("filter.mine")}};
+            int tx = x + 5;
+            for (String[] t : types) {
+                int tw = font.width(t[1]) + 10;
+                chip(g, tx, ry, tw, 12, t[1], p.type().equals(t[0]), colour(t[0]),
+                        p.type().equals(t[0]) ? null : () -> send(new PlotMapActionPacket(PlotMapActionPacket.TYPE, p.id(), t[0], "", 0, 0, 0, 0, 0, 0, 0, false, false, 0)));
+                tx += tw + 3;
+            }
+            ry += 16;
+        } else if (rowB) { // PLOT mode, a plot: copy, lock, backups (D57 to D69)
+            chip(g, x + 5, ry, 46, 12, Tr.t("pm_copy"), true, GOLD, () -> startCopy(p));
+            chip(g, x + 54, ry, 56, 12, p.locked() ? Tr.t("pm_unlock") : Tr.t("pm_lock"), !p.locked(), BAD, () -> {
                 if (p.locked()) {
                     unlocking = p.id();
                     send(PlotMapActionPacket.simple(PlotMapActionPacket.UNLOCK, p.id(), false));
@@ -734,14 +901,298 @@ public class PlotMapScreen extends Screen {
                     send(PlotMapActionPacket.simple(PlotMapActionPacket.LOCK, p.id(), false));
                 }
             });
-            // D69: backups of the plot's blocks
-            chip(g, x + 5, y + 60, 50, 13, Tr.t("pm_backup"), false, MUTED, () -> send(PlotMapActionPacket.simple(PlotMapActionPacket.BACKUP, p.id(), false)));
-            chip(g, x + 60, y + 60, 70, 13, Tr.t("pm_backups"), p.id().equals(state.backupsOf()), TQ,
+            chip(g, x + 113, ry, 44, 12, Tr.t("pm_backup"), false, MUTED, () -> send(PlotMapActionPacket.simple(PlotMapActionPacket.BACKUP, p.id(), false)));
+            chip(g, x + 160, ry, 46, 12, Tr.t("pm_backups"), p.id().equals(state.backupsOf()), TQ,
                     () -> send(PlotMapActionPacket.simple(PlotMapActionPacket.BACKUPS, p.id(), false)));
-            if (p.id().equals(state.backupsOf())) {
-                drawBackups(g, x, y + h + 2, w);
+            ry += 16;
+        }
+        // the admin screen's tabs for this region; Esc there comes back here (D86)
+        int[] tabs = switch (mode) {
+            case REGION -> new int[]{1, 2, 6, 7};
+            case PLOT -> new int[]{4, 1, 2, 7};
+            case MINE -> new int[]{5, 1, 7};
+        };
+        String[] names = {"", "tab.flags", "tab.access", "tab.ranks", "tab.sale", "tab.mine", "tab.teleport", "tab.info"};
+        int tx = x + 5;
+        for (int t : tabs) {
+            String label = Tr.t(names[t]);
+            int tw = font.width(label) + 10;
+            chip(g, tx, ry, tw, 12, label, false, TQ, () -> openAdmin(p.id(), t));
+            tx += tw + 3;
+        }
+        ry += 16;
+        chip(g, x + 5, ry, 70, 12, Tr.t("vertical_fill"), true, GOLD, () -> send(new PlotMapActionPacket(PlotMapActionPacket.CORNERS, p.id(), "", "",
+                p.minX(), state.bottom(), p.minZ(), p.maxX(), state.top(), p.maxZ(), 0, false, false, 0)));
+        chip(g, x + 78, ry, 60, 12, Tr.t("tool.reshape"), tool == Tool.RESHAPE, TQ, () -> setTool(Tool.RESHAPE));
+        chip(g, x + w - 61, ry, 56, 12, deleteArmed ? Tr.t("sure") : Tr.t("delete"), deleteArmed, BAD, () -> {
+            if (deleteArmed) {
+                deleteArmed = false;
+                send(PlotMapActionPacket.simple(PlotMapActionPacket.DELETE, p.id(), false));
+            } else {
+                deleteArmed = true;
+            }
+        });
+        if (rowB && mode == Mode.PLOT && p.id().equals(state.backupsOf())) {
+            drawBackups(g, x, y + h + 2, w - 60);
+        }
+    }
+
+    /** The region whose name field the card last filled, so typing is not overwritten every frame. */
+    @Nullable
+    private String cardNameFor;
+
+    private void sendPriority(Plot p, int priority) {
+        send(new PlotMapActionPacket(PlotMapActionPacket.PRIORITY, p.id(), "", "", 0, 0, 0, 0, 0, 0, priority, false, false, 0));
+    }
+
+    /** Opens one of the admin screen's tabs for a region; Esc there brings this map back on it. */
+    private void openAdmin(String id, int tab) {
+        if (minecraft != null) {
+            minecraft.setScreen(new RegionScreen(id, tab, true));
+        }
+        RegionNetwork.CHANNEL.sendToServer(com.mrgregles.bsp_region_guard.network.RegionActionPacket.of(com.mrgregles.bsp_region_guard.network.RegionActionPacket.LIST, id));
+        RegionNetwork.CHANNEL.sendToServer(com.mrgregles.bsp_region_guard.network.RegionActionPacket.of(com.mrgregles.bsp_region_guard.network.RegionActionPacket.SELECT, id));
+    }
+
+    // ------------------------------------------------------------------ DRAW (D84)
+
+    /** The box being drawn: from the first corner to the second, or to the block under the mouse. */
+    private void drawDraft(GuiGraphics g) {
+        int[] other = draw2 != null ? draw2 : new int[]{mouseBX, mouseBZ};
+        int x0 = sx(Math.min(draw1[0], other[0])), z0 = sz(Math.min(draw1[1], other[1]));
+        int x1 = sx(Math.max(draw1[0], other[0]) + 1), z1 = sz(Math.max(draw1[1], other[1]) + 1);
+        int c = mode == Mode.REGION ? TQ : GOLD;
+        g.fill(x0, z0, x1, z1, (c & 0xFFFFFF) | 0x40000000);
+        frame(g, x0, z0, x1 - x0, z1 - z0, c);
+        frame(g, x0 - 1, z0 - 1, x1 - x0 + 2, z1 - z0 + 2, 0x80FFFFFF);
+    }
+
+    /** Starts the new region's card once both corners are known: the height the mode suggests, an id, priority 0. */
+    private void draftReady(int[] second) {
+        draw2 = second;
+        drawSecond = drawDragging = false;
+        draftPriority = 0;
+        newId.setValue("");
+        price.setValue("");
+        int lo = state.bottom(), hi = state.top();
+        if (mode == Mode.MINE && minecraft != null && minecraft.player != null) {
+            // a mine refills its whole box: start 16 blocks below the admin's feet, not the whole column (D91)
+            int feet = minecraft.player.getBlockY();
+            lo = Math.max(state.bottom(), feet - 16);
+            hi = Math.max(lo, Math.min(state.top(), feet - 1));
+        }
+        minY.setValue(String.valueOf(lo));
+        maxY.setValue(String.valueOf(hi));
+        setFocused(newId);
+        newId.setFocused(true);
+    }
+
+    @Nullable
+    private String draftProblem() {
+        Integer lo = yValue(minY), hi = yValue(maxY);
+        if (lo == null || hi == null || lo > hi || lo < state.bottom() || hi > state.top()) {
+            return Tr.t("pm_heights_run", state.bottom(), state.top());
+        }
+        if (newId.getValue().isBlank()) {
+            return Tr.t("pm_type_an_id");
+        }
+        if (plot(newId.getValue().trim().toLowerCase(Locale.ROOT)) != null) {
+            return Tr.t("pm_id_taken");
+        }
+        if (mode == Mode.PLOT && (price.getValue().isBlank() || price.getValue().equals("0"))) {
+            return Tr.t("pm_needs_price");
+        }
+        return null;
+    }
+
+    /** NEW REGION / NEW PLOT / NEW MINE (the mode sets the type): id, priority, height, price for a plot, CREATE, CANCEL. */
+    private void drawDraftCard(GuiGraphics g) {
+        int w = 230, h = mode == Mode.PLOT ? 92 : 76;
+        int bx1 = Math.max(draw1[0], draw2[0]) + 1, bz0 = Math.min(draw1[1], draw2[1]);
+        int x = Math.max(LIST_W + 16, Math.min(uw - w - 8, ui(sx(bx1)) + 8)), y = Math.max(BAR_H + 6, Math.min(uh - h - 24, ui(sz(bz0))));
+        int c = mode == Mode.REGION ? TQ : GOLD;
+        card(g, x, y, w, h, c);
+        g.drawString(font, Tr.t("pm_new." + mode.name().toLowerCase(Locale.ROOT)), x + 5, y + 5, c, false);
+        int wide = Math.abs(draw1[0] - draw2[0]) + 1, deep = Math.abs(draw1[1] - draw2[1]) + 1;
+        String size = wide + " x " + deep;
+        g.drawString(font, size, x + w - 6 - font.width(size), y + 5, MUTED, false);
+        int ry = y + 18;
+        g.drawString(font, Tr.t("pm_id"), x + 5, ry + 2, MUTED, false);
+        newId.setX(x + 50);
+        newId.setY(ry);
+        newId.visible = true;
+        g.drawString(font, "P " + draftPriority, x + 176, ry + 2, TEXT, false);
+        chip(g, x + 200, ry, 12, 12, "-", false, TEXT, () -> draftPriority--);
+        chip(g, x + 214, ry, 12, 12, "+", false, TEXT, () -> draftPriority++);
+        ry += 16;
+        g.drawString(font, "Y", x + 5, ry + 2, MUTED, false);
+        minY.setX(x + 50);
+        minY.setY(ry);
+        minY.visible = true;
+        g.drawString(font, Tr.t("pm_to"), x + 94, ry + 2, MUTED, false);
+        maxY.setX(x + 98 + font.width(Tr.t("pm_to")));
+        maxY.setY(ry);
+        maxY.visible = true;
+        chip(g, x + 160, ry, 66, 12, Tr.t("vertical_fill"), true, GOLD, () -> {
+            minY.setValue(String.valueOf(state.bottom()));
+            maxY.setValue(String.valueOf(state.top()));
+        });
+        ry += 16;
+        if (mode == Mode.PLOT) {
+            g.drawString(font, Tr.t("pm_price"), x + 5, ry + 2, MUTED, false);
+            price.setX(x + 50);
+            price.setY(ry);
+            price.visible = true;
+            ry += 16;
+        }
+        String problem = draftProblem();
+        g.drawString(font, font.plainSubstrByWidth(problem != null ? problem : Tr.t("pm_corners_size", Math.min(draw1[0], draw2[0]), Math.min(draw1[1], draw2[1]),
+                Math.max(draw1[0], draw2[0]), Math.max(draw1[1], draw2[1]), wide, deep, yValue(minY), yValue(maxY)), w - 10), x + 5, ry + 1, problem == null ? MUTED : BAD, false);
+        ry += 13;
+        chip(g, x + w - 116, ry, 54, 12, Tr.t("pm_create"), problem == null && createSent == null, TQ, problem == null && createSent == null ? this::createDraft : null);
+        chip(g, x + w - 58, ry, 52, 12, Tr.t("cancel"), false, BAD, this::resetTools);
+    }
+
+    private void createDraft() {
+        if (draw1 == null || draw2 == null || draftProblem() != null) {
+            return;
+        }
+        String type = switch (mode) {
+            case REGION -> "protected";
+            case PLOT -> "plot_for_sale";
+            case MINE -> "mine";
+        };
+        String id = newId.getValue().trim().toLowerCase(Locale.ROOT);
+        send(new PlotMapActionPacket(PlotMapActionPacket.CREATE, id, type, price.getValue().trim(), Math.min(draw1[0], draw2[0]), yValue(minY), Math.min(draw1[1], draw2[1]),
+                Math.max(draw1[0], draw2[0]), yValue(maxY), Math.max(draw1[1], draw2[1]), draftPriority, false, false, 0));
+        createSent = id;
+    }
+
+    // ------------------------------------------------------------------ RESHAPE (D85)
+
+    /** The picked region RESHAPE works on, when there is one in this mode. */
+    @Nullable
+    private Plot shapeTarget() {
+        Plot p = picked == null ? null : plot(picked);
+        return p != null && inMode(p) && state.editable() ? p : null;
+    }
+
+    /** The box being reshaped: the pending one, started from the region's own box (and its height) on first use. */
+    @Nullable
+    private int[] shape() {
+        Plot p = shapeTarget();
+        if (p == null) {
+            shape = null;
+            return null;
+        }
+        if (shape == null || !p.id().equals(shapeFor)) {
+            shapeFor = p.id();
+            shape = new int[]{p.minX(), p.minZ(), p.maxX(), p.maxZ()};
+            minY.setValue(String.valueOf(p.minY()));
+            maxY.setValue(String.valueOf(p.maxY()));
+        }
+        return shape;
+    }
+
+    /** Handle positions in map pixels: three across and three down, the middle one left out; each with its sides. */
+    private int[][] handles(int[] b) {
+        int[] xs = {sx(b[0]), sx((b[0] + b[2] + 1) / 2.0), sx(b[2] + 1)}, zs = {sz(b[1]), sz((b[1] + b[3] + 1) / 2.0), sz(b[3] + 1)};
+        List<int[]> out = new ArrayList<>();
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 3; j++) {
+                if (i == 1 && j == 1) {
+                    continue;
+                }
+                out.add(new int[]{xs[i], zs[j], (i == 0 ? 1 : i == 2 ? 2 : 0) | (j == 0 ? 4 : j == 2 ? 8 : 0)});
             }
         }
+        return out.toArray(new int[0][]);
+    }
+
+    private void drawHandles(GuiGraphics g) {
+        int[] b = shape();
+        if (b == null) {
+            return;
+        }
+        int x0 = sx(b[0]), z0 = sz(b[1]), x1 = sx(b[2] + 1), z1 = sz(b[3] + 1);
+        g.fill(x0, z0, x1, z1, 0x30FFFFFF);
+        frame(g, x0, z0, x1 - x0, z1 - z0, 0xFFFFFFFF);
+        frame(g, x0 + 1, z0 + 1, x1 - x0 - 2, z1 - z0 - 2, 0xFFFFFFFF);
+        for (int[] hd : handles(b)) {
+            g.fill(hd[0] - 4, hd[1] - 4, hd[0] + 5, hd[1] + 5, 0xFF000000);
+            g.fill(hd[0] - 3, hd[1] - 3, hd[0] + 4, hd[1] + 4, hd[2] == handle ? TQ : 0xFFFFFFFF);
+        }
+    }
+
+    /** The sides of the handle under the mouse (map pixels), or 0. */
+    private int handleAt(double mx, double my) {
+        int[] b = shape();
+        if (b == null) {
+            return 0;
+        }
+        for (int[] hd : handles(b)) {
+            if (Math.abs(mx - hd[0]) <= 6 && Math.abs(my - hd[1]) <= 6) {
+                return hd[2];
+            }
+        }
+        return 0;
+    }
+
+    private boolean shapeChanged(Plot p) {
+        int[] b = shape();
+        Integer lo = yValue(minY), hi = yValue(maxY);
+        return b != null && (b[0] != p.minX() || b[1] != p.minZ() || b[2] != p.maxX() || b[3] != p.maxZ() || lo == null || hi == null || lo != p.minY() || hi != p.maxY());
+    }
+
+    /** The reshape bar: drag a side or corner, the height, VERTICAL FILL, DONE (undoable), RESET. */
+    private void drawReshapeBar(GuiGraphics g) {
+        Plot p = shapeTarget();
+        int[] b = shape();
+        if (p == null || b == null) {
+            return;
+        }
+        int w = 440, h = toolFolded ? 16 : 48, x = 8, y = uh - h - 22;
+        Integer lo = yValue(minY), hi = yValue(maxY);
+        boolean heightOk = lo != null && hi != null && lo <= hi && lo >= state.bottom() && hi <= state.top();
+        boolean changed = shapeChanged(p);
+        card(g, x, y, w, h, heightOk ? TQ : BAD);
+        String title = Tr.t("pm_reshape_of", p.id());
+        g.drawString(font, title, x + 5, y + 4, TEXT, false);
+        g.drawString(font, Tr.t("pm_reshape_hint"), x + 12 + font.width(title), y + 4, MUTED, false);
+        chip(g, x + w - 16, y + 2, 12, 12, toolFolded ? "▸" : "▾", false, MUTED, () -> toolFolded = !toolFolded);
+        if (toolFolded) {
+            return;
+        }
+        int ry = y + 16;
+        g.drawString(font, "Y", x + 5, ry + 3, MUTED, false);
+        minY.setX(x + 14);
+        minY.setY(ry);
+        minY.visible = true;
+        g.drawString(font, Tr.t("pm_to"), x + 59, ry + 3, MUTED, false);
+        maxY.setX(x + 59 + font.width(Tr.t("pm_to")) + 4);
+        maxY.setY(ry);
+        maxY.visible = true;
+        int cx = maxY.getX() + 46;
+        chip(g, cx, ry, 76, 12, Tr.t("vertical_fill"), true, GOLD, () -> {
+            minY.setValue(String.valueOf(state.bottom()));
+            maxY.setValue(String.valueOf(state.top()));
+        });
+        boolean ready = changed && heightOk && !shapeSent;
+        chip(g, x + w - 112, ry, 54, 12, Tr.t("pm_done"), ready, TQ, ready ? this::reshapeDone : null);
+        chip(g, x + w - 54, ry, 48, 12, Tr.t("pm_reset_shape"), false, MUTED, () -> shape = null);
+        String line = heightOk ? Tr.t("pm_corners_size", b[0], b[1], b[2], b[3], b[2] - b[0] + 1, b[3] - b[1] + 1, lo, hi) : Tr.t("pm_heights_run", state.bottom(), state.top());
+        g.drawString(font, font.plainSubstrByWidth(line, w - 10), x + 5, ry + 17, heightOk ? MUTED : BAD, false);
+    }
+
+    private void reshapeDone() {
+        Plot p = shapeTarget();
+        int[] b = shape();
+        Integer lo = yValue(minY), hi = yValue(maxY);
+        if (p == null || b == null || lo == null || hi == null) {
+            return;
+        }
+        send(new PlotMapActionPacket(PlotMapActionPacket.CORNERS, p.id(), "", "", b[0], lo, b[1], b[2], hi, b[3], 0, false, false, 0));
+        shapeSent = true;
     }
 
     private void drawBackups(GuiGraphics g, int x, int y, int w) {
@@ -891,7 +1342,7 @@ public class PlotMapScreen extends Screen {
             return true;
         }
         setFocused(null);
-        for (EditBox b : new EditBox[]{search, name, minY, maxY}) {
+        for (EditBox b : new EditBox[]{search, name, minY, maxY, newId, price, cardName}) {
             b.setFocused(false);
         }
         for (Hit h : new ArrayList<>(hits)) {
@@ -905,7 +1356,14 @@ public class PlotMapScreen extends Screen {
                 return true;
             }
         }
-        if (askOwner || button != 0) {
+        if (askOwner) {
+            return false;
+        }
+        if (button == 1 || button == 0 && spaceDown) { // right-drag, or SPACE held, pans in every mode (D84)
+            panning = true;
+            return true;
+        }
+        if (button != 0) {
             return false;
         }
         if (corners != null) { // a click that does not drag places a corner (on release); a drag pans
@@ -925,15 +1383,35 @@ public class PlotMapScreen extends Screen {
                 dragDZ = mouseBZ - ghost.z;
                 return true;
             }
+        } else if (tool == Tool.DRAW && state.editable()) {
+            pressed = true;
+            pressX = mx;
+            pressY = my;
+            if (!drawSecond) { // a fresh box: drag it out, or click again for the second corner
+                draw1 = new int[]{mouseBX, mouseBZ};
+                draw2 = null;
+                drawDragging = true;
+            }
+            return true;
         } else {
+            if (tool == Tool.RESHAPE) {
+                handle = handleAt(mx, my);
+                if (handle != 0) {
+                    return true;
+                }
+            }
             Plot best = null;
             for (Plot p : all()) {
-                if (mouseBX >= p.minX() && mouseBX <= p.maxX() && mouseBZ >= p.minZ() && mouseBZ <= p.maxZ()
+                if (inMode(p) && mouseBX >= p.minX() && mouseBX <= p.maxX() && mouseBZ >= p.minZ() && mouseBZ <= p.maxZ()
                         && (best == null || p.width() * p.depth() < best.width() * best.depth())) {
                     best = p;
                 }
             }
-            picked = best == null ? picked : best.id();
+            if (best != null && !best.id().equals(picked)) {
+                picked = best.id();
+                shape = null;
+                deleteArmed = false;
+            }
         }
         panning = true;
         return true;
@@ -943,6 +1421,25 @@ public class PlotMapScreen extends Screen {
     public boolean mouseDragged(double mx, double my, int button, double dx, double dy) {
         if (getFocused() != null && super.mouseDragged(mx / UI, my / UI, button, dx / UI, dy / UI)) {
             return true;
+        }
+        int bx = (int) Math.floor(mx / scale + ox), bz = (int) Math.floor(my / scale + oz);
+        if (handle != 0 && shape != null) { // RESHAPE: the dragged sides follow the mouse, a whole block at a time
+            if ((handle & 1) != 0) {
+                shape[0] = Math.min(bx, shape[2]);
+            }
+            if ((handle & 2) != 0) {
+                shape[2] = Math.max(bx, shape[0]);
+            }
+            if ((handle & 4) != 0) {
+                shape[1] = Math.min(bz, shape[3]);
+            }
+            if ((handle & 8) != 0) {
+                shape[3] = Math.max(bz, shape[1]);
+            }
+            return true;
+        }
+        if (drawDragging && pressed) {
+            return true; // the box follows the mouse while drawn
         }
         if (dragDX != Integer.MIN_VALUE && ghost != null) {
             ghost.x = (int) Math.floor(mx / scale + ox) - dragDX;
@@ -962,16 +1459,28 @@ public class PlotMapScreen extends Screen {
     public boolean mouseReleased(double mx, double my, int button) {
         dragDX = Integer.MIN_VALUE;
         panning = false;
-        if (pressed && corners != null && Math.abs(mx - pressX) < 4 && Math.abs(my - pressY) < 4) {
-            cornerClick((int) Math.floor(mx / scale + ox), (int) Math.floor(my / scale + oz));
+        boolean click = Math.abs(mx - pressX) < 4 && Math.abs(my - pressY) < 4;
+        int bx = (int) Math.floor(mx / scale + ox), bz = (int) Math.floor(my / scale + oz);
+        if (pressed && corners != null && click) {
+            cornerClick(bx, bz);
+        } else if (pressed && tool == Tool.DRAW && draw1 != null && draw2 == null) {
+            if (drawSecond && click) {
+                draftReady(new int[]{bx, bz}); // the second of two clicks
+            } else if (drawDragging && !click) {
+                draftReady(new int[]{bx, bz}); // dragged out
+            } else if (drawDragging) {
+                drawSecond = true; // a click: wait for the second corner (SPACE or right-drag pans meanwhile)
+                drawDragging = false;
+            }
         }
+        handle = 0;
         pressed = false;
         return super.mouseReleased(mx / UI, my / UI, button);
     }
 
     @Override
     public boolean mouseScrolled(double mx, double my, double delta) {
-        if (!folded && mx / UI >= 8 && mx / UI < 8 + LIST_W && my / UI >= 8 && my / UI < 72 + LIST_ROWS * ROW) {
+        if (!folded && mx / UI >= 8 && mx / UI < 8 + LIST_W && my / UI >= LIST_Y && my / UI < LIST_Y + 64 + LIST_ROWS * ROW) {
             listScroll -= (int) Math.signum(delta);
             return true;
         }
@@ -997,21 +1506,55 @@ public class PlotMapScreen extends Screen {
                 cancel();
                 return true;
             }
+            if (draw1 != null || shape != null || deleteArmed) {
+                resetTools();
+                return true;
+            }
             onClose();
             return true;
         }
-        if (search.isFocused() || name.isFocused() || minY.isFocused() || maxY.isFocused()) {
-            if ((key == 257 || key == 335) && corners != null && (minY.isFocused() || maxY.isFocused())) {
-                confirmCorners(); // Enter in a height field confirms
-                return true;
+        boolean typing = search.isFocused() || name.isFocused() || minY.isFocused() || maxY.isFocused() || newId.isFocused() || price.isFocused() || cardName.isFocused();
+        if (typing) {
+            if (key == 257 || key == 335) { // Enter: confirm whatever the field belongs to
+                if (corners != null && (minY.isFocused() || maxY.isFocused())) {
+                    confirmCorners();
+                    return true;
+                }
+                if (draw2 != null && (newId.isFocused() || price.isFocused() || minY.isFocused() || maxY.isFocused())) {
+                    createDraft();
+                    return true;
+                }
+                if (tool == Tool.RESHAPE && shape != null && (minY.isFocused() || maxY.isFocused())) {
+                    reshapeDone();
+                    return true;
+                }
+                if (cardName.isFocused() && picked != null) {
+                    send(new PlotMapActionPacket(PlotMapActionPacket.RENAME, picked, cardName.getValue().trim(), "", 0, 0, 0, 0, 0, 0, 0, false, false, 0));
+                    cardName.setFocused(false);
+                    setFocused(null);
+                    return true;
+                }
             }
             return super.keyPressed(key, scan, mods);
+        }
+        if (key == 32) { // SPACE held pans (D84)
+            spaceDown = true;
+            return true;
         }
         if (key == 82 && ghost != null) { // R
             rotate();
             return true;
         }
         return super.keyPressed(key, scan, mods);
+    }
+
+    @Override
+    public boolean keyReleased(int key, int scan, int mods) {
+        if (key == 32) {
+            spaceDown = false;
+            panning = false;
+        }
+        return super.keyReleased(key, scan, mods);
     }
 
     // ------------------------------------------------------------------ helpers

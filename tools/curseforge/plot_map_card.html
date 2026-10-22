@@ -1,7 +1,9 @@
 <!doctype html>
-<html><head><meta charset="utf-8"><meta name="size" content="380x200"><link rel="stylesheet" href="holo.css">
+<html><head><meta charset="utf-8"><meta name="size" content="380x230"><link rel="stylesheet" href="holo.css">
 <style>
-/* The picked plot's card from client/PlotMapScreen.java (150 x 78) and its BACKUPS list (two clicks restore). */
+/* The picked plot's card in PLOT mode from client/PlotMapScreen.java (210 x 108 card units, drawn at 80%) and its BACKUPS list. */
+#ui { position: absolute; left: 0; top: 0; width: 475px; height: 288px; transform: scale(0.8); transform-origin: 0 0; }
+.box { position: absolute; background: #000; border: 1px solid #a0a0a0; height: 12px; }
 canvas { position: absolute; left: 0; top: 0; image-rendering: pixelated; }
 .card { position: absolute; background: rgba(16,21,28,.94); border: 1px solid var(--line); border-radius: 0; padding: 0; }
 .ch { position: absolute; display: flex; align-items: center; justify-content: center; font-size: 8px; line-height: 1; white-space: nowrap;
@@ -12,27 +14,32 @@ canvas { position: absolute; left: 0; top: 0; image-rendering: pixelated; }
 .t { position: absolute; font-size: 9px; line-height: 1; white-space: nowrap; }
 </style></head>
 <body>
-<canvas id="c" width="380" height="200"></canvas>
+<canvas id="c" width="380" height="230"></canvas>
 <div id="ui"></div>
 <script>
 function hash(x, z) { let h = x * 374761393 + z * 668265263; h = (h ^ (h >> 13)) * 1274126177; return ((h ^ (h >> 16)) >>> 0) / 4294967295; }
 const ctx = document.getElementById('c').getContext('2d'), S = 8;
-for (let x = 0; x < 48; x++) for (let z = 0; z < 25; z++) { const t = hash(x * 3, z * 5); ctx.fillStyle = `rgb(${104 + t * 16},${152 + t * 18},${70 + t * 8})`; ctx.fillRect(x * S, z * S, S, S); }
-ctx.fillStyle = 'rgba(0,0,0,.19)'; for (let x = 0; x <= 48; x++) ctx.fillRect(x * S, 0, 1, 200); for (let z = 0; z <= 25; z++) ctx.fillRect(0, z * S, 380, 1);
+for (let x = 0; x < 48; x++) for (let z = 0; z < 29; z++) { const t = hash(x * 3, z * 5); ctx.fillStyle = `rgb(${104 + t * 16},${152 + t * 18},${70 + t * 8})`; ctx.fillRect(x * S, z * S, S, S); }
+ctx.fillStyle = 'rgba(0,0,0,.19)'; for (let x = 0; x <= 48; x++) ctx.fillRect(x * S, 0, 1, 230); for (let z = 0; z <= 29; z++) ctx.fillRect(0, z * S, 380, 1);
 ctx.fillStyle = '#b58cff33'; ctx.fillRect(2 * S, 3 * S, 8 * S, 6 * S); ctx.strokeStyle = '#fff'; ctx.strokeRect(2 * S + .5, 3 * S + .5, 8 * S - 1, 6 * S - 1);
 ctx.font = '9px VT323, monospace'; ctx.fillStyle = '#b58cff'; ctx.fillText('alex_bakery', 2 * S + 3, 3 * S + 9);
 const ui = document.getElementById('ui'), add = h => ui.insertAdjacentHTML('beforeend', h);
-const x = 88, y = 24;
-add(`<div class="card" style="left:${x}px;top:${y}px;width:150px;height:78px;border-color:var(--vio)"></div>`);
+const x = 108, y = 24, w = 210, cw = t => t.length * 5;
+const chip = (cx, cy, cw2, label, cls = '') => add(`<div class="ch ${cls}" style="left:${cx}px;top:${cy}px;width:${cw2}px;height:12px">${label}</div>`);
+add(`<div class="card" style="left:${x}px;top:${y}px;width:${w}px;height:108px;border-color:var(--vio)"></div>`);
 add(`<div class="t text" style="left:${x + 5}px;top:${y + 5}px">Alex's Bakery (alex_bakery)</div>`);
+chip(x + w - 16, y + 3, 12, '&#9662;');
 add(`<div class="t muted" style="left:${x + 5}px;top:${y + 17}px">8 x 6, y 62 to 90, priority 3</div>`);
 add(`<div class="t muted" style="left:${x + 5}px;top:${y + 29}px">owned by Alex</div>`);
-add(`<div class="ch gold" style="left:${x + 5}px;top:${y + 44}px;width:50px;height:13px">COPY</div><div class="ch" style="left:${x + 60}px;top:${y + 44}px;width:70px;height:13px">UNLOCK</div>`);
-add(`<div class="ch" style="left:${x + 5}px;top:${y + 60}px;width:50px;height:13px">BACKUP</div><div class="ch on" style="left:${x + 60}px;top:${y + 60}px;width:70px;height:13px">BACKUPS</div>`);
-const ly = y + 80;
+add(`<div class="box" style="left:${x + 5}px;top:${y + 42}px;width:110px"></div><div class="t text" style="left:${x + 8}px;top:${y + 44}px">Alex's Bakery</div>`);
+add(`<div class="t text" style="left:${x + 122}px;top:${y + 44}px">P 3</div>`); chip(x + 150, y + 42, 12, '-'); chip(x + 164, y + 42, 12, '+');
+chip(x + 5, y + 58, 46, 'COPY', 'gold'); chip(x + 54, y + 58, 56, 'UNLOCK'); chip(x + 113, y + 58, 44, 'BACKUP'); chip(x + 160, y + 58, 46, 'BACKUPS', 'on');
+['SALE', 'FLAGS', 'ACCESS', 'INFO'].reduce((tx, t) => { chip(tx, y + 74, cw(t) + 10, t); return tx + cw(t) + 13; }, x + 5);
+chip(x + 5, y + 90, 70, 'VERTICAL FILL', 'gold'); chip(x + 78, y + 90, 60, 'RESHAPE'); chip(x + w - 61, y + 90, 56, 'DELETE');
+const ly = y + 110;
 add(`<div class="card" style="left:${x}px;top:${ly}px;width:210px;height:${8 + 4 * 12}px"></div>`);
-[['20261020-171204  backup', true], ['20261019-091533  before-from'], ['20261019-091533  before-to'], ['20261012-200110  backup']]
+[['20261022-171204  backup', true], ['20261021-091533  before-from'], ['20261021-091533  before-to'], ['20261012-200110  backup']]
   .forEach(([l, armed], i) => add(`<div class="ch${armed ? ' bad' : ''}" style="left:${x + 4}px;top:${ly + 4 + i * 12}px;width:202px;height:11px">${armed ? 'SURE? RESTORE ' + l : l}</div>`));
-add(`<div class="t muted" style="left:${x + 214}px;top:${ly + 8}px;width:70px;white-space:normal;line-height:10px">click a backup<br>twice to put it back</div>`);
+add(`<div class="t muted" style="left:${x + 214}px;top:${ly + 8}px;width:80px;white-space:normal;line-height:11px">click a backup<br>twice to put it back</div>`);
 </script>
 </body></html>

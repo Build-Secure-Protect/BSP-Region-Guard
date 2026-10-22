@@ -389,3 +389,17 @@ The new jar on the server **and** the client (network protocol 7). As a BSP Core
 - [ ] Another server still on the older Region Guard, sharing storage: harbour (no corners) shows there as a tiny region far below the world and protects nothing.
 - [ ] B9 retest, at several zoom levels including one step out from the block grid: a white frame marks the block under the cursor; click a build's corner and compare the bar's "first corner x .., z .." with the bottom-right x and z; CONFIRM and check `/rg info` gives the same numbers. SNAP is off at first; with it on, a corner within two blocks of another region's side lands just outside it, never against the region's own old box.
 - [ ] B10: the plot map's REGIONS card lists protected areas (teal) and mines (gold) as well as plots; the PROT and MINE filters show only those. Click a protected region on the map: its card shows SET CORNERS ON MAP and no COPY or UNLOCK. SET CORNERS, click two corners, CONFIRM: you stay on the map, the region has its new box and keeps its height; UNDO puts it back.
+
+## 2026-10-23: the region map (one map with REGION, PLOT and MINE modes)
+
+The new jar on the server and the client. As a BSP Core admin. Built and tested headless (103 GameTests); nothing below has been seen in a client yet.
+
+- [ ] Admin screen: there is no MAP tab (unless you look at another server); the **MAP** button under the list opens the region map centred on the selected region, picked. `/rg map` and `/rg plotmap` open it too.
+- [ ] The top bar: REGION / PLOT / MINE on the left, PICK / DRAW / RESHAPE next to them, the world, UNDO, REDO and refresh on the right; nothing overlaps at your usual window size and a smaller one.
+- [ ] REGION mode: every region is bright; PLOT mode: only plots, claims and open areas (the rest dimmed, can't be picked); MINE mode: mines and their shells. The REGIONS list follows the mode.
+- [ ] PICK a protected region: its card has the name field (change it, Enter), P - / +, the type chips, FLAGS / ACCESS / TELEPORT / INFO (each opens the admin screen on that tab; Esc returns to the map), VERTICAL FILL, RESHAPE, DELETE (twice). UNDO after DELETE brings it back with its flags and owners.
+- [ ] DRAW in REGION mode: drag a box; a NEW REGION card asks for an id, priority and height (whole world at first); CREATE: it appears, picked. Also click one corner, hold SPACE and drag to pan (or right-drag), click the second corner.
+- [ ] DRAW in PLOT mode: the card also asks for a PRICE (CREATE stays off without one); the new plot is for sale. Over another plot it is refused with the reason.
+- [ ] DRAW in MINE mode: the height starts 16 blocks below your feet; CREATE makes a mine; RESET and SHELL on the bar work on the picked mine.
+- [ ] RESHAPE: the picked region shows eight white handles; drag a side or a corner a few blocks; change the bar's heights; DONE: the region has the new box (`/rg info`), UNDO puts it back. RESET in the bar drops the changes.
+- [ ] Esc steps back: a half-drawn box or a pending reshape first, then the map closes.
