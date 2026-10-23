@@ -16,15 +16,32 @@ import java.util.Set;
 /**
  * The plot map's terrain on the client (D61): chunk colours as the server sent them, per world, and which chunks are
  * still on their way. The screen asks for what it shows and draws what has arrived.
+ *
+ * <p>World names repeat across servers (every server has a {@code minecraft:overworld}), so the tiles belong to one
+ * connection to one server: they are dropped when the client's level changes, which happens on every login and on a
+ * proxy's server switch (bug B12), and on login and logout.
  */
 public final class MapTileCache {
     private static final Map<String, Map<Long, byte[]>> TILES = new HashMap<>();
     private static final Set<String> ASKED = new HashSet<>();
+    /** The client level the tiles were gathered under; another level means another server or a fresh login. */
+    @Nullable
+    private static Object level;
 
     private MapTileCache() {
     }
 
+    /** Drops the tiles when the client is no longer in the level they came with. */
+    private static void sameServer() {
+        Object now = net.minecraft.client.Minecraft.getInstance().level;
+        if (now != level) {
+            clear();
+            level = now;
+        }
+    }
+
     public static void receive(MapTilesPacket msg) {
+        sameServer();
         Map<Long, byte[]> world = TILES.computeIfAbsent(msg.dimension(), k -> new HashMap<>());
         for (int i = 0; i < msg.chunks().size(); i++) {
             world.put(msg.chunks().get(i), msg.colours().get(i));
@@ -35,6 +52,7 @@ public final class MapTileCache {
     /** The colours of a chunk (256, row by row), an empty array for empty ground, or null when not here yet. */
     @Nullable
     public static byte[] chunk(String dimension, long chunk) {
+        sameServer();
         Map<Long, byte[]> world = TILES.get(dimension);
         return world == null ? null : world.get(chunk);
     }
@@ -47,6 +65,7 @@ public final class MapTileCache {
 
     /** Asks the server for any of these chunks not here and not already asked for. */
     public static void want(String dimension, List<Long> chunks, boolean refresh) {
+        sameServer();
         List<Long> ask = new ArrayList<>();
         for (long c : chunks) {
             if ((refresh || chunk(dimension, c) == null) && ASKED.add(dimension + "|" + c)) {

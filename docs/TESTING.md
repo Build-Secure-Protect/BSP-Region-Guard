@@ -440,3 +440,11 @@ Needs BSP-Core 1.4.3 or newer on the server and the client (older ones refuse to
 - [ ] Switch `currency` back to `pieces` and restart: prices read as pieces again; a claim bought with coins still refunds coins.
 - [ ] Land Office (BSP-Core 1.4.3, RG-C9): in coin mode it shows "3 gold coins" for the price, the cost per block and the outline quote, and the coins you carry instead of the bank balance. Buying there takes coins and gives change.
 
+## 2026-10-23: map terrain after a server switch (B12)
+
+On the network, as an admin on two servers whose overworlds look different. Built and tested headless (106 GameTests); the fix is client side and untested in a client.
+
+- [ ] On server A, open the region map (`/rg map`) and look around so its terrain loads. Close it.
+- [ ] Move to server B through the proxy (`/server B` or an edge link). Open the region map: only server B's terrain is drawn, filling in as it arrives; nothing of server A's islands or plots remains.
+- [ ] Go back to server A: its terrain loads again (fresh, not left over from before).
+

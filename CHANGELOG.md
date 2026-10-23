@@ -4,7 +4,12 @@ All notable changes to BSP Region Guard. Format follows Keep a Changelog; versio
 
 ## [Unreleased]
 
-**Needs BSP-Core 1.4.3 or newer** (was 1.1.0): coins go through BSP-Core's new `api.BspCoins` (request RG-C9). Region Guard now builds against BSP-Core 1.4.3.
+## [0.5.0] - 2026-10-23
+
+Plots in PvP worlds, plot limits per region, and plots priced in Shatter Coins. **Needs BSP-Core 1.4.3 or newer** (was 1.1.0): coins go through BSP-Core's new `api.BspCoins` (request RG-C9); Region Guard now builds against BSP-Core 1.4.3. API version 6. Network protocol unchanged (7).
+
+### Fixed (2026-10-23, B12: map terrain after a server switch)
+- After moving to another server through the proxy, the region map kept drawing the previous server's terrain for worlds with the same name (every server has an overworld). The map's tiles now belong to one server: they are dropped when the client's world changes, on login and on logout (`client/MapTileCache`, `ClientSetup`).
 
 ### Fixed (2026-10-23, B11: plots in PvP worlds)
 - A world counted as a PvP world for plots whenever BSP Core allows Shatter Totems there, even with `pvp` denied on its world default. Now a world default with **`pvp` deny counts as not PvP for plots** (D93). The totem rule is unchanged: raiders are still not stopped near another player's totem (D94).

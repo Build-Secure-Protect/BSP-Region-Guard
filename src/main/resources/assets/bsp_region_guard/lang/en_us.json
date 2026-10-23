@@ -79,6 +79,7 @@
   "gui.bsp_region_guard.links_need_shared_storage": "links need shared storage",
   "gui.bsp_region_guard.plots_here": "PLOTS HERE",
   "gui.bsp_region_guard.amount_pieces": "%s pieces",
+  "gui.bsp_region_guard.amount_coin": "%s %s coin",
   "gui.bsp_region_guard.amount_coins": "%s %s coins",
   "gui.bsp_region_guard.worth_copper": "coins worth %s copper",
   "gui.bsp_region_guard.price_in_coins_0_takes_it_off_sale": "price in coins of the lit tier (none lit: the config's tier); 0 takes it off sale",

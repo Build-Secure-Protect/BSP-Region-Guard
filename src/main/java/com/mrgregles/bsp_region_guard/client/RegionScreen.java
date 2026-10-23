@@ -1271,7 +1271,11 @@ public class RegionScreen extends HoloScreen {
     /** An amount in this region's currency (D95): {@code 500 pieces} or {@code 5 gold coins}; {@code currency} null reads the detail's. */
     private static String money(java.util.Map<String, String> data, String amount, @Nullable String currency) {
         String c = currency != null ? currency : data.getOrDefault("currency", "pieces");
-        return c.equals("pieces") ? Tr.t("amount_pieces", amount) : Tr.t("amount_coins", amount, Tr.t("coin_tier." + c).toLowerCase(java.util.Locale.ROOT));
+        if (c.equals("pieces")) {
+            return Tr.t("amount_pieces", amount);
+        }
+        String tier = Tr.t("coin_tier." + c).toLowerCase(java.util.Locale.ROOT);
+        return amount.equals("1") ? Tr.t("amount_coin", amount, tier) : Tr.t("amount_coins", amount, tier);
     }
 
     private void data(String key, String current, String hint) {

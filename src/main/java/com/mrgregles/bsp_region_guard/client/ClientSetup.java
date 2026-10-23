@@ -34,6 +34,7 @@ public final class ClientSetup {
         MinecraftForge.EVENT_BUS.addListener(RegionRenderer::onRenderLevel);
         MinecraftForge.EVENT_BUS.addListener(ClientSetup::onClientTick);
         MinecraftForge.EVENT_BUS.addListener(ClientSetup::onLoggingOut);
+        MinecraftForge.EVENT_BUS.addListener(ClientSetup::onLoggingIn);
     }
 
     private static void onClientTick(TickEvent.ClientTickEvent event) {
@@ -51,5 +52,11 @@ public final class ClientSetup {
 
     private static void onLoggingOut(net.minecraftforge.client.event.ClientPlayerNetworkEvent.LoggingOut event) {
         RegionClient.clear();
+        MapTileCache.clear();
+    }
+
+    /** Also on a proxy's server switch: another server's map tiles must not carry over (B12). */
+    private static void onLoggingIn(net.minecraftforge.client.event.ClientPlayerNetworkEvent.LoggingIn event) {
+        MapTileCache.clear();
     }
 }

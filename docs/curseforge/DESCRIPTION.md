@@ -14,7 +14,7 @@ It takes WorldGuard's ideas to Forge and drives them from screens rather than lo
 
 It is made for the [Build Secure Protect](https://www.curseforge.com/minecraft/modpacks/build-secure-protect) modpack and works closely with its sister mods: **BSP-Core** (required), and **BSP-Teleport** and **BSP-RankUp** (optional).
 
-> Version 0.4.0. The screens in this description are drawn from the mod's own layout and colours, as illustrations.
+> Version 0.5.0. The screens in this description are drawn from the mod's own layout and colours, as illustrations.
 
 ---
 
@@ -24,7 +24,7 @@ It is made for the [Build Secure Protect](https://www.curseforge.com/minecraft/m
 |---|---|
 | **Minecraft** | 1.20.1, Forge 47.4.10 or newer; runs on Mohist |
 | **Install on** | the server **and** every player (the screens and in-world drawing are client side) |
-| **Requires** | [BSP-Core](https://github.com/Build-Secure-Protect/BSP-Core) 1.1.0 or newer (tested with 1.3.0) |
+| **Requires** | [BSP-Core](https://github.com/Build-Secure-Protect/BSP-Core) 1.4.3 or newer |
 | **Works with** | [BSP-Teleport](https://github.com/Build-Secure-Protect/BSP-Teleport), BSP-RankUp, [LuckPerms](https://luckperms.net/) (Forge mod or the Bukkit plugin on Mohist) |
 | **Optional** | MySQL and Redis, only for several servers |
 
@@ -112,6 +112,10 @@ It also holds the world's **border**, a square set with `/rg border set <width>`
 - In the Overworld, Minecraft's own wall is moved to match so everyone can see it.
 - Teleports and homes outside the border are refused.
 
+The BORDER tab also has a **PLOTS HERE** card that decides land for players in this world (section 7):
+- **ALLOW**, **REFUSE** or **CONFIG**: whether plots may be made and bought in a world where Shatter Totems can be placed.
+- **MAX**: how many plots one player may own in this world.
+
 ## 5. Who may come in: members and ranks
 
 - **ACCESS tab:** a region's **owners** and **members**. They pass entry rules and may build.
@@ -122,7 +126,7 @@ It also holds the world's **border**, a square set with `/rg border set <width>`
 **With BSP-RankUp**, players climb a LuckPerms rank ladder by playing: time online, fights, Shatter Totems stolen and defended, and seasons survived. Region Guard reads those same groups, so ranking up actually opens doors:
 - **Rank-gated regions** let a player in once they reach the rank.
 - **Rank-gated mines** unlock better ores at higher ranks.
-- **Claim limits** rise with rank: 3 claims by default, more for higher groups (`claims.limitsByRank`).
+- **Claim limits** rise with rank: 3 claims per world by default, more for higher groups (`claims.limitsByRank`).
 
 Without RankUp, give groups by hand in LuckPerms and everything works the same.
 
@@ -181,9 +185,20 @@ Admins sell land in two ways:
 **Buying, with BSP-Core:**
 1. A player takes the plot tool (`/claim tool`) and clicks two corners.
 2. BSP-Core's **Land Office** opens with that ground drawn on a map, priced, and with nearby claims shown.
-3. The player buys it there, paid from their **BSP-Core bank** in Shatter Pieces.
+3. The player buys it there.
 
 Plots for sale are bought at the Land Office block too.
+
+**Pieces or coins:** plots are paid from the player's **BSP-Core bank** in Shatter Pieces by default.
+- Set `claims.currency = "coins"` and they cost **Shatter Coins from the player's inventory** instead.
+- A price is then a number of coins of one tier, such as "3 gold coins". Choose the tier per plot or open area on the SALE tab.
+- Any coins adding up to the price will do, and change comes back.
+
+![The admin screen, SALE tab](https://raw.githubusercontent.com/Build-Secure-Protect/BSP-Region-Guard/main/docs/curseforge/images/admin_sale.png)
+
+**How many plots each:**
+- Any region can limit the plots one player may own inside it ("Plots per player inside" on its SALE tab): one shop each in the market, two plots each in the village.
+- The world has its own limit, which ranks can raise.
 
 **Running your claim:** `/claim gui` (or sneak and right-click the plot tool) opens your claim card:
 - **Who may build:** add members.
@@ -194,7 +209,7 @@ Plots for sale are bought at the Land Office block too.
 ![The claim screen](https://raw.githubusercontent.com/Build-Secure-Protect/BSP-Region-Guard/main/docs/curseforge/images/claim_screen.png)
 
 **Fair play for raiders:**
-- Claims are not allowed in PvP worlds.
+- In a world where Shatter Totems can be placed, plots are refused unless PvP is denied on the world default or the world's PLOTS HERE card allows them.
 - A claim may not hold a Shatter Totem while any of its rules would stop a steal.
 - Near another player's placed totem, regions never stop a raider.
 
@@ -302,8 +317,8 @@ When a player reaches a linked edge, a window asks whether to travel:
 ## Working with the other BSP mods
 
 ### BSP-Core (required)
-- **Money:** claims are paid from the **BSP-Core bank** in Shatter Pieces, and refunds go back to it.
-- **The Land Office:** BSP-Core's land shop. Outline ground with the plot tool and it opens with the price; buy, enlarge or give up there. It also shows plots for sale and your neighbours' claims.
+- **Money:** claims are paid from the **BSP-Core bank** in Shatter Pieces, or in **Shatter Coins** from the inventory if you choose. Refunds go back the same way.
+- **The Land Office:** BSP-Core's land shop. Outline ground with the plot tool and it opens with the price, in pieces or coins; buy, enlarge or give up there. It also shows plots for sale and your neighbours' claims.
 - **Admins:** BSP-Core's admin list decides who runs Region Guard.
 - **Shatter Totems:** regions never stop a steal near another player's placed totem. BSP-Core's Anti Totem zones and Region Guard regions work together for totem placing, teleports and homes.
 
@@ -342,6 +357,9 @@ When a player reaches a linked edge, a window asks whether to travel:
 | `/rg border set <width> [x z]`, `/rg border off`, `/rg border link ...` | the world border and edge links |
 | `/rg mine ...` | fill table, interval, spawn, shell, reset |
 | `/rg sale ...`, `/rg plotflags ...` | plots for sale and open areas |
+| `/rg cointier <id> <tier>` | the coin tier a plot or open area is priced in (with `claims.currency = "coins"`) |
+| `/rg plotlimit <id> <number>` | how many plots one player may own inside a region (`none` removes the limit; `__global__`: in the world) |
+| `/rg claims pvp <rule>` | plots in this world when it counts as a PvP world: `allow`, `deny` or `default`; no rule shows the current one |
 | `/rg trigger add <id> <cause> <destination>` | region triggers |
 | `/rg claims wipe`, `/rg claims restore` | the per-world claim wipe |
 | `/rg bypass` | switch your admin bypass off or on |
@@ -351,10 +369,10 @@ When a player reaches a linked edge, a window asks whether to travel:
 
 ## For developers
 
-Other mods can use Region Guard through its public API (`com.mrgregles.bsp_region_guard.api`, version 5):
+Other mods can use Region Guard through its public API (`com.mrgregles.bsp_region_guard.api`, version 6):
 - **Questions:** ask whether a flag allows something at a spot; read flag values, region bounds and the world border.
 - **Extending it:** register your own flags and exemptions.
-- **Claims and mines:** work with claims (listings, quotes, purchases) and mines.
+- **Claims and mines:** work with claims (listings, quotes, purchases, prices in pieces or coins) and mines.
 - **Messages:** send messages to the other servers.
 - **Events:** players entering and leaving regions, triggers, claims bought and abandoned, and mine resets.
 
@@ -362,6 +380,6 @@ Full reference in [`docs/API.md`](https://github.com/Build-Secure-Protect/BSP-Re
 
 ---
 
-**Early release:** 0.4.0 is an early version and has not yet run on a large live network. Please report problems on the [issue tracker](https://github.com/Build-Secure-Protect/BSP-Region-Guard/issues).
+**Early release:** 0.5.0 is an early version and has not yet run on a large live network. Please report problems on the [issue tracker](https://github.com/Build-Secure-Protect/BSP-Region-Guard/issues).
 
 Source: [github.com/Build-Secure-Protect/BSP-Region-Guard](https://github.com/Build-Secure-Protect/BSP-Region-Guard) · MIT licence · Made for [Build Secure Protect](https://www.curseforge.com/minecraft/modpacks/build-secure-protect)

@@ -98,6 +98,7 @@ GUI = {
     "links_need_shared_storage": "links need shared storage",
     "plots_here": "PLOTS HERE",
     "amount_pieces": "%s pieces",
+    "amount_coin": "%s %s coin",
     "amount_coins": "%s %s coins",
     "worth_copper": "coins worth %s copper",
     "price_in_coins_0_takes_it_off_sale": "price in coins of the lit tier (none lit: the config's tier); 0 takes it off sale",
