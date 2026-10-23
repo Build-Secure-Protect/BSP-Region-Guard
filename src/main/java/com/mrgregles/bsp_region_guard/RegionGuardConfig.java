@@ -22,6 +22,7 @@ public final class RegionGuardConfig {
     public static final ForgeConfigSpec.ConfigValue<List<? extends String>> PVP_WORLDS;
     public static final ForgeConfigSpec.IntValue CLAIM_MIN_SIZE, CLAIM_MAX_SIZE, CLAIM_MAX_PER_PLAYER, CLAIM_REFUND_PERCENT;
     public static final ForgeConfigSpec.ConfigValue<List<? extends String>> CLAIM_LIMITS_BY_RANK, CLAIM_PLAYER_FLAGS;
+    public static final ForgeConfigSpec.ConfigValue<String> CLAIM_CURRENCY, CLAIM_COIN_TIER;
 
     public static final ForgeConfigSpec.ConfigValue<String> STORAGE_MODE, STORAGE_HOST, STORAGE_DATABASE, STORAGE_USER, STORAGE_PASSWORD, STORAGE_TABLE_PREFIX, STORAGE_SERVER_ID;
     public static final ForgeConfigSpec.IntValue STORAGE_PORT, STORAGE_POLL_SECONDS;
@@ -72,6 +73,13 @@ public final class RegionGuardConfig {
         CLAIM_LIMITS_BY_RANK = b.comment("Claims per world by LuckPerms group, as \"group:count\". The highest matching count wins.")
                 .defineListAllowEmpty("limitsByRank", List.of("vip:5", "mvp:8"), o -> o instanceof String s && s.contains(":"));
         CLAIM_REFUND_PERCENT = b.comment("Share of the price paid back when a claim is abandoned.").defineInRange("abandonRefundPercent", 50, 0, 100);
+        CLAIM_CURRENCY = b.comment("What plots are paid in: pieces (Shatter Pieces from the BSP Core bank) or coins (Shatter Coins from the",
+                        "player's inventory, any tiers adding up to the price, change given back). With coins, a plot's price and an open",
+                        "area's cost per block are numbers of coins of the plot's tier. Switching reads the same numbers in the new currency.")
+                .define("currency", "pieces", o -> o instanceof String s && (s.equals("pieces") || s.equals("coins")));
+        CLAIM_COIN_TIER = b.comment("With currency = coins: the coin tier for plots and open areas that do not set their own",
+                        "(copper, gold, diamond, netherite or illyrium).")
+                .define("coinTier", "copper");
         CLAIM_PLAYER_FLAGS = b.comment("Flags a claim's owner may set on their own claim.")
                 .defineListAllowEmpty("playerFlags", List.of("entry", "chest-access", "use", "interact", "ride", "sleep", "greeting", "farewell",
                         "entry-deny-message", "mob-spawning", "pvp"), o -> o instanceof String);

@@ -93,6 +93,49 @@ public class TotemGameTests {
         h.succeed();
     }
 
+    /**
+     * B11, D92, D93: plots in a PvP world follow the world default's own switch, then the config; a world default with
+     * pvp denied counts as not PvP for plots, while the totem exemption still treats the world as a PvP world (D94).
+     * Its own batch, since it changes the world default's pvp flag.
+     */
+    @GameTest(template = EMPTY, batch = "plots-pvp")
+    public void plots_follow_the_world_switch_and_a_denied_pvp_flag(GameTestHelper h) {
+        ServerLevel level = h.getLevel();
+        Region global = store(h).global();
+        boolean configWas = com.mrgregles.bsp_region_guard.RegionGuardConfig.CLAIMS_IN_PVP_WORLDS.get();
+        State pvpWas = global.flag(Flags.PVP);
+        String ownWas = global.typeData().getString(TotemRule.PLOTS_IN_PVP);
+        try {
+            com.mrgregles.bsp_region_guard.RegionGuardConfig.CLAIMS_IN_PVP_WORLDS.set(false);
+            global.setFlag(Flags.PVP, null);
+            global.typeData().remove(TotemRule.PLOTS_IN_PVP);
+            h.assertTrue(TotemRule.plotRule(level) == TotemRule.PlotRule.CONFIG_REFUSES, "the config refuses plots in a PvP world");
+            var r = com.mrgregles.bsp_region_guard.command.RegionEdits.plotsInPvp(level, "allow");
+            h.assertTrue(r.ok() && TotemRule.claimsAllowedIn(level) && TotemRule.plotRule(level) == TotemRule.PlotRule.WORLD_ALLOWS, "the world's switch allows them");
+            com.mrgregles.bsp_region_guard.RegionGuardConfig.CLAIMS_IN_PVP_WORLDS.set(true);
+            com.mrgregles.bsp_region_guard.command.RegionEdits.plotsInPvp(level, "deny");
+            h.assertFalse(TotemRule.claimsAllowedIn(level), "the world's switch wins over the config");
+            String refusal = TotemRule.plotsRefused(level);
+            h.assertTrue(refusal.contains("/rg claims pvp allow"), "the refusal says how to allow plots");
+            com.mrgregles.bsp_region_guard.RegionGuardConfig.CLAIMS_IN_PVP_WORLDS.set(false);
+            com.mrgregles.bsp_region_guard.command.RegionEdits.plotsInPvp(level, "default");
+            global.setFlag(Flags.PVP, State.DENY);
+            h.assertTrue(TotemRule.plotRule(level) == TotemRule.PlotRule.PVP_DENIED, "pvp denied on the world default allows plots");
+            h.assertTrue(TotemRule.isPvpWorld(level), "the totem rule still counts it as a PvP world");
+            h.assertFalse(com.mrgregles.bsp_region_guard.command.RegionEdits.plotsInPvp(level, "maybe").ok(), "only allow, deny or default");
+        } finally {
+            com.mrgregles.bsp_region_guard.RegionGuardConfig.CLAIMS_IN_PVP_WORLDS.set(configWas);
+            global.setFlag(Flags.PVP, pvpWas);
+            if (ownWas.isEmpty()) {
+                global.typeData().remove(TotemRule.PLOTS_IN_PVP);
+            } else {
+                global.typeData().putString(TotemRule.PLOTS_IN_PVP, ownWas);
+            }
+            store(h).touch(global);
+        }
+        h.succeed();
+    }
+
     /** D32: until the zone systems merge, a BSP-Core Anti Totem zone denies the matching region flags too. */
     @GameTest(template = EMPTY)
     public void bsp_core_anti_totem_zones_deny_the_matching_flags(GameTestHelper h) {

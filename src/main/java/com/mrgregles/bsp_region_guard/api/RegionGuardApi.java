@@ -15,9 +15,10 @@ public interface RegionGuardApi {
      * and {@code Border} in this package; {@code regions().bounds} and {@code regions().border}. 3 (2026-10-15):
      * {@code RegionTriggerEvent.Cause.EDGE} for travel across a linked world edge. 4 (2026-10-15): for BSP Core's Land
      * Office, {@code claims().selection}, {@code claims().claimsNear} and {@code bounds()} on the two claim events.
-     * 5 (2026-10-15): {@link #serverId()}.
+     * 5 (2026-10-15): {@link #serverId()}. 6 (2026-10-23): plots priced in Shatter Coins, {@code claims().paysInCoins}
+     * and {@code claims().priceText}.
      */
-    int API_VERSION = 5;
+    int API_VERSION = 6;
 
     /** The live API instance. */
     static RegionGuardApi get() {

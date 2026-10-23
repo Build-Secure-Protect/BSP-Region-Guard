@@ -201,7 +201,7 @@ public final class RegionEdits {
             return needsCorners(r, "be a " + type.key().replace('_', ' ') + " region");
         }
         if ((type == RegionType.CLAIM || type == RegionType.PLOT_FOR_SALE || type == RegionType.OPEN_FOR_BUYING) && !TotemRule.claimsAllowedIn(level)) {
-            return Result.fail("Claims are not allowed in a PvP world (where Shatter Totems can be placed). See the claims section of the config.");
+            return Result.fail(TotemRule.plotsRefused(level));
         }
         r.setType(type);
         store.touch(r);
@@ -300,7 +300,7 @@ public final class RegionEdits {
             return "The world default cannot be sold or opened for buying.";
         }
         if (!TotemRule.claimsAllowedIn(level)) {
-            return "Claims are not allowed in a PvP world.";
+            return TotemRule.plotsRefused(level);
         }
         if (!r.hasCorners()) {
             return r.id() + " has no corners yet, so it can't be sold or opened for buying. Set its corners first.";
@@ -324,7 +324,7 @@ public final class RegionEdits {
             r.setType(RegionType.PROTECTED);
         }
         store.touch(r);
-        return Result.ok(price > 0 ? r.id() + " is for sale at " + BspCore.money(price) + "." : r.id() + " is not for sale.");
+        return Result.ok(price > 0 ? r.id() + " is for sale at " + com.mrgregles.bsp_region_guard.claim.Prices.text(com.mrgregles.bsp_region_guard.claim.Prices.tier(r), price) + "." : r.id() + " is not for sale.");
     }
 
     /** Opens a region for players to outline their own plots at {@code cost} pieces per block; 0 closes it. */
@@ -340,7 +340,7 @@ public final class RegionEdits {
             r.setType(RegionType.PROTECTED);
         }
         store.touch(r);
-        return Result.ok(cost > 0 ? r.id() + " is open for buying at " + BspCore.money(cost) + " per block." : r.id() + " is closed for buying.");
+        return Result.ok(cost > 0 ? r.id() + " is open for buying at " + com.mrgregles.bsp_region_guard.claim.Prices.text(com.mrgregles.bsp_region_guard.claim.Prices.tier(r), cost) + " per block." : r.id() + " is closed for buying.");
     }
 
     /** An open area's own plot size limits; 0 leaves a limit to the config. */
@@ -349,6 +349,50 @@ public final class RegionEdits {
         ClaimData.set(r, ClaimData.MAX_SIZE, max);
         store.touch(r);
         return Result.ok(min > 0 || max > 0 ? "Plots in " + r.id() + " are " + min + " to " + max + " blocks a side." : "Plot sizes in " + r.id() + " follow the config.");
+    }
+
+    /** The coin tier a plot or open area prices in (D95); {@code default} follows the config's {@code claims.coinTier}. */
+    public static Result coinTier(RegionStore store, Region r, String value) {
+        String v = value.trim().toLowerCase(Locale.ROOT);
+        List<String> tiers = BspCore.coinTiers();
+        if (r.isGlobal()) {
+            return Result.fail("The world default has no prices.");
+        }
+        if (v.isEmpty() || v.equals("default")) {
+            r.typeData().remove(com.mrgregles.bsp_region_guard.claim.Prices.COIN_TIER);
+        } else if (!tiers.contains(v)) {
+            return Result.fail(tiers.isEmpty() ? "This BSP Core has no Shatter Coins." : "Coin tiers: " + String.join(", ", tiers) + ", or default.");
+        } else {
+            r.typeData().putString(com.mrgregles.bsp_region_guard.claim.Prices.COIN_TIER, v);
+        }
+        store.touch(r);
+        String tier = com.mrgregles.bsp_region_guard.claim.Prices.tier(r);
+        return Result.ok(tier == null ? r.id() + " will price in " + (v.isEmpty() || v.equals("default") ? "the config's tier" : v) + " coins once claims.currency is coins."
+                : r.id() + " prices in " + tier + " coins.");
+    }
+
+    /** The most plots one player may own inside this region (D100); empty or {@code none} removes the limit. */
+    public static Result plotLimit(RegionStore store, Region r, String value) {
+        String v = value.trim().toLowerCase(Locale.ROOT);
+        if (v.isEmpty() || v.equals("none")) {
+            r.typeData().remove(ClaimData.PLOT_LIMIT);
+            store.touch(r);
+            return Result.ok(r.isGlobal() ? "Plots per player in this world follow the config and rank limits again."
+                    : "No limit on plots per player inside " + r.id() + ".");
+        }
+        int n;
+        try {
+            n = Integer.parseInt(v);
+        } catch (NumberFormatException e) {
+            return Result.fail("Give a number of plots (0 or more), or none.");
+        }
+        if (n < 0 || n > 1000) {
+            return Result.fail("Give a number of plots from 0 to 1000, or none.");
+        }
+        r.typeData().putInt(ClaimData.PLOT_LIMIT, n);
+        store.touch(r);
+        return Result.ok(r.isGlobal() ? "A player may own " + n + " plot" + (n == 1 ? "" : "s") + " in this world (rank limits can raise it)."
+                : "A player may own " + n + " plot" + (n == 1 ? "" : "s") + " inside " + r.id() + ".");
     }
 
     /** The flags buyers of this plot (or of plots in this area) may set; {@code default} means the config's list. */
@@ -488,6 +532,29 @@ public final class RegionEdits {
         }
         com.mrgregles.bsp_region_guard.protection.WorldBorders.set(level, null);
         return Result.ok("World border of " + level.dimension().location() + " removed.");
+    }
+
+    /** Plots in this world while it counts as a PvP world (D92): allow, deny, or default (the config decides). */
+    public static Result plotsInPvp(ServerLevel level, String value) {
+        String v = value.trim().toLowerCase(Locale.ROOT);
+        if (!v.equals("allow") && !v.equals("deny") && !v.equals("default")) {
+            return Result.fail("Use allow, deny or default.");
+        }
+        RegionStore store = RegionStore.get(level);
+        Region global = store.global();
+        if (v.equals("default")) {
+            global.typeData().remove(TotemRule.PLOTS_IN_PVP);
+        } else {
+            global.typeData().putString(TotemRule.PLOTS_IN_PVP, v);
+        }
+        store.touch(global);
+        String now = switch (TotemRule.plotRule(level)) {
+            case NOT_PVP -> "Plots are allowed: " + level.dimension().location() + " is not a PvP world.";
+            case PVP_DENIED -> "Plots are allowed: pvp is denied on the world default.";
+            case WORLD_ALLOWS, CONFIG_ALLOWS -> "Plots are allowed in " + level.dimension().location() + ".";
+            default -> "Plots are refused in " + level.dimension().location() + " (a PvP world).";
+        };
+        return Result.ok(now);
     }
 
     // ------------------------------------------------------------------ edge links (D40 to D42)

@@ -126,7 +126,7 @@ As an operator or BSP Core admin, with a few regions defined (use the Phase 1 co
 
 ## Phase 4a: claims (build 0.1.0, 2026-10-11)
 
-Claims need a world that is not a PvP world: either a second dimension not in BSP Core's `restrictions.allowedDimensions`, or `claims.allowInPvpWorlds = true` in `world/serverconfig/bsp_region_guard-server.toml` for testing. Claims are paid from the BSP Core bank in Shatter Pieces (D31, from 2026-10-12). Set the test player's balance with `/bsp bank set <player> 0` and `/bsp bank give <player> <pieces>`; `/bank` shows it (new accounts start with BSP Core's starting pieces, 500 by default).
+Claims need a world that is not a PvP world: either a second dimension not in BSP Core's `restrictions.allowedDimensions`, or `claims.allowInPvpWorlds = true` in `world/serverconfig/bsp_region_guard-server.toml` for testing (from 2026-10-23 also `/rg claims pvp allow` in that world, or `pvp` deny on its world default). Claims are paid from the BSP Core bank in Shatter Pieces (D31, from 2026-10-12). Set the test player's balance with `/bsp bank set <player> 0` and `/bsp bank give <player> <pieces>`; `/bank` shows it (new accounts start with BSP Core's starting pieces, 500 by default).
 
 - [ ] Admin: define a region and `/rg sale shop1 100`: `/rg info shop1` says plot for sale; every player sees its gold box in the world and `/claim list` lists it with the price. The SALE tab shows the price; SET PRICE 0 takes it off sale.
 - [ ] Player with 0 pieces: `/claim quote shop1` names the price and says what the bank holds. With 150 pieces: `/claim buy shop1` takes 100 (the bank log shows it, paid to Region Guard), the box turns violet (a claim), `/claim here` says it is yours, you can build inside while another player cannot, and the admin screen lists it as a claim with you as owner.
@@ -403,3 +403,40 @@ The new jar on the server and the client. As a BSP Core admin. Built and tested 
 - [ ] DRAW in MINE mode: the height starts 16 blocks below your feet; CREATE makes a mine; RESET and SHELL on the bar work on the picked mine.
 - [ ] RESHAPE: the picked region shows eight white handles; drag a side or a corner a few blocks; change the bar's heights; DONE: the region has the new box (`/rg info`), UNDO puts it back. RESET in the bar drops the changes.
 - [ ] Esc steps back: a half-drawn box or a pending reshape first, then the map closes.
+
+## 2026-10-23: plots in PvP worlds (B11)
+
+The new jar on the server and the client. As a BSP Core admin, in a world where BSP Core allows Shatter Totems, with `claims.allowInPvpWorlds = false` (the default). Built and tested headless (104 GameTests); the BORDER tab card has not been seen in a client yet.
+
+- [ ] `/rg claims pvp`: "Plots are refused in ... a PvP world (the config)".
+- [ ] Region map, PLOT mode, DRAW a plot with a price: refused, and the message names the world and says "Deny pvp on the world default, or allow plots on its BORDER tab (/rg claims pvp allow)".
+- [ ] Admin screen, the world default, BORDER tab: a red PLOTS HERE card at the bottom right says "refused: PvP world (config)", CONFIG lit.
+- [ ] Click ALLOW: the card turns teal, "allowed in this PvP world". DRAW the plot again: it is made. `/rg claims pvp` agrees.
+- [ ] Click REFUSE: refused again. Click CONFIG: back to the config's answer.
+- [ ] With CONFIG lit, set `pvp` to deny on the world default (FLAGS tab): the card says "allowed: pvp is denied" and plots can be made. Place your own Shatter Totem nearby and have a second player try to steal it: they are not stopped (the totem rule still applies).
+- [ ] A world where totems are not allowed: the card says "allowed: not a PvP world" whatever the switch says.
+- [ ] With shared storage: the setting stays after a restart (it lives on the world default).
+
+## 2026-10-23: plot limits per region
+
+As a BSP Core admin with a second test player, in a world where plots are allowed. Built and tested headless (106 GameTests).
+
+- [ ] Make a protected region `market` around two plots for sale. SALE tab of `market`: "Plots per player inside: no limit". EDIT, type 1, Enter: "Plots per player inside: 1". `/rg plotlimit market` agrees.
+- [ ] The second player buys one plot inside `market` (Land Office or `/claim buy` as admin): it works. The second plot inside: "You already own 1 plot inside market; its limit is 1."
+- [ ] A plot outside `market` can still be bought.
+- [ ] `/rg plotlimit market none`: the second plot inside can be bought.
+- [ ] World default, BORDER tab, PLOTS HERE card: MAX: CONFIG. Click it, type 2: MAX 2. A player with 2 claims in this world is refused the third ("your limit is 2"); a LuckPerms group with a higher `limitsByRank` entry still raises it.
+
+## 2026-10-23: Shatter Coin prices
+
+Needs BSP-Core 1.4.3 or newer on the server and the client (older ones refuse to load with this Region Guard). Set `currency = "coins"` in the `[claims]` section of `world/serverconfig/bsp_region_guard-server.toml` and restart. Built and tested headless (106 GameTests); the screens have not been seen in a client.
+
+- [ ] SALE tab of a plot for sale: the price reads "for sale at 3 copper coins" and five tier chips follow SET PRICE. Click GOLD: it lights and the price reads "3 gold coins". Click GOLD again: back to the config's tier. `/rg cointier <plot> gold` does the same.
+- [ ] A player with no coins: `/claim quote` (or the Land Office's buy) is refused: "That plot costs 3 gold coins; you carry coins worth 0 copper."
+- [ ] Give the player a netherite coin (worth 8 copper by default). Buy: the coin is taken and coins worth 2 copper come back as change. Their bank balance does not change.
+- [ ] `/claim abandon <plot>`: "you get coins worth 3 copper back", coins arrive in the inventory; the plot is for sale again at 3 gold coins.
+- [ ] As admin, abandon an offline player's coin-bought claim; when they log in they get the coins and a chat line.
+- [ ] An open area: cost per block in coins; outline and buy; the quote says "blocks at 1 gold coin each".
+- [ ] Switch `currency` back to `pieces` and restart: prices read as pieces again; a claim bought with coins still refunds coins.
+- [ ] Land Office (BSP-Core 1.4.3, RG-C9): in coin mode it shows "3 gold coins" for the price, the cost per block and the outline quote, and the coins you carry instead of the bank balance. Buying there takes coins and gives change.
+

@@ -49,6 +49,7 @@ public class BSPRegionGuard {
         MinecraftForge.EVENT_BUS.addListener(WandHandler::onLeftClick);
         MinecraftForge.EVENT_BUS.addListener(WandHandler::onLogout);
         MinecraftForge.EVENT_BUS.addListener(com.mrgregles.bsp_region_guard.network.RegionSync::onLogin);
+        MinecraftForge.EVENT_BUS.addListener(com.mrgregles.bsp_region_guard.claim.PendingCoins::onLogin);
         MinecraftForge.EVENT_BUS.addListener(com.mrgregles.bsp_region_guard.network.RegionSync::onChangedDimension);
         MinecraftForge.EVENT_BUS.addListener(com.mrgregles.bsp_region_guard.network.RegionSync::onRespawn);
         com.mrgregles.bsp_region_guard.region.RegionStore.setChangeListener(store -> {

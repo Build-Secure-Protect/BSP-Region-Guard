@@ -119,11 +119,11 @@ public final class ClaimCommands {
         } else {
             out.append(Component.literal("Plots for sale: ").withStyle(ChatFormatting.GOLD)).append(plots.isEmpty() ? "none" : "");
             for (ClaimService.Listing l : plots) {
-                out.append("\n  " + l.id() + "  " + l.bounds().sizeX() + " x " + l.bounds().sizeZ() + "  " + BspCore.money(l.price()));
+                out.append("\n  " + l.id() + "  " + l.bounds().sizeX() + " x " + l.bounds().sizeZ() + "  " + com.mrgregles.bsp_region_guard.claim.Prices.text(com.mrgregles.bsp_region_guard.claim.Prices.tier(RegionStore.get(p.serverLevel()).get(l.id())), l.price()));
             }
             out.append(Component.literal("\nOpen areas (outline your own plot with /claim tool): ").withStyle(ChatFormatting.GOLD)).append(open.isEmpty() ? "none" : "");
             for (ClaimService.Listing l : open) {
-                out.append("\n  " + l.id() + "  " + BspCore.money(l.costPerBlock()) + " per block");
+                out.append("\n  " + l.id() + "  " + com.mrgregles.bsp_region_guard.claim.Prices.text(com.mrgregles.bsp_region_guard.claim.Prices.tier(RegionStore.get(p.serverLevel()).get(l.id())), l.costPerBlock()) + " per block");
             }
         }
         out.append(Component.literal("\nYour claims here: ").withStyle(ChatFormatting.LIGHT_PURPLE)).append(mine.isEmpty() ? "none" : String.join(", ", mine))
@@ -229,11 +229,11 @@ public final class ClaimCommands {
                 return 1;
             }
             if (r.type() == RegionType.PLOT_FOR_SALE) {
-                src.sendSuccess(() -> Component.literal(r.id() + " is for sale: " + BspCore.money(ClaimData.price(r)) + ". /claim buy " + r.id()), false);
+                src.sendSuccess(() -> Component.literal(r.id() + " is for sale: " + com.mrgregles.bsp_region_guard.claim.Prices.text(com.mrgregles.bsp_region_guard.claim.Prices.tier(r), ClaimData.price(r)) + ". /claim buy " + r.id()), false);
                 return 1;
             }
             if (r.type() == RegionType.OPEN_FOR_BUYING) {
-                src.sendSuccess(() -> Component.literal("Open area " + r.id() + ": " + BspCore.money(ClaimData.costPerBlock(r)) + " per block. /claim tool to outline a plot."), false);
+                src.sendSuccess(() -> Component.literal("Open area " + r.id() + ": " + com.mrgregles.bsp_region_guard.claim.Prices.text(com.mrgregles.bsp_region_guard.claim.Prices.tier(r), ClaimData.costPerBlock(r)) + " per block. /claim tool to outline a plot."), false);
                 return 1;
             }
         }

@@ -2,6 +2,7 @@ package com.mrgregles.bsp_region_guard.compat;
 
 import com.mrgregles.bsp_core.BSPConfig;
 import com.mrgregles.bsp_core.api.BspBank;
+import com.mrgregles.bsp_core.api.BspCoins;
 import com.mrgregles.bsp_core.api.BspPlayers;
 import com.mrgregles.bsp_core.api.BspZones;
 import com.mrgregles.bsp_core.data.TotemLedger;
@@ -111,6 +112,40 @@ public final class BspCore {
     /** An amount as players read it, for example {@code 12,500 pieces}. */
     public static String money(long pieces) {
         return BspBank.format(pieces);
+    }
+
+    // ------------------------------------------------------------------ money: Shatter Coins (D95 to D98, RG-C9)
+
+    /** The coin tiers by key, cheapest first (copper, gold, diamond, netherite, illyrium). */
+    public static List<String> coinTiers() {
+        return BspCoins.tiers();
+    }
+
+    /** One coin of this tier, in copper-coin units (BSP Core's config); 0 for an unknown tier. */
+    public static long coinValue(String tier) {
+        return BspCoins.value(tier);
+    }
+
+    /** The coins the player carries, in copper-coin units. */
+    public static long coinWorth(ServerPlayer player) {
+        return BspCoins.worth(player);
+    }
+
+    /** Takes coins worth {@code value} copper from the inventory, smallest first, with change; false and nothing taken when short. */
+    public static boolean payCoins(ServerPlayer player, long value) {
+        if (value <= 0) {
+            return true;
+        }
+        return value <= Integer.MAX_VALUE && BspCoins.pay(player, (int) value);
+    }
+
+    /** Gives coins worth {@code value} copper into the inventory, largest first (what does not fit drops at the player's feet). */
+    public static boolean giveCoins(ServerPlayer player, long value) {
+        for (long left = value; left > 0; left -= Integer.MAX_VALUE) {
+            BspCoins.give(player, (int) Math.min(left, Integer.MAX_VALUE));
+        }
+        player.inventoryMenu.broadcastChanges();
+        return true;
     }
 
     /** Replaces BSP Core's admin name list for the rest of the server run; returns the previous list. For tests. */

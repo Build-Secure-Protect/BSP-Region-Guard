@@ -202,6 +202,13 @@ public final class RegionSync {
             data.put("hasSpawn", String.valueOf(com.mrgregles.bsp_region_guard.mine.MineData.spawn(r) != null));
             data.put("hasShell", String.valueOf(store.has(r.id() + "_shell")));
         }
+        if (!r.isGlobal() && view == null) {
+            String tier = com.mrgregles.bsp_region_guard.claim.Prices.tier(r);
+            data.put("currency", tier == null ? "pieces" : tier);
+            if (com.mrgregles.bsp_region_guard.claim.Prices.coins()) {
+                data.put("coinTiers", String.join(",", BspCore.coinTiers()));
+            }
+        }
         if (r.isGlobal() && view == null) {
             borderData(player.serverLevel(), data);
         }
@@ -254,6 +261,7 @@ public final class RegionSync {
      * server's world (width 0 when it has no border).
      */
     public static void borderData(ServerLevel level, Map<String, String> data) {
+        data.put("plots.rule", com.mrgregles.bsp_region_guard.protection.TotemRule.plotRule(level).name().toLowerCase(java.util.Locale.ROOT));
         data.remove(com.mrgregles.bsp_region_guard.protection.EdgeLinks.KEY);
         String me = com.mrgregles.bsp_region_guard.protection.EdgeLinks.thisServer();
         data.put("storage", me.isEmpty() ? "off" : me);
@@ -414,7 +422,7 @@ public final class RegionSync {
             RegionActionPacket.ADD_MEMBER, RegionActionPacket.REMOVE_MEMBER, RegionActionPacket.ADD_RANK, RegionActionPacket.REMOVE_RANK,
             RegionActionPacket.PRIORITY, RegionActionPacket.PARENT, RegionActionPacket.TYPE, RegionActionPacket.RENAME, RegionActionPacket.MINE_ADD,
             RegionActionPacket.MINE_INTERVAL, RegionActionPacket.TRIGGER_REMOVE, RegionActionPacket.SET_DATA, RegionActionPacket.EDGE_REFRESH,
-            RegionActionPacket.RESIZE, RegionActionPacket.VFILL, RegionActionPacket.CORNERS);
+            RegionActionPacket.RESIZE, RegionActionPacket.VFILL, RegionActionPacket.CORNERS, RegionActionPacket.PLOTS_PVP);
 
     /** One edit from the screen, through the same {@link RegionEdits} the commands use. */
     @Nullable
@@ -462,6 +470,7 @@ public final class RegionSync {
             case RegionActionPacket.TRIGGER_ADD -> RegionEdits.addTrigger(player, store, r, a, b);
             case RegionActionPacket.TRIGGER_REMOVE -> RegionEdits.removeTrigger(store, r, Integer.parseInt(a));
             case RegionActionPacket.SET_DATA -> setData(level, store, r, a, b);
+            case RegionActionPacket.PLOTS_PVP -> r.isGlobal() ? RegionEdits.plotsInPvp(level, a) : new RegionEdits.Result(false, "Plots in a PvP world are set on the world default.");
             case RegionActionPacket.BORDER_SET, RegionActionPacket.BORDER_OFF, RegionActionPacket.EDGE_LINK, RegionActionPacket.EDGE_UNLINK,
                  RegionActionPacket.EDGE_REFRESH -> border(player, level, r, action, a, b);
             default -> new RegionEdits.Result(false, "Unknown action " + action);
@@ -506,6 +515,12 @@ public final class RegionSync {
     private static RegionEdits.Result setData(ServerLevel level, RegionStore store, Region r, String key, String value) {
         if (key.equals(ClaimData.PLAYER_FLAGS)) {
             return RegionEdits.plotFlags(store, r, value);
+        }
+        if (key.equals(com.mrgregles.bsp_region_guard.claim.Prices.COIN_TIER)) {
+            return RegionEdits.coinTier(store, r, value);
+        }
+        if (key.equals(ClaimData.PLOT_LIMIT)) {
+            return RegionEdits.plotLimit(store, r, value);
         }
         long n = value.isEmpty() ? 0 : Long.parseLong(value);
         return switch (key) {

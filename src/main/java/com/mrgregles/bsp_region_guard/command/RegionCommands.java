@@ -157,6 +157,23 @@ public final class RegionCommands {
                 .then(Commands.argument("minSize", IntegerArgumentType.integer(1)).then(Commands.argument("maxSize", IntegerArgumentType.integer(1))
                         .executes(ctx -> open(ctx.getSource(), id(ctx), LongArgumentType.getLong(ctx, "costPerBlock"),
                                 IntegerArgumentType.getInteger(ctx, "minSize"), IntegerArgumentType.getInteger(ctx, "maxSize"))))))));
+        rg.then(Commands.literal("cointier").then(id().then(Commands.argument("tier", StringArgumentType.word())
+                .suggests((c, b) -> {
+                    List<String> tiers = new ArrayList<>(BspCore.coinTiers());
+                    tiers.add("default");
+                    return SharedSuggestionProvider.suggest(tiers, b);
+                })
+                .executes(ctx -> answer(ctx.getSource(), RegionEdits.coinTier(RegionStore.get(ctx.getSource().getLevel()), region(ctx.getSource(), id(ctx)),
+                        StringArgumentType.getString(ctx, "tier")))))));
+        rg.then(Commands.literal("plotlimit").then(id()
+                .executes(ctx -> {
+                    int n = com.mrgregles.bsp_region_guard.claim.ClaimData.plotLimit(region(ctx.getSource(), id(ctx)));
+                    return ok(ctx.getSource(), n < 0 ? "No plot limit on " + id(ctx) + "." : "A player may own " + n + " plot" + (n == 1 ? "" : "s") + " inside " + id(ctx) + ".");
+                })
+                .then(Commands.argument("limit", StringArgumentType.word())
+                        .suggests((c, b) -> SharedSuggestionProvider.suggest(List.of("none", "1", "2", "3"), b))
+                        .executes(ctx -> answer(ctx.getSource(), RegionEdits.plotLimit(RegionStore.get(ctx.getSource().getLevel()), region(ctx.getSource(), id(ctx)),
+                                StringArgumentType.getString(ctx, "limit")))))));
         rg.then(Commands.literal("plotflags").then(id().then(Commands.argument("flags", StringArgumentType.greedyString())
                 .executes(ctx -> plotFlags(ctx.getSource(), id(ctx), StringArgumentType.getString(ctx, "flags"))))));
         rg.then(Commands.literal("mine")
@@ -210,6 +227,11 @@ public final class RegionCommands {
                 })));
         rg.then(Commands.literal("claims")
                 .then(Commands.literal("list").executes(ctx -> claimsList(ctx.getSource())))
+                .then(Commands.literal("pvp")
+                        .executes(ctx -> ok(ctx.getSource(), plotRuleText(ctx.getSource().getLevel())))
+                        .then(Commands.argument("rule", StringArgumentType.word())
+                                .suggests((c, b) -> SharedSuggestionProvider.suggest(List.of("allow", "deny", "default"), b))
+                                .executes(ctx -> answer(ctx.getSource(), RegionEdits.plotsInPvp(ctx.getSource().getLevel(), StringArgumentType.getString(ctx, "rule"))))))
                 .then(Commands.literal("wipe").executes(ctx -> ok(ctx.getSource(), com.mrgregles.bsp_region_guard.claim.ClaimWipe.request(player(ctx.getSource()), ctx.getSource().getLevel())))
                         .then(Commands.argument("code", StringArgumentType.word())
                                 .executes(ctx -> ok(ctx.getSource(), com.mrgregles.bsp_region_guard.claim.ClaimWipe.confirm(player(ctx.getSource()), ctx.getSource().getLevel(), StringArgumentType.getString(ctx, "code"))))))
@@ -303,6 +325,29 @@ public final class RegionCommands {
             throw new SimpleCommandExceptionType(Component.literal("No region named '" + id + "' in this world. Use /rg list.")).create();
         }
         return r;
+    }
+
+    /** What a claim cost, per currency it was paid in. */
+    private static String paid(Region r) {
+        long pieces = com.mrgregles.bsp_region_guard.claim.ClaimData.boughtFor(r), coins = com.mrgregles.bsp_region_guard.claim.ClaimData.boughtCoins(r);
+        if (coins <= 0) {
+            return BspCore.money(pieces);
+        }
+        String c = com.mrgregles.bsp_region_guard.claim.Prices.worthText(coins);
+        return pieces > 0 ? BspCore.money(pieces) + " + " + c : c;
+    }
+
+    /** {@code /rg claims pvp}: whether plots may be made in this world, and why. */
+    private static String plotRuleText(net.minecraft.server.level.ServerLevel level) {
+        String world = level.dimension().location().toString();
+        return switch (com.mrgregles.bsp_region_guard.protection.TotemRule.plotRule(level)) {
+            case NOT_PVP -> "Plots are allowed in " + world + ": it is not a PvP world.";
+            case PVP_DENIED -> "Plots are allowed in " + world + ": pvp is denied on the world default.";
+            case WORLD_ALLOWS -> "Plots are allowed in " + world + " (set on this world, /rg claims pvp default to follow the config).";
+            case CONFIG_ALLOWS -> "Plots are allowed in " + world + " (claims.allowInPvpWorlds in the config).";
+            case WORLD_REFUSES -> "Plots are refused in " + world + ", a PvP world (set on this world).";
+            case CONFIG_REFUSES -> "Plots are refused in " + world + ", a PvP world (the config). /rg claims pvp allow to allow them here.";
+        };
     }
 
     private static int ok(CommandSourceStack src, String text) {
@@ -560,7 +605,7 @@ public final class RegionCommands {
         }
         MutableComponent out = Component.literal("Claims in " + src.getLevel().dimension().location() + " (" + claims.size() + "):");
         for (Region r : claims) {
-            out.append("\n  " + r.id() + "  " + names(src, r.owners()) + "  " + BspCore.money(com.mrgregles.bsp_region_guard.claim.ClaimData.boughtFor(r)));
+            out.append("\n  " + r.id() + "  " + names(src, r.owners()) + "  " + paid(r));
         }
         src.sendSuccess(() -> out, false);
         return 1;

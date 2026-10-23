@@ -4,6 +4,17 @@ All notable changes to BSP Region Guard. Format follows Keep a Changelog; versio
 
 ## [Unreleased]
 
+**Needs BSP-Core 1.4.3 or newer** (was 1.1.0): coins go through BSP-Core's new `api.BspCoins` (request RG-C9). Region Guard now builds against BSP-Core 1.4.3.
+
+### Fixed (2026-10-23, B11: plots in PvP worlds)
+- A world counted as a PvP world for plots whenever BSP Core allows Shatter Totems there, even with `pvp` denied on its world default. Now a world default with **`pvp` deny counts as not PvP for plots** (D93). The totem rule is unchanged: raiders are still not stopped near another player's totem (D94).
+- The refusal now says why the world counts as a PvP world and how to allow plots.
+
+### Added (2026-10-23)
+- **Plot limits per region** (D100 to D102): any region can limit how many plots one player may own inside it (by ground, x and z), with **Plots per player inside** on its SALE tab or `/rg plotlimit <id> <n|none>`. The world default's limit (MAX on its BORDER tab's PLOTS HERE card, or `/rg plotlimit __global__ <n>`) takes the place of `claims.maxPerPlayer`; rank limits can still raise it. Every limit must pass.
+- **Shatter Coin prices** (D95 to D98): `claims.currency = coins` (server config) makes plots cost coins of one tier from the player's inventory, any tiers adding up to the value, with change. The tier is set per plot or open area (tier chips on the SALE tab, `/rg cointier <id> <tier|default>`), else `claims.coinTier` (copper). Giving a plot up pays half back in coins (at the next login if offline). Claims keep what they cost in each currency. **API 6:** `claims().paysInCoins()`, `claims().priceText(...)`. BSP-Core 1.4.3's Land Office shows coin prices (RG-C9).
+- **Plots in a PvP world, per world** (D92): ALLOW, REFUSE or CONFIG on a new PLOTS HERE card on the world default's BORDER tab, or `/rg claims pvp allow|deny|default` (no argument: shows the current rule and why). CONFIG follows `claims.allowInPvpWorlds`. The setting is stored on the world default, so it is mirrored with it.
+
 ## [0.4.0] - 2026-10-23
 
 The region map: one map that makes, reshapes and manages every region, plot and mine; regions made without the wand; size editing and vertical fill. Network protocol 7: servers and players need this version together. The API is unchanged (version 5).

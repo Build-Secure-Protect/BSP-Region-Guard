@@ -80,7 +80,8 @@ public final class Claims implements ClaimService {
 
     @Override
     public int claimLimit(ServerPlayer player) {
-        int limit = RegionGuardConfig.getOr(RegionGuardConfig.CLAIM_MAX_PER_PLAYER, 3);
+        int own = ClaimData.plotLimit(RegionStore.get(player.serverLevel()).global());
+        int limit = own >= 0 ? own : RegionGuardConfig.getOr(RegionGuardConfig.CLAIM_MAX_PER_PLAYER, 3);
         List<? extends String> byRank = RegionGuardConfig.getOr(RegionGuardConfig.CLAIM_LIMITS_BY_RANK, List.of());
         if (byRank == null || byRank.isEmpty() || !LuckPermsBridge.isPresent()) {
             return limit;
@@ -107,6 +108,16 @@ public final class Claims implements ClaimService {
     @Override
     public boolean claimsAllowedIn(ServerLevel level) {
         return TotemRule.claimsAllowedIn(level);
+    }
+
+    @Override
+    public boolean paysInCoins() {
+        return Prices.coins();
+    }
+
+    @Override
+    public String priceText(ServerLevel level, String regionId, long amount) {
+        return Prices.text(Prices.tier(RegionStore.get(level).get(regionId)), amount);
     }
 
     // ------------------------------------------------------------------ money in flight
@@ -151,8 +162,12 @@ public final class Claims implements ClaimService {
      * Charges the bank, then on the server thread checks again that the purchase still stands and completes it; if it
      * no longer stands (someone else was quicker, an admin changed the price) the money is paid back.
      */
-    private void pay(ServerPlayer player, Hold hold, long price, String reason, Supplier<String> recheck, Supplier<ClaimResult> complete,
+    private void pay(ServerPlayer player, Hold hold, @Nullable String tier, long price, String reason, Supplier<String> recheck, Supplier<ClaimResult> complete,
                      Consumer<ClaimResult> then) {
+        if (tier != null) {
+            payCoins(player, hold, tier, price, reason, recheck, complete, then);
+            return;
+        }
         UUID buyer = player.getUUID();
         holds.put(buyer, hold);
         Consumer<Boolean> answered = paid -> {
@@ -188,6 +203,48 @@ public final class Claims implements ClaimService {
         }
     }
 
+    /**
+     * Coin mode (D96, D97): the coins are taken from the inventory at once, so the purchase is checked and completed in
+     * the same tick; if completing fails the coins go back.
+     */
+    private void payCoins(ServerPlayer player, Hold hold, String tier, long price, String reason, Supplier<String> recheck,
+                          Supplier<ClaimResult> complete, Consumer<ClaimResult> then) {
+        String problem = recheck.get();
+        if (problem != null) {
+            then.accept(new ClaimResult(false, problem, hold.plotId(), price));
+            return;
+        }
+        long worth = Prices.worth(tier, price);
+        if (!BspCore.payCoins(player, worth)) {
+            then.accept(new ClaimResult(false, "You need " + Prices.text(tier, price) + " (or " + Prices.worthText(worth) + ") in your inventory; "
+                    + Prices.holding(player, tier) + ". Nothing was bought.", hold.plotId(), price));
+            return;
+        }
+        ClaimResult result;
+        try {
+            result = complete.get();
+        } catch (RuntimeException e) {
+            BSPRegionGuard.LOGGER.error("Completing {} for {} failed after payment in coins; giving them back", reason, player.getGameProfile().getName(), e);
+            BspCore.giveCoins(player, worth);
+            result = new ClaimResult(false, "Something went wrong; your coins were given back.", hold.plotId(), price);
+        }
+        then.accept(result);
+    }
+
+    /** Records a payment on a claim in the currency it was made in (pieces, or coins as copper units). */
+    private static void addPaid(Region claim, @Nullable String tier, long price) {
+        if (tier == null) {
+            claim.typeData().putLong(ClaimData.BOUGHT_FOR, saturatedAdd(ClaimData.boughtFor(claim), price));
+        } else {
+            claim.typeData().putLong(ClaimData.BOUGHT_COINS, saturatedAdd(ClaimData.boughtCoins(claim), Prices.worth(tier, price)));
+        }
+    }
+
+    static long saturatedAdd(long a, long b) {
+        long sum = a + b;
+        return ((a ^ sum) & (b ^ sum)) < 0 ? Long.MAX_VALUE : sum;
+    }
+
     private static void payBack(MinecraftServer server, UUID player, long pieces, String reason) {
         BspCore.credit(server, player, pieces, reason, ok -> {
             if (!ok) {
@@ -205,8 +262,8 @@ public final class Claims implements ClaimService {
         }
     }
 
-    private static ClaimResult shortOf(String what, long price, ServerPlayer player, @Nullable String claimId) {
-        return new ClaimResult(false, what + " costs " + BspCore.money(price) + "; your bank holds " + BspCore.money(BspCore.balance(player)) + ".", claimId, price);
+    private static ClaimResult shortOf(String what, @Nullable String tier, long price, ServerPlayer player, @Nullable String claimId) {
+        return new ClaimResult(false, what + " costs " + Prices.text(tier, price) + "; " + Prices.holding(player, tier) + ".", claimId, price);
     }
 
     // ------------------------------------------------------------------ plots for sale
@@ -221,7 +278,7 @@ public final class Claims implements ClaimService {
             return "Claims are not allowed in this world.";
         }
         String held = heldByOther(level, plotId, null, player.getUUID());
-        return held != null ? held : overLimit(player, level);
+        return held != null ? held : overLimit(player, level, plot.bounds(), plot);
     }
 
     @Override
@@ -233,10 +290,11 @@ public final class Claims implements ClaimService {
             return ClaimResult.fail(problem);
         }
         long price = ClaimData.price(plot);
-        if (BspCore.balance(player) < price) {
-            return shortOf("That plot", price, player, plot.id());
+        String tier = Prices.tier(plot);
+        if (!Prices.affordable(player, tier, price)) {
+            return shortOf("That plot", tier, price, player, plot.id());
         }
-        return ClaimResult.ok(plot.id() + " costs " + BspCore.money(price) + " (" + plot.bounds().sizeX() + " x " + plot.bounds().sizeZ() + ").", plot.id(), price);
+        return ClaimResult.ok(plot.id() + " costs " + Prices.text(tier, price) + " (" + plot.bounds().sizeX() + " x " + plot.bounds().sizeZ() + ").", plot.id(), price);
     }
 
     @Override
@@ -252,30 +310,33 @@ public final class Claims implements ClaimService {
         }
         ServerLevel level = player.serverLevel();
         long price = quote.price();
-        pay(player, new Hold(level.dimension(), plotId, null, player.getUUID(), System.currentTimeMillis()), price,
+        String tier = Prices.tier(RegionStore.get(level).get(plotId));
+        pay(player, new Hold(level.dimension(), plotId, null, player.getUUID(), System.currentTimeMillis()), tier, price,
                 "plot " + plotId + " in " + level.dimension().location(),
                 () -> {
                     Region plot = RegionStore.get(level).get(plotId);
                     String problem = plotProblem(level, player, plot, plotId);
-                    return problem == null && ClaimData.price(plot) != price ? "The price of " + plotId + " changed." : problem;
+                    return problem == null && (ClaimData.price(plot) != price || !java.util.Objects.equals(Prices.tier(plot), tier)) ? "The price of " + plotId + " changed." : problem;
                 },
-                () -> completePlot(level, player, plotId, price), then);
+                () -> completePlot(level, player, plotId, tier, price), then);
     }
 
-    private ClaimResult completePlot(ServerLevel level, ServerPlayer player, String plotId, long price) {
+    private ClaimResult completePlot(ServerLevel level, ServerPlayer player, String plotId, @Nullable String tier, long price) {
         RegionStore store = RegionStore.get(level);
         Region plot = store.get(plotId);
         plot.setType(RegionType.CLAIM);
         plot.addOwner(player.getUUID());
         plot.typeData().putLong(ClaimData.ORIGINAL_PRICE, price);
         plot.typeData().remove(ClaimData.PRICE);
-        plot.typeData().putLong(ClaimData.BOUGHT_FOR, price);
+        plot.typeData().remove(ClaimData.BOUGHT_FOR);
+        plot.typeData().remove(ClaimData.BOUGHT_COINS);
+        addPaid(plot, tier, price);
         plot.typeData().putLong(ClaimData.BOUGHT_AT, System.currentTimeMillis());
         plot.typeData().putString(ClaimData.ORIGIN, ClaimData.ORIGIN_PLOT);
         store.touch(plot);
         MinecraftForge.EVENT_BUS.post(new ClaimPurchasedEvent(player, plot.id(), level.dimension(), price, false, plot.bounds()));
-        BSPRegionGuard.LOGGER.info("{} bought plot {} in {} for {}", player.getGameProfile().getName(), plot.id(), level.dimension().location(), BspCore.money(price));
-        return ClaimResult.ok("You bought " + plot.id() + " for " + BspCore.money(price) + ".", plot.id(), price);
+        BSPRegionGuard.LOGGER.info("{} bought plot {} in {} for {}", player.getGameProfile().getName(), plot.id(), level.dimension().location(), Prices.text(tier, price));
+        return ClaimResult.ok("You bought " + plot.id() + " for " + Prices.text(tier, price) + ".", plot.id(), price);
     }
 
     // ------------------------------------------------------------------ open areas
@@ -285,10 +346,40 @@ public final class Claims implements ClaimService {
         return new Cuboid(ground.minX(), level.getMinBuildHeight(), ground.minZ(), ground.maxX(), level.getMaxBuildHeight() - 1, ground.maxZ());
     }
 
+    /**
+     * Why one more plot on this ground would put the player over a limit, or null (D100, D101): the world's limit, then
+     * every region whose ground holds the new plot's ground and has its own limit. Plots count by their ground (x and z),
+     * so a full-height plot counts inside a region of any height. {@code plot} is the plot being bought (never its own limit).
+     */
     @Nullable
-    private String overLimit(ServerPlayer player, ServerLevel level) {
-        int have = claimsOf(level, player.getUUID()).size(), limit = claimLimit(player);
-        return have >= limit ? "You already own " + have + " claim" + (have == 1 ? "" : "s") + " here; your limit is " + limit + "." : null;
+    private String overLimit(ServerPlayer player, ServerLevel level, Cuboid ground, @Nullable Region plot) {
+        List<Region> owned = new ArrayList<>();
+        for (Region r : RegionStore.get(level).all()) {
+            if (r.type() == RegionType.CLAIM && r.isOwner(player.getUUID()) && r.bounds() != null) {
+                owned.add(r);
+            }
+        }
+        int have = owned.size(), limit = claimLimit(player);
+        if (have >= limit) {
+            return "You already own " + have + " claim" + (have == 1 ? "" : "s") + " here; your limit is " + limit + ".";
+        }
+        for (Region r : RegionStore.get(level).all()) {
+            int max = ClaimData.plotLimit(r);
+            if (max < 0 || r == plot || r.isGlobal() || !r.hasCorners() || !onGround(r.bounds(), ground)) {
+                continue;
+            }
+            long inside = owned.stream().filter(c -> c != r && onGround(r.bounds(), c.bounds())).count();
+            if (inside >= max) {
+                return max == 0 ? "Nobody may own a plot inside " + r.name() + "."
+                        : "You already own " + inside + " plot" + (inside == 1 ? "" : "s") + " inside " + r.name() + "; its limit is " + max + ".";
+            }
+        }
+        return null;
+    }
+
+    /** Whether {@code inner}'s ground (x and z) lies wholly within {@code outer}'s. */
+    static boolean onGround(Cuboid outer, Cuboid inner) {
+        return inner.minX() >= outer.minX() && inner.maxX() <= outer.maxX() && inner.minZ() >= outer.minZ() && inner.maxZ() <= outer.maxZ();
     }
 
     /** Checks an outline against an open area; returns the problem, or null when it fits. {@code except} is the claim being enlarged. */
@@ -323,7 +414,7 @@ public final class Claims implements ClaimService {
         if (!claimsAllowedIn(level)) {
             return "Claims are not allowed in this world.";
         }
-        String limit = overLimit(player, level);
+        String limit = overLimit(player, level, ground, null);
         if (limit != null) {
             return limit;
         }
@@ -340,10 +431,11 @@ public final class Claims implements ClaimService {
             return ClaimResult.fail(problem);
         }
         long perBlock = ClaimData.costPerBlock(open), price = cost(ground.area(), perBlock);
-        if (BspCore.balance(player) < price) {
-            return shortOf("That plot (" + ground.area() + " blocks at " + BspCore.money(perBlock) + ")", price, player, null);
+        String tier = Prices.tier(open);
+        if (!Prices.affordable(player, tier, price)) {
+            return shortOf("That plot (" + ground.area() + " blocks at " + Prices.text(tier, perBlock) + ")", tier, price, player, null);
         }
-        return ClaimResult.ok(ground.sizeX() + " x " + ground.sizeZ() + " blocks at " + BspCore.money(perBlock) + " each: " + BspCore.money(price) + ".", null, price);
+        return ClaimResult.ok(ground.sizeX() + " x " + ground.sizeZ() + " blocks at " + Prices.text(tier, perBlock) + " each: " + Prices.text(tier, price) + ".", null, price);
     }
 
     @Override
@@ -359,17 +451,19 @@ public final class Claims implements ClaimService {
         }
         ServerLevel level = player.serverLevel();
         long price = quote.price();
-        pay(player, new Hold(level.dimension(), null, ground, player.getUUID(), System.currentTimeMillis()), price,
+        String tier = Prices.tier(RegionStore.get(level).get(openId));
+        pay(player, new Hold(level.dimension(), null, ground, player.getUUID(), System.currentTimeMillis()), tier, price,
                 "plot in " + openId + " (" + level.dimension().location() + ")",
                 () -> {
                     Region open = RegionStore.get(level).get(openId);
                     String problem = openProblem(level, player, open, ground);
-                    return problem == null && cost(ground.area(), ClaimData.costPerBlock(open)) != price ? "The cost per block in " + openId + " changed." : problem;
+                    return problem == null && (cost(ground.area(), ClaimData.costPerBlock(open)) != price || !java.util.Objects.equals(Prices.tier(open), tier))
+                            ? "The cost per block in " + openId + " changed." : problem;
                 },
-                () -> completeOpen(level, player, openId, ground, price), then);
+                () -> completeOpen(level, player, openId, ground, tier, price), then);
     }
 
-    private ClaimResult completeOpen(ServerLevel level, ServerPlayer player, String openId, Cuboid ground, long price) {
+    private ClaimResult completeOpen(ServerLevel level, ServerPlayer player, String openId, Cuboid ground, @Nullable String tier, long price) {
         RegionStore store = RegionStore.get(level);
         Region open = store.get(openId);
         Region claim = new Region(freeId(store, open, player), level.dimension(), fullHeight(level, ground), RegionType.CLAIM);
@@ -377,13 +471,13 @@ public final class Claims implements ClaimService {
         claim.setPriority(open.priority() + 1);
         claim.setParentId(open.id());
         claim.addOwner(player.getUUID());
-        claim.typeData().putLong(ClaimData.BOUGHT_FOR, price);
+        addPaid(claim, tier, price);
         claim.typeData().putLong(ClaimData.BOUGHT_AT, System.currentTimeMillis());
         claim.typeData().putString(ClaimData.ORIGIN, ClaimData.ORIGIN_OPEN);
         store.add(claim);
         MinecraftForge.EVENT_BUS.post(new ClaimPurchasedEvent(player, claim.id(), level.dimension(), price, false, claim.bounds()));
-        BSPRegionGuard.LOGGER.info("{} bought {} in {} ({}) for {}", player.getGameProfile().getName(), claim.id(), open.id(), level.dimension().location(), BspCore.money(price));
-        return ClaimResult.ok("You bought " + claim.id() + " for " + BspCore.money(price) + ".", claim.id(), price);
+        BSPRegionGuard.LOGGER.info("{} bought {} in {} ({}) for {}", player.getGameProfile().getName(), claim.id(), open.id(), level.dimension().location(), Prices.text(tier, price));
+        return ClaimResult.ok("You bought " + claim.id() + " for " + Prices.text(tier, price) + ".", claim.id(), price);
     }
 
     /** {@code <area>-<player>-<n>}, kept within the id length limit. */
@@ -448,28 +542,29 @@ public final class Claims implements ClaimService {
             return;
         }
         long added = ground.area() - claim.bounds().area(), price = enlargeCost(store, claim, ground);
-        if (BspCore.balance(player) < price) {
-            then.accept(shortOf("Adding " + added + " blocks", price, player, claimId));
+        String tier = Prices.tier(store.get(claim.parentId()));
+        if (!Prices.affordable(player, tier, price)) {
+            then.accept(shortOf("Adding " + added + " blocks", tier, price, player, claimId));
             return;
         }
-        pay(player, new Hold(level.dimension(), claimId, ground, player.getUUID(), System.currentTimeMillis()), price,
+        pay(player, new Hold(level.dimension(), claimId, ground, player.getUUID(), System.currentTimeMillis()), tier, price,
                 "enlarging " + claimId + " in " + level.dimension().location(),
                 () -> {
                     Region now = RegionStore.get(level).get(claimId);
                     String p = enlargeProblem(level, player, now, claimId, ground);
                     return p == null && enlargeCost(RegionStore.get(level), now, ground) != price ? "The cost per block changed." : p;
                 },
-                () -> completeEnlarge(level, player, claimId, ground, price), then);
+                () -> completeEnlarge(level, player, claimId, ground, tier, price), then);
     }
 
-    private ClaimResult completeEnlarge(ServerLevel level, ServerPlayer player, String claimId, Cuboid ground, long price) {
+    private ClaimResult completeEnlarge(ServerLevel level, ServerPlayer player, String claimId, Cuboid ground, @Nullable String tier, long price) {
         RegionStore store = RegionStore.get(level);
         Region claim = store.get(claimId);
         claim.setBounds(fullHeight(level, ground));
-        claim.typeData().putLong(ClaimData.BOUGHT_FOR, ClaimData.boughtFor(claim) + price);
+        addPaid(claim, tier, price);
         store.touch(claim);
         MinecraftForge.EVENT_BUS.post(new ClaimPurchasedEvent(player, claim.id(), level.dimension(), price, true, claim.bounds()));
-        return ClaimResult.ok(claim.id() + " is now " + ground.sizeX() + " x " + ground.sizeZ() + "; you paid " + BspCore.money(price) + " for the extra ground.", claim.id(), price);
+        return ClaimResult.ok(claim.id() + " is now " + ground.sizeX() + " x " + ground.sizeZ() + "; you paid " + Prices.text(tier, price) + " for the extra ground.", claim.id(), price);
     }
 
     // ------------------------------------------------------------------ abandon
@@ -487,13 +582,20 @@ public final class Claims implements ClaimService {
             return ClaimResult.fail("Only the owner can give up " + claimId + ".");
         }
         Cuboid bounds = claim.bounds();
-        long refund = ClaimData.boughtFor(claim) * RegionGuardConfig.getOr(RegionGuardConfig.CLAIM_REFUND_PERCENT, 50) / 100;
-        // an admin removing someone else's claim: the refund goes to the owner's bank, online or not
+        int percent = RegionGuardConfig.getOr(RegionGuardConfig.CLAIM_REFUND_PERCENT, 50);
+        long refund = ClaimData.boughtFor(claim) / 100 * percent + ClaimData.boughtFor(claim) % 100 * percent / 100;
+        long coinRefund = ClaimData.boughtCoins(claim) / 100 * percent + ClaimData.boughtCoins(claim) % 100 * percent / 100;
+        // an admin removing someone else's claim: the refund goes to the owner's bank (coins: at their next login), online or not
         UUID payee = owner ? player.getUUID() : claim.owners().stream().findFirst().orElse(null);
         if (refund > 0 && payee != null) {
             payBack(player.server, payee, refund, "gave up " + claimId + " in " + level.dimension().location());
         } else {
             refund = 0;
+        }
+        if (coinRefund > 0 && payee != null) {
+            PendingCoins.refund(player.server, payee, coinRefund);
+        } else {
+            coinRefund = 0;
         }
         if (ClaimData.ORIGIN_PLOT.equals(ClaimData.origin(claim))) {
             // an admin plot goes back on sale at its original price
@@ -506,15 +608,19 @@ public final class Claims implements ClaimService {
             claim.setType(RegionType.PLOT_FOR_SALE);
             claim.typeData().putLong(ClaimData.PRICE, claim.typeData().getLong(ClaimData.ORIGINAL_PRICE));
             claim.typeData().remove(ClaimData.BOUGHT_FOR);
+            claim.typeData().remove(ClaimData.BOUGHT_COINS);
             claim.typeData().remove(ClaimData.BOUGHT_AT);
             claim.typeData().remove(ClaimData.ORIGIN);
             store.touch(claim);
         } else {
             store.remove(claim.id());
         }
-        MinecraftForge.EVENT_BUS.post(new ClaimAbandonedEvent(player, claimId, level.dimension(), refund, bounds));
-        String back = refund <= 0 ? "." : (owner ? "; your bank gets " : "; the owner's bank gets ") + BspCore.money(refund) + " back.";
-        return ClaimResult.ok("You gave up " + claimId + back, claimId, refund);
+        MinecraftForge.EVENT_BUS.post(new ClaimAbandonedEvent(player, claimId, level.dimension(), refund > 0 ? refund : coinRefund, bounds));
+        String back = refund <= 0 ? "" : (owner ? "; your bank gets " : "; the owner's bank gets ") + BspCore.money(refund) + " back";
+        if (coinRefund > 0) {
+            back += (owner ? "; you get " : "; the owner gets ") + Prices.worthText(coinRefund) + " back";
+        }
+        return ClaimResult.ok("You gave up " + claimId + back + ".", claimId, refund > 0 ? refund : coinRefund);
     }
 
     // ------------------------------------------------------------------ the Land Office (CR-1 to CR-3)

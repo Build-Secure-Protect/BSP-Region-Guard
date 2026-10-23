@@ -77,4 +77,17 @@ public interface ClaimService {
 
     /** Whether claims may exist in this world at all (not in PvP worlds unless configured). */
     boolean claimsAllowedIn(ServerLevel level);
+
+    /**
+     * Whether plots are paid in Shatter Coins from the player's inventory ({@code claims.currency = coins}) rather than
+     * Shatter Pieces from the bank. With coins, a listing's {@code price} and {@code costPerBlock}, and a result's
+     * {@code price}, are numbers of coins of that plot's tier; use {@link #priceText} to show them. API 6.
+     */
+    boolean paysInCoins();
+
+    /**
+     * An amount of the given plot's or open area's currency as players read it, for example {@code 12,500 pieces} or
+     * {@code 5 gold coins}. An unknown id reads in the config's tier. API 6.
+     */
+    String priceText(ServerLevel level, String regionId, long amount);
 }

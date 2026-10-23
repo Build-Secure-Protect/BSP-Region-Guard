@@ -383,7 +383,7 @@ public final class PlotMap {
         }
         if (type == RegionType.PLOT_FOR_SALE) {
             if (!com.mrgregles.bsp_region_guard.protection.TotemRule.claimsAllowedIn(level)) {
-                return Result.fail("Claims are not allowed in a PvP world.");
+                return Result.fail(com.mrgregles.bsp_region_guard.protection.TotemRule.plotsRefused(level));
             }
             if (price <= 0) {
                 return Result.fail("A plot for sale needs a price above 0.");
@@ -405,7 +405,7 @@ public final class PlotMap {
         }
         record(admin, new Step(level.dimension().location().toString(), id, null, r.save(), null, 0, null, Kind.CREATE));
         return Result.ok(id + " made: " + type.key().replace('_', ' ') + ", " + box.sizeX() + " x " + box.sizeZ() + ", y " + box.minY() + " to " + box.maxY()
-                + (type == RegionType.PLOT_FOR_SALE ? ", for sale at " + BspCore.money(price) : "") + ".");
+                + (type == RegionType.PLOT_FOR_SALE ? ", for sale at " + Prices.text(Prices.tier(r), price) : "") + ".");
     }
 
     /** Deletes a region from the map; UNDO brings it back with everything it had (D87). */

@@ -46,6 +46,8 @@ def main():
         "mode.": ["region", "plot", "mine"],
         "tool.": ["pick", "draw", "reshape"],
         "pm_new.": ["region", "plot", "mine"],
+        "coin_tier.": ["copper", "gold", "diamond", "netherite", "illyrium"],
+        "plots_rule.": ["not_pvp", "pvp_denied", "world_allows", "config_allows", "world_refuses", "config_refuses"],
     }
     used_families = set(re.findall(r'Tr\.[tn]\("([a-z0-9_]+\.)"\s*\+', every))
     for fam in used_families:

@@ -3,8 +3,10 @@ package com.mrgregles.bsp_region_guard.protection;
 import com.mrgregles.bsp_region_guard.RegionGuardConfig;
 import com.mrgregles.bsp_region_guard.compat.BspCore;
 import com.mrgregles.bsp_region_guard.flag.Flags;
+import com.mrgregles.bsp_region_guard.flag.State;
 import com.mrgregles.bsp_region_guard.flag.StateFlag;
 import com.mrgregles.bsp_region_guard.region.RegionQuery;
+import com.mrgregles.bsp_region_guard.region.RegionStore;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
@@ -68,8 +70,48 @@ public final class TotemRule {
         return BspCore.isTotemWorld(level.dimension());
     }
 
-    /** Claims are refused in PvP worlds unless the config says otherwise. */
+    /** The world default's own answer to plots in a PvP world (D92): "allow" or "deny"; absent follows the config. */
+    public static final String PLOTS_IN_PVP = "plotsInPvp";
+
+    /** Why plots are allowed or refused in a world, as the BORDER tab shows it. */
+    public enum PlotRule {
+        NOT_PVP(true), PVP_DENIED(true), WORLD_ALLOWS(true), CONFIG_ALLOWS(true), WORLD_REFUSES(false), CONFIG_REFUSES(false);
+
+        public final boolean allowed;
+
+        PlotRule(boolean allowed) {
+            this.allowed = allowed;
+        }
+    }
+
+    /**
+     * Plots in this world (D92, D93): always in a world that is not a PvP world, and in one whose world default denies
+     * {@code pvp}; otherwise the world default's own setting, else the config's {@code claims.allowInPvpWorlds}.
+     * Only plot placement reads the {@code pvp} flag here: the totem exemption above still uses {@link #isPvpWorld} (D94).
+     */
+    public static PlotRule plotRule(ServerLevel level) {
+        if (!isPvpWorld(level)) {
+            return PlotRule.NOT_PVP;
+        }
+        var global = RegionStore.get(level).global();
+        if (global.flag(Flags.PVP) == State.DENY) {
+            return PlotRule.PVP_DENIED;
+        }
+        String own = global.typeData().getString(PLOTS_IN_PVP);
+        if (own.equals("allow") || own.equals("deny")) {
+            return own.equals("allow") ? PlotRule.WORLD_ALLOWS : PlotRule.WORLD_REFUSES;
+        }
+        return RegionGuardConfig.getOr(RegionGuardConfig.CLAIMS_IN_PVP_WORLDS, false) ? PlotRule.CONFIG_ALLOWS : PlotRule.CONFIG_REFUSES;
+    }
+
+    /** Claims are refused in PvP worlds unless PvP is denied in the world or a setting allows them ({@link #plotRule}). */
     public static boolean claimsAllowedIn(ServerLevel level) {
-        return !isPvpWorld(level) || RegionGuardConfig.getOr(RegionGuardConfig.CLAIMS_IN_PVP_WORLDS, false);
+        return plotRule(level).allowed;
+    }
+
+    /** The admin's answer when plots are refused here: what makes it a PvP world and how to allow plots. */
+    public static String plotsRefused(ServerLevel level) {
+        return "Plots are not allowed in " + level.dimension().location() + ": Shatter Totems can be placed here, so it counts as a PvP world. "
+                + "Deny pvp on the world default, or allow plots on its BORDER tab (/rg claims pvp allow).";
     }
 }

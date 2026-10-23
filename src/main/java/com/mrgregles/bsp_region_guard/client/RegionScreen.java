@@ -995,6 +995,27 @@ public class RegionScreen extends HoloScreen {
         if (storage.equals("off")) {
             text(g, Tr.t("links_need_shared_storage"), px + 4, cy + 4, MUTED, 0.5f);
         }
+        drawPlotsCard(g, data, px + 177, cy + 96, 85, 30);
+    }
+
+    /**
+     * Plots in this world (D92, D93), in the BORDER tab's free bottom-right corner: allowed or refused and why, and the
+     * world's own switch ALLOW / REFUSE / CONFIG for when it counts as a PvP world.
+     */
+    private void drawPlotsCard(GuiGraphics g, java.util.Map<String, String> data, int sx, int sy, int sw, int sh) {
+        String rule = data.getOrDefault("plots.rule", "config_refuses");
+        boolean allowed = !rule.endsWith("refuses");
+        frame(g, sx, sy, sw, sh, allowed ? TQ : BAD);
+        text(g, Tr.t("plots_here"), sx + 3, sy + 3, allowed ? TQ : BAD, 0.6f);
+        String limit = data.get("plotLimit");
+        chip(g, sx + sw - 38, sy + 2, 36, 8, limit == null ? Tr.t("plots_max_config") : Tr.t("plots_max", limit), limit != null, GOLD, 0.5f,
+                () -> data("plotLimit", limit == null ? "" : limit, Tr.t("plot_limit_world_hint")));
+        text(g, Tr.t("plots_rule." + rule), sx + 3, sy + 11, MUTED, 0.5f);
+        String own = data.getOrDefault(com.mrgregles.bsp_region_guard.protection.TotemRule.PLOTS_IN_PVP, "");
+        int cw = (sw - 8) / 3;
+        chip(g, sx + 2, sy + sh - 11, cw, 9, Tr.t("plots_allow"), own.equals("allow"), TQ, 0.5f, () -> act(RegionActionPacket.PLOTS_PVP, "allow"));
+        chip(g, sx + 4 + cw, sy + sh - 11, cw, 9, Tr.t("plots_refuse"), own.equals("deny"), BAD, 0.5f, () -> act(RegionActionPacket.PLOTS_PVP, "deny"));
+        chip(g, sx + 6 + 2 * cw, sy + sh - 11, cw, 9, Tr.t("plots_config"), own.isEmpty(), MUTED, 0.5f, () -> act(RegionActionPacket.PLOTS_PVP, "default"));
     }
 
     private static String whole(String number) {
@@ -1139,7 +1160,8 @@ public class RegionScreen extends HoloScreen {
         }
         if (type.equals("claim")) {
             text(g, Tr.t("owned_claim"), px + 6, cy + 5, VIO, 0.6f);
-            text(g, Tr.t("bought_for_origin", data.getOrDefault("boughtFor", "?"), data.getOrDefault("origin", "?")), px + 6, cy + 13, TEXT, 0.75f);
+            String paid = data.containsKey("boughtCoins") ? Tr.t("worth_copper", data.get("boughtCoins")) : money(data, data.getOrDefault("boughtFor", "?"), "pieces");
+            text(g, Tr.t("bought_for_origin", paid, data.getOrDefault("origin", "?")), px + 6, cy + 13, TEXT, 0.75f);
             text(g, Tr.t("the_owner_gives_it_up_with_claim_abandon_an_admi"), px + 6, cy + 24, 0xFF6F7788, 0.5f);
             text(g, Tr.t("buyer_may_set", data.getOrDefault("playerFlags", Tr.t("the_config_list"))), px + 6, cy + 36, GOLD, 0.6f);
             return;
@@ -1147,19 +1169,36 @@ public class RegionScreen extends HoloScreen {
         text(g, Tr.t("plot_for_sale"), px + 6, cy + 5, GOLD, 0.6f);
         text(g, Tr.t("a_fixed_price_for_this_whole_region_the_buyer_be"), px + 6, cy + 12, 0xFF6F7788, 0.5f);
         String price = data.getOrDefault("price", "0");
-        text(g, type.equals("plot_for_sale") ? Tr.t("for_sale_at", price) : Tr.t("not_for_sale"), px + 6, cy + 20, type.equals("plot_for_sale") ? TEXT : MUTED, 0.75f);
-        button(g, px + 6, cy + 31, 70, 12, Tr.t("set_price"), GOLD, () -> data("price", price, Tr.t("price_in_shatter_pieces_0_takes_it_off_sale")));
+        boolean coins = !data.getOrDefault("currency", "pieces").equals("pieces");
+        text(g, type.equals("plot_for_sale") ? Tr.t("for_sale_at", money(data, price, null)) : Tr.t("not_for_sale"), px + 6, cy + 20, type.equals("plot_for_sale") ? TEXT : MUTED, 0.75f);
+        button(g, px + 6, cy + 31, 70, 12, Tr.t("set_price"), GOLD, () -> data("price", price, coins ? Tr.t("price_in_coins_0_takes_it_off_sale") : Tr.t("price_in_shatter_pieces_0_takes_it_off_sale")));
+        if (coins) {
+            // D95: the tier this plot or open area prices in; lit = this region's own choice, none lit = the config's
+            String own = data.getOrDefault(com.mrgregles.bsp_region_guard.claim.Prices.COIN_TIER, "");
+            int cx = px + 82;
+            for (String tier : data.getOrDefault("coinTiers", "").split(",")) {
+                if (tier.isEmpty()) {
+                    continue;
+                }
+                chip(g, cx, cy + 32, 30, 10, Tr.t("coin_tier." + tier), tier.equals(own), GOLD, 0.5f,
+                        () -> send(new RegionActionPacket(RegionActionPacket.SET_DATA, selected, com.mrgregles.bsp_region_guard.claim.Prices.COIN_TIER, tier.equals(own) ? "default" : tier)));
+                cx += 32;
+            }
+        }
         text(g, Tr.t("open_area"), px + 6, cy + 52, GOLD, 0.6f);
         text(g, Tr.t("players_outline_their_own_plot_inside_and_pay_pe"), px + 6, cy + 59, 0xFF6F7788, 0.5f);
         String cost = data.getOrDefault("costPerBlock", "0");
-        text(g, type.equals("open_for_buying") ? Tr.t("open_cost", cost, data.getOrDefault("minSize", Tr.t("config")), data.getOrDefault("maxSize", Tr.t("config"))) : Tr.t("not_open"),
+        text(g, type.equals("open_for_buying") ? Tr.t("open_cost", money(data, cost, null), data.getOrDefault("minSize", Tr.t("config")), data.getOrDefault("maxSize", Tr.t("config"))) : Tr.t("not_open"),
                 px + 6, cy + 67, type.equals("open_for_buying") ? TEXT : MUTED, 0.75f);
-        button(g, px + 6, cy + 78, 70, 12, Tr.t("set_cost"), GOLD, () -> data("costPerBlock", cost, Tr.t("shatter_pieces_per_block_of_ground_0_closes_the")));
+        button(g, px + 6, cy + 78, 70, 12, Tr.t("set_cost"), GOLD, () -> data("costPerBlock", cost, coins ? Tr.t("coins_per_block_of_ground_0_closes_the_area") : Tr.t("shatter_pieces_per_block_of_ground_0_closes_the")));
         button(g, px + 80, cy + 78, 56, 12, Tr.t("min_size"), MUTED, () -> data("minSize", data.getOrDefault("minSize", ""), Tr.t("smallest_side_in_blocks_empty_uses_the_config")));
         button(g, px + 140, cy + 78, 56, 12, Tr.t("max_size"), MUTED, () -> data("maxSize", data.getOrDefault("maxSize", ""), Tr.t("largest_side_in_blocks_empty_uses_the_config")));
         text(g, Tr.t("buyer_may_set", data.getOrDefault("playerFlags", Tr.t("the_config_list"))), px + 6, cy + 96, GOLD, 0.6f);
         chip(g, px + paneW - 40, cy + 94, 34, 10, Tr.t("edit"), false, GOLD, 0.5f, () -> data("playerFlags", data.getOrDefault("playerFlags", ""), Tr.t("flags_the_buyer_may_set_comma_separated_default")));
         text(g, Tr.t("buying_happens_in_bsp_core_s_shop_screen_or_with"), px + 6, cy + 108, 0xFF6F7788, 0.5f);
+        String limit = data.get("plotLimit");
+        text(g, limit == null ? Tr.t("plot_limit_none") : Tr.t("plot_limit_is", limit), px + 6, cy + 120, limit == null ? MUTED : TEXT, 0.6f);
+        chip(g, px + paneW - 40, cy + 118, 34, 10, Tr.t("edit"), false, GOLD, 0.5f, () -> data("plotLimit", limit == null ? "" : limit, Tr.t("plot_limit_hint")));
     }
 
     private void drawMine(GuiGraphics g, int x, int y, RegionListPacket.Summary s, @Nullable RegionDetailPacket d) {
@@ -1227,6 +1266,12 @@ public class RegionScreen extends HoloScreen {
         button(g, px + 130, ty + 9, 56, 11, Boolean.parseBoolean(data.getOrDefault("hasSpawn", "false")) ? Tr.t("move_spawn") : Tr.t("set_spawn"), TQ, () -> act(RegionActionPacket.MINE_SPAWN, ""));
         button(g, px + 190, ty + 9, 70, 11, Boolean.parseBoolean(data.getOrDefault("hasShell", "false")) ? Tr.t("resize_shell") : Tr.t("make_shell"), MUTED, () -> openInput(Input.MINE_SHELL, "5", Tr.t("blocks_around_the_mine_where_only_the_mine_can_b")));
         text(g, Tr.t("players_inside_are_moved_to_the_spawn_or_above_t"), px + 6, ty + 23, 0xFF6F7788, 0.5f);
+    }
+
+    /** An amount in this region's currency (D95): {@code 500 pieces} or {@code 5 gold coins}; {@code currency} null reads the detail's. */
+    private static String money(java.util.Map<String, String> data, String amount, @Nullable String currency) {
+        String c = currency != null ? currency : data.getOrDefault("currency", "pieces");
+        return c.equals("pieces") ? Tr.t("amount_pieces", amount) : Tr.t("amount_coins", amount, Tr.t("coin_tier." + c).toLowerCase(java.util.Locale.ROOT));
     }
 
     private void data(String key, String current, String hint) {

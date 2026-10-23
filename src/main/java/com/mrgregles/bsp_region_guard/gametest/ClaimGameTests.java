@@ -8,6 +8,9 @@ import com.mrgregles.bsp_region_guard.api.Cuboid;
 import com.mrgregles.bsp_region_guard.claim.ClaimData;
 import com.mrgregles.bsp_region_guard.claim.ClaimWipe;
 import com.mrgregles.bsp_region_guard.claim.Claims;
+import com.mrgregles.bsp_region_guard.claim.PendingCoins;
+import com.mrgregles.bsp_region_guard.claim.Prices;
+import com.mrgregles.bsp_region_guard.command.RegionEdits;
 import com.mrgregles.bsp_region_guard.compat.BspCore;
 import com.mrgregles.bsp_region_guard.region.Region;
 import com.mrgregles.bsp_region_guard.region.RegionStore;
@@ -89,6 +92,103 @@ public class ClaimGameTests {
         } finally {
             allowClaims(false);
             store(h).remove("cl_plot");
+            buyer.discard();
+        }
+        h.succeed();
+    }
+
+    /**
+     * D95 to D98: with claims.currency = coins, a plot priced 3 in gold costs coins worth 6 copper from the inventory,
+     * any tiers, change given back; the bank is not touched; giving it up pays half back in coins. Its own batch,
+     * since it changes the currency for every purchase.
+     */
+    @GameTest(template = EMPTY, batch = "coins")
+    public void plots_can_be_paid_in_shatter_coins(GameTestHelper h) {
+        ServerLevel level = h.getLevel();
+        ServerPlayer buyer = TestPlayers.mockServerPlayer(h);
+        allowClaims(true);
+        RegionStore store = store(h);
+        String currencyWas = RegionGuardConfig.CLAIM_CURRENCY.get();
+        RegionGuardConfig.CLAIM_CURRENCY.set("coins");
+        Region plot = new Region("coin_plot", level.dimension(), Cuboid.of(h.absolutePos(new BlockPos(1, 1, 1)), h.absolutePos(new BlockPos(8, 8, 8))), RegionType.PLOT_FOR_SALE);
+        ClaimData.set(plot, ClaimData.PRICE, 3);
+        store.add(plot);
+        try {
+            h.assertTrue(BspCore.coinTiers().contains("gold") && BspCore.coinValue("gold") == 2, "BSP Core's coins: gold is worth 2 copper");
+            h.assertTrue(RegionEdits.coinTier(store, plot, "gold").ok() && "gold".equals(Prices.tier(plot)), "the plot prices in gold");
+            h.assertFalse(RegionEdits.coinTier(store, plot, "wood").ok(), "only real tiers");
+            fund(buyer, 1000);
+            ClaimResult poor = Claims.INSTANCE.quotePlot(buyer, "coin_plot");
+            h.assertTrue(!poor.ok() && poor.message().contains("3 gold coins"), "no coins carried: refused, in gold: " + poor.message());
+            BspCore.giveCoins(buyer, 10);
+            h.assertTrue(BspCore.coinWorth(buyer) == 10, "the buyer carries coins worth 10 copper");
+            ClaimResult bought = answer(h, then -> Claims.INSTANCE.purchasePlot(buyer, "coin_plot", then));
+            h.assertTrue(bought.ok() && bought.message().contains("3 gold coins"), "bought with coins: " + bought.message());
+            h.assertTrue(BspCore.coinWorth(buyer) == 4, "coins worth 6 copper were taken, change given back");
+            h.assertTrue(BspCore.balance(buyer) == 1000, "the bank was not touched");
+            h.assertTrue(ClaimData.boughtCoins(plot) == 6 && ClaimData.boughtFor(plot) == 0, "the claim records the coins paid");
+            ClaimResult gone = Claims.INSTANCE.abandon(buyer, "coin_plot");
+            h.assertTrue(gone.ok() && gone.message().contains("coins worth 3 copper"), "half back in coins: " + gone.message());
+            h.assertTrue(BspCore.coinWorth(buyer) + PendingCoins.owed(level.getServer(), buyer.getUUID()) == 7, "the refund is in the inventory, or waits for the next login");
+            h.assertTrue(plot.type() == RegionType.PLOT_FOR_SALE && ClaimData.price(plot) == 3 && "gold".equals(Prices.tier(plot)), "back on sale at 3 gold coins");
+            RegionGuardConfig.CLAIM_CURRENCY.set("pieces");
+            h.assertTrue(Prices.tier(plot) == null && Claims.INSTANCE.quotePlot(buyer, "coin_plot").message().contains("pieces"), "pieces again once the config says so");
+        } finally {
+            allowClaims(false);
+            RegionGuardConfig.CLAIM_CURRENCY.set(currencyWas);
+            store.remove("coin_plot");
+            buyer.getInventory().clearContent();
+            buyer.discard();
+        }
+        h.succeed();
+    }
+
+    /**
+     * D100 to D102: a region's own plot limit counts the buyer's plots whose ground lies inside it; the world default's
+     * limit takes the place of maxPerPlayer. Its own batch, since it changes the world default.
+     */
+    @GameTest(template = EMPTY, batch = "plot-limits")
+    public void a_region_limits_the_plots_one_player_owns_inside_it(GameTestHelper h) {
+        ServerLevel level = h.getLevel();
+        ServerPlayer buyer = TestPlayers.mockServerPlayer(h);
+        allowClaims(true);
+        RegionStore store = store(h);
+        Region global = store.global();
+        int oldLimit = RegionGuardConfig.CLAIM_MAX_PER_PLAYER.get();
+        RegionGuardConfig.CLAIM_MAX_PER_PLAYER.set(10);
+        Region area = new Region("lim_area", level.dimension(), Cuboid.of(h.absolutePos(new BlockPos(0, 1, 0)), h.absolutePos(new BlockPos(20, 4, 9))), RegionType.PROTECTED);
+        store.add(area);
+        String[] ids = {"lim_p1", "lim_p2", "lim_p3"};
+        int[][] spots = {{1, 1}, {11, 1}, {1, 12}}; // p3 lies outside the area
+        for (int i = 0; i < 3; i++) {
+            Region plot = new Region(ids[i], level.dimension(), Cuboid.of(h.absolutePos(new BlockPos(spots[i][0], 1, spots[i][1])),
+                    h.absolutePos(new BlockPos(spots[i][0] + 6, 30, spots[i][1] + 6))), RegionType.PLOT_FOR_SALE);
+            ClaimData.set(plot, ClaimData.PRICE, 10);
+            store.add(plot);
+        }
+        try {
+            fund(buyer, 1000);
+            h.assertTrue(RegionEdits.plotLimit(store, area, "1").ok() && ClaimData.plotLimit(area) == 1, "the area allows one plot per player");
+            h.assertTrue(answer(h, then -> Claims.INSTANCE.purchasePlot(buyer, "lim_p1", then)).ok(), "the first plot inside is bought");
+            ClaimResult second = Claims.INSTANCE.quotePlot(buyer, "lim_p2");
+            h.assertTrue(!second.ok() && second.message().contains("lim_area"), "a second plot inside the area is refused: " + second.message());
+            h.assertTrue(answer(h, then -> Claims.INSTANCE.purchasePlot(buyer, "lim_p3", then)).ok(), "a plot outside the area is not limited by it");
+            h.assertTrue(RegionEdits.plotLimit(store, area, "none").ok() && ClaimData.plotLimit(area) == -1, "none removes the limit");
+            h.assertTrue(Claims.INSTANCE.quotePlot(buyer, "lim_p2").ok(), "without the area's limit the plot can be bought");
+            RegionEdits.plotLimit(store, global, "2");
+            h.assertTrue(Claims.INSTANCE.claimLimit(buyer) == 2, "the world default's limit takes the place of maxPerPlayer");
+            ClaimResult world = Claims.INSTANCE.quotePlot(buyer, "lim_p2");
+            h.assertTrue(!world.ok() && world.message().contains("limit is 2"), "the world's limit of 2 is reached: " + world.message());
+            h.assertFalse(RegionEdits.plotLimit(store, area, "lots").ok(), "only numbers or none");
+        } finally {
+            allowClaims(false);
+            RegionGuardConfig.CLAIM_MAX_PER_PLAYER.set(oldLimit);
+            global.typeData().remove(ClaimData.PLOT_LIMIT);
+            store.touch(global);
+            for (String id : ids) {
+                store.remove(id);
+            }
+            store.remove("lim_area");
             buyer.discard();
         }
         h.succeed();
