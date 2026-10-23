@@ -1,0 +1,418 @@
+<title>Plot Marker Mock-ups</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=VT323&family=IBM+Plex+Sans:wght@400;600&display=swap">
+<style>
+/* Layout: notes and a live settings strip, four marker scenes in a grid, then three game windows for where admins set the look, then the buy pop-up. Single dark look: these are game screens. */
+:root {
+    color-scheme: dark;
+    --page: #0b0e13; --panel: rgba(16,21,28,.95); --inset: #0c0e12; --line: #2a2f3a;
+    --tq: #19d3b0; --vio: #b58cff; --gold: #ffd23a; --bad: #ff6b5c; --text: #e6eaf2; --muted: #9aa3b5; --hint: #6f7788;
+    --mc: "VT323", ui-monospace, Menlo, monospace; --ui: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+body { background: var(--page); color: var(--text); font-family: var(--ui); }
+.wrap { max-width: 1020px; margin: 0 auto; padding-block: 28px 64px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1 { font-family: var(--mc); font-weight: normal; font-size: 2.6rem; color: var(--tq); margin: 0 0 4px; text-wrap: balance; }
+h2 { font-family: var(--mc); font-weight: normal; font-size: 1.9rem; margin: 44px 0 4px; text-wrap: balance; }
+h2 .tag { color: var(--muted); font-size: 1.2rem; margin-left: 8px; }
+h3 { font-family: var(--mc); font-weight: normal; font-size: 1.45rem; margin: 0; color: var(--text); }
+p, li { line-height: 1.55; color: var(--muted); max-width: 72ch; }
+p strong, li strong { color: var(--text); font-weight: 600; }
+.lede { color: var(--text); }
+
+/* live settings strip */
+.tune { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 4; margin-top: 18px; background: rgba(11,14,19,.96);
+    border: 1px solid var(--line); padding: 10px 12px; display: flex; flex-wrap: wrap; gap: 10px 22px; align-items: center; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--page); }
+.tune label, .tune .lbl { font-family: var(--mc); font-size: 17px; color: var(--muted); letter-spacing: .03em; display: flex; align-items: center; gap: 8px; }
+.tune output { color: var(--text); min-width: 5ch; font-variant-numeric: tabular-nums; }
+.tune input[type=range] { width: 110px; accent-color: var(--tq); }
+.swatches { display: flex; gap: 4px; }
+.swatches button { width: 20px; height: 20px; border: 1px solid #000; outline: 1px solid var(--line); cursor: pointer; padding: 0; }
+.swatches button[aria-pressed=true] { outline: 2px solid #fff; }
+.swatches button:focus-visible, .tune input:focus-visible { outline: 2px solid var(--tq); outline-offset: 2px; }
+
+/* the four scenes */
+.scenes { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; margin-top: 16px; }
+.scene { border: 1px solid var(--line); background: #070a0e; display: flex; flex-direction: column; min-width: 0; }
+.scene canvas { width: 100%; height: auto; display: block; aspect-ratio: 460 / 330; max-width: 100%; }
+.scene .cap { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 4px; }
+.scene .cap p { margin: 0; font-size: .92rem; }
+.scene .who { font-family: var(--mc); font-size: 1.05rem; color: var(--gold); }
+
+/* game windows */
+.scroller { overflow-x: auto; margin-top: 10px; padding-bottom: 6px; }
+.win { position: relative; width: 960px; height: 540px; background: #05070a; font-family: var(--mc); overflow: hidden; user-select: none; }
+.terrain { position: absolute; inset: 0;
+    background:
+      radial-gradient(ellipse 30% 22% at 72% 28%, #2d5a8a 0 60%, transparent 61%),
+      repeating-linear-gradient(90deg, rgba(0,0,0,.07) 0 1px, transparent 1px 16px),
+      repeating-linear-gradient(0deg, rgba(0,0,0,.07) 0 1px, transparent 1px 16px),
+      linear-gradient(135deg, #4c7a35, #5d8b3c 40%, #4a7232 70%, #6f8f45); }
+.pnl { position: absolute; background: var(--panel); border: 1px solid var(--line); color: var(--text); }
+.pnl.tq { border-color: var(--tq); } .pnl.gold { border-color: var(--gold); }
+.btn { display: inline-flex; align-items: center; justify-content: center; height: 20px; padding: 0 8px; font-family: var(--mc); font-size: 15px;
+    background: var(--inset); border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+.btn.on { color: var(--tq); border-color: var(--tq); background: rgba(25,211,176,.13); }
+.btn.gold { color: var(--gold); border-color: var(--gold); background: rgba(255,210,58,.12); }
+.btn.no { color: var(--bad); border-color: var(--bad); background: rgba(255,107,92,.1); }
+.btn.sq { width: 20px; padding: 0; }
+.btn.big { height: 26px; font-size: 18px; padding: 0 14px; }
+.lbl { font-size: 14px; color: var(--muted); letter-spacing: .04em; }
+.tiny { font-size: 13px; color: var(--hint); }
+.flex { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.col { display: flex; flex-direction: column; gap: 6px; }
+.row { display: flex; align-items: center; gap: 5px; padding: 1px 6px; font-size: 15px; border-left: 2px solid transparent; }
+.row.sel { background: rgba(25,211,176,.12); border-left-color: var(--tq); }
+.row .k { font-size: 12px; color: var(--hint); margin-left: auto; }
+.val { min-width: 62px; text-align: center; color: var(--text); font-size: 15px; }
+.sws { display: flex; gap: 3px; }
+.sws i { width: 14px; height: 14px; border: 1px solid #000; display: block; }
+.sws i.on { outline: 2px solid #fff; }
+.hex { width: 70px; height: 20px; background: #050608; border: 1px solid var(--line); color: var(--text); font-size: 15px; padding: 0 4px; display: flex; align-items: center; }
+.mini { position: absolute; border: 1px solid var(--line); background: #070a0e; }
+.mini canvas { width: 100%; height: 100%; display: block; }
+.box { position: absolute; border: 2px solid; }
+.box span { position: absolute; left: 3px; top: 1px; font-size: 14px; }
+.callout { position: absolute; font-family: var(--ui); font-size: 11px; color: #000; background: var(--gold); padding: 1px 6px; border-radius: 2px; pointer-events: none; z-index: 5; }
+.shade { position: absolute; inset: 0; background: rgba(0,0,0,.55); }
+.ok { color: var(--tq); } .muted { color: var(--muted); } .gold { color: var(--gold); }
+ol.dec li { margin: 5px 0; font-size: .95rem; }
+.pros { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 4px 24px; margin-top: 6px; }
+.pros p { margin: 0; font-size: .92rem; }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+</style>
+
+<div class="wrap">
+    <h1>Plot Markers</h1>
+    <p class="lede">How a plot for sale shows in the world, for admins and players. Today a plot is a yellow box with its id above it, and nothing about it can be changed. These mock-ups add a colour, one of four markers with the plot's name, and settings for size, text size and height.</p>
+    <p>A marker shows <strong>only while the plot is for sale</strong>, to everyone nearby. Once it is bought, the marker and the coloured outline go away. A copied plot takes the same look and shows its own new name. The settings below change every scene on this page, so you can compare them.</p>
+
+    <div class="tune" role="group" aria-label="Try the settings">
+        <span class="lbl">COLOUR <span class="swatches" id="swatches"></span></span>
+        <label for="size">MARKER SIZE <input id="size" type="range" min="0.5" max="3" step="0.25" value="1"><output id="sizeOut">1.0x</output></label>
+        <label for="text">NAME SIZE <input id="text" type="range" min="0.5" max="3" step="0.25" value="1"><output id="textOut">1.0x</output></label>
+        <label for="height">HEIGHT <input id="height" type="range" min="0" max="8" step="1" value="3"><output id="heightOut">4 blocks</output></label>
+        <label for="sold"><input id="sold" type="checkbox"> SOLD</label>
+    </div>
+
+    <h2>Four markers <span class="tag">pick one or more to build</span></h2>
+    <p>Each marker stands over the middle of the plot, floats at the height you set (kept inside the plot's own height) and shows the plot's name. Every plot picks one marker, or just the outline.</p>
+    <div class="scenes">
+        <figure class="scene" style="margin:0">
+            <canvas id="c-arrow" width="460" height="330" aria-label="A large downward arrow over the plot at 20% opacity with the name above it"></canvas>
+            <figcaption class="cap"><span class="who">YOUR IDEA</span><h3>Arrow</h3>
+                <p>A big arrow pointing down at the ground, at 20% opacity so it never hides the build, with the name floating above it. It bobs gently, half a block up and down.</p></figcaption>
+        </figure>
+        <figure class="scene" style="margin:0">
+            <canvas id="c-sphere" width="460" height="330" aria-label="A glassy floating sphere with the plot name orbiting around it"></canvas>
+            <figcaption class="cap"><span class="who">IDEA 2</span><h3>Orbit sphere</h3>
+                <p>A glassy sphere floating over the plot, with the name's letters circling it like a ring. Easy to spot from far away; the name reads best from the front.</p></figcaption>
+        </figure>
+        <figure class="scene" style="margin:0">
+            <canvas id="c-beacon" width="460" height="330" aria-label="A thin pulsing beam rising from the plot with a crystal and the name"></canvas>
+            <figcaption class="cap"><span class="who">IDEA 3</span><h3>Spire beacon</h3>
+                <p>A thin beam of light rising from the plot, pulsing slowly, with a small crystal at the chosen height and the name above it. Seen from across the map, like a vanilla beacon.</p></figcaption>
+        </figure>
+        <figure class="scene" style="margin:0">
+            <canvas id="c-sign" width="460" height="330" aria-label="A big floating FOR SALE sign with the plot name and price"></canvas>
+            <figcaption class="cap"><span class="who">IDEA 4</span><h3>For sale sign</h3>
+                <p>A big board floating over the plot: FOR SALE, the name and the price, framed in the plot's colour. It turns to face the player. The only marker that shows the price.</p></figcaption>
+        </figure>
+    </div>
+
+    <h2>Where admins set the look <span class="tag">three layouts</span></h2>
+    <p>The same settings in each: the marker, the colour (eight colours and a hex box), marker size, name size, and height above the ground. Players never see these settings; only BSP-Core admins can change them.</p>
+
+    <h3 style="margin-top:22px">A. A LOOK tab in the admin screen</h3>
+    <div class="scroller"><div class="win" aria-label="Option A">
+        <div class="terrain" style="opacity:.35"></div>
+        <div class="pnl tq" style="left:30px;top:24px;width:900px;height:492px">
+            <div class="ok" style="position:absolute;left:14px;top:10px;font-size:22px">REGIONS - OVERWORLD</div>
+            <div class="col" style="position:absolute;left:14px;top:44px;width:250px">
+                <div class="row">spawn<span class="k">P 10</span></div>
+                <div class="row"><span class="gold">market_plots</span><span class="k">O 2</span></div>
+                <div class="row sel"><span class="gold">plot_east_1</span><span class="k">S 1</span></div>
+                <div class="row"><span class="gold">plot_east_2</span><span class="k">S 1</span></div>
+                <div class="row"><span style="color:var(--vio)">alex_bakery</span><span class="k">C 3</span></div>
+            </div>
+            <div style="position:absolute;left:290px;top:10px;font-size:24px">plot_east_1</div>
+            <div class="tiny" style="position:absolute;left:290px;top:38px">for sale - priority 1 - 3 gold coins</div>
+            <div class="flex" style="position:absolute;left:290px;top:60px">
+                <span class="btn">FLAGS</span><span class="btn">ACCESS</span><span class="btn">RANKS</span><span class="btn">SALE</span><span class="btn on">LOOK</span><span class="btn">TELEPORT</span><span class="btn">INFO</span>
+            </div>
+            <div class="col" style="position:absolute;left:290px;top:96px;width:330px;gap:12px">
+                <div class="col"><span class="lbl">MARKER</span><div class="flex"><span class="btn">OUTLINE ONLY</span><span class="btn on">ARROW</span><span class="btn">SPHERE</span><span class="btn">BEACON</span><span class="btn">SIGN</span></div></div>
+                <div class="col"><span class="lbl">COLOUR</span><div class="flex"><div class="sws" data-sws></div><span class="hex">#FFD23A</span></div></div>
+                <div class="flex"><span class="lbl" style="width:110px">MARKER SIZE</span><span class="btn sq">-</span><span class="val">1.0x</span><span class="btn sq">+</span></div>
+                <div class="flex"><span class="lbl" style="width:110px">NAME SIZE</span><span class="btn sq">-</span><span class="val">1.0x</span><span class="btn sq">+</span></div>
+                <div class="flex"><span class="lbl" style="width:110px">HEIGHT</span><span class="btn sq">-</span><span class="val">4 blocks</span><span class="btn sq">+</span><span class="tiny">0 to 14</span></div>
+                <div class="tiny">Shows while for sale. Hidden once bought. Copies with the plot.</div>
+            </div>
+            <div class="mini" style="left:640px;top:96px;width:244px;height:176px"><canvas data-mini="arrow" width="460" height="330"></canvas></div>
+            <div class="tiny" style="position:absolute;left:640px;top:278px">preview</div>
+        </div>
+        <span class="callout" style="left:592px;top:80px">new tab</span>
+    </div></div>
+    <div class="pros"><p><strong>For:</strong> room for every setting and a live preview; sits beside SALE where prices are set.</p><p><strong>Against:</strong> one more tab in a row that is already long; only on plots for sale and open areas.</p></div>
+
+    <h3 style="margin-top:22px">B. A LOOK fold on the region map's plot card</h3>
+    <div class="scroller"><div class="win" aria-label="Option B">
+        <div class="terrain"></div>
+        <div class="pnl tq" style="left:0;top:0;width:960px;height:34px">
+            <div class="flex" style="position:absolute;left:8px;top:6px"><span class="btn">REGION</span><span class="btn on">PLOT</span><span class="btn">MINE</span><span style="width:12px"></span><span class="btn on">PICK</span><span class="btn">DRAW</span><span class="btn">RESHAPE</span></div>
+            <div class="flex" style="position:absolute;right:8px;top:6px"><span class="muted" style="font-size:16px">overworld - editable</span><span class="btn">UNDO (0)</span><span class="btn">REDO (0)</span></div>
+        </div>
+        <div class="box" data-outline style="left:380px;top:200px;width:160px;height:130px"><span>plot_east_1</span></div>
+        <div class="box" style="left:560px;top:200px;width:160px;height:130px;border-color:var(--gold);opacity:.6"><span class="gold">plot_east_2</span></div>
+        <div class="pnl gold" style="left:120px;top:150px;width:240px;height:330px">
+            <div class="flex" style="position:absolute;left:8px;top:6px;right:8px"><span class="gold" style="font-size:18px">plot_east_1</span><span class="tiny" style="margin-left:auto">▾</span></div>
+            <div class="flex" style="position:absolute;left:8px;top:32px"><span class="btn">COPY</span><span class="btn">UNLOCK</span><span class="btn">BACKUP</span></div>
+            <div class="flex" style="position:absolute;left:8px;top:58px"><span class="btn">FLAGS</span><span class="btn">SALE</span><span class="btn">DELETE</span></div>
+            <div style="position:absolute;left:8px;right:8px;top:86px;border-top:1px solid var(--line)"></div>
+            <div class="flex" style="position:absolute;left:8px;top:94px;right:8px"><span class="ok" style="font-size:16px">LOOK</span><span class="tiny" style="margin-left:auto">▾</span></div>
+            <div class="col" style="position:absolute;left:8px;top:118px;right:8px;gap:8px">
+                <div class="flex"><span class="btn">-</span><span class="btn on">ARROW</span><span class="btn">SPHERE</span><span class="btn">BEACON</span><span class="btn">SIGN</span></div>
+                <div class="sws" data-sws></div>
+                <div class="flex"><span class="lbl" style="width:62px">SIZE</span><span class="btn sq">-</span><span class="val">1.0x</span><span class="btn sq">+</span></div>
+                <div class="flex"><span class="lbl" style="width:62px">NAME</span><span class="btn sq">-</span><span class="val">1.0x</span><span class="btn sq">+</span></div>
+                <div class="flex"><span class="lbl" style="width:62px">HEIGHT</span><span class="btn sq">-</span><span class="val">4</span><span class="btn sq">+</span></div>
+            </div>
+        </div>
+        <span class="callout" style="left:250px;top:240px">folds away</span>
+        <div class="pnl" style="right:10px;bottom:10px;padding:2px 8px;font-size:15px" ><span class="muted">the outline on the map takes the plot's colour</span></div>
+    </div></div>
+    <div class="pros"><p><strong>For:</strong> set where plots are drawn and copied; the outline colour shows on the map at once.</p><p><strong>Against:</strong> no picture of the marker itself (the map is seen from above); a tight fit in the card.</p></div>
+
+    <h3 style="margin-top:22px">C. A PLOT LOOK window with a big preview</h3>
+    <div class="scroller"><div class="win" aria-label="Option C">
+        <div class="terrain" style="opacity:.35"></div>
+        <div class="shade"></div>
+        <div class="pnl tq" style="left:110px;top:60px;width:740px;height:420px">
+            <div class="ok" style="position:absolute;left:14px;top:10px;font-size:22px">PLOT LOOK - plot_east_1</div>
+            <div class="mini" style="left:14px;top:46px;width:400px;height:287px"><canvas data-mini="arrow" width="460" height="330"></canvas></div>
+            <div class="flex" style="position:absolute;left:14px;top:342px"><span class="btn">◀ TURN</span><span class="btn">TURN ▶</span><span class="tiny">drag to turn the view</span></div>
+            <div class="col" style="position:absolute;left:432px;top:46px;width:290px;gap:12px">
+                <div class="col"><span class="lbl">MARKER</span><div class="flex"><span class="btn">OUTLINE</span><span class="btn on">ARROW</span><span class="btn">SPHERE</span></div><div class="flex"><span class="btn">BEACON</span><span class="btn">SIGN</span></div></div>
+                <div class="col"><span class="lbl">COLOUR</span><div class="flex"><div class="sws" data-sws></div></div><span class="hex">#FFD23A</span></div>
+                <div class="flex"><span class="lbl" style="width:100px">MARKER SIZE</span><span class="btn sq">-</span><span class="val">1.0x</span><span class="btn sq">+</span></div>
+                <div class="flex"><span class="lbl" style="width:100px">NAME SIZE</span><span class="btn sq">-</span><span class="val">1.0x</span><span class="btn sq">+</span></div>
+                <div class="flex"><span class="lbl" style="width:100px">HEIGHT</span><span class="btn sq">-</span><span class="val">4 blocks</span><span class="btn sq">+</span></div>
+            </div>
+            <div class="flex" style="position:absolute;right:14px;bottom:12px"><span class="btn big">CANCEL</span><span class="btn big on">SAVE</span></div>
+            <div class="tiny" style="position:absolute;left:14px;bottom:16px">Opened from LOOK on the SALE tab or the map's plot card.</div>
+        </div>
+    </div></div>
+    <div class="pros"><p><strong>For:</strong> the biggest preview, turnable; opened from both the admin screen and the map; nothing added to crowded rows.</p><p><strong>Against:</strong> one more window to open; changes wait for SAVE.</p></div>
+
+    <h2>After buying <span class="tag">the same pop-up as edge travel</span></h2>
+    <p>When a player buys a plot at a Land Office, or outlines and buys one in an open area, the Land Office closes and this asks whether to go there. TELEPORT puts them on the ground in the middle of the plot, or on its teleport point if the admin set one. STAY, or Esc, does nothing.</p>
+    <div class="scroller"><div class="win" aria-label="Teleport pop-up" style="height:300px">
+        <div class="terrain" style="opacity:.5"></div>
+        <div class="shade"></div>
+        <div class="pnl tq" style="left:290px;top:70px;width:380px;height:160px">
+            <div class="ok" style="position:absolute;left:0;right:0;top:16px;text-align:center;font-size:24px">You bought plot_east_1</div>
+            <div class="muted" style="position:absolute;left:0;right:0;top:54px;text-align:center;font-size:17px">Teleport to the middle of your new plot?</div>
+            <div class="flex" style="position:absolute;left:0;right:0;bottom:22px;justify-content:center;gap:16px"><span class="btn big on">TELEPORT</span><span class="btn big">STAY</span></div>
+        </div>
+    </div></div>
+
+    <h2>Open with them <span class="tag">the defaults, also asked in chat</span></h2>
+    <ol class="dec">
+        <li>Markers show to everyone while the plot is for sale, and disappear for everyone once it is bought. The owner can still show their own claim with the region key (B), which is now off for players at first.</li>
+        <li>Open areas get the same look as plots for sale, with the marker over the area's middle.</li>
+        <li>All four markers are built; each plot picks one (or outline only). Default for new plots: the arrow, in gold.</li>
+        <li>Sizes from 0.5x to 3x; the height is counted from the plot's floor and kept inside the plot.</li>
+        <li>Markers show within 96 blocks and are drawn at 20% to 40% opacity; they never hide blocks behind them.</li>
+        <li>Layout C (the PLOT LOOK window).</li>
+        <li>After buying: the pop-up above, for Land Office purchases and outlined plots, not for enlarging.</li>
+    </ol>
+</div>
+
+<script>
+(() => {
+    const COLOURS = ["#ffd23a", "#19d3b0", "#b58cff", "#ff6b5c", "#5aa9ff", "#7be36b", "#ff9f40", "#f2f2f2"];
+    const state = { colour: COLOURS[0], size: 1, text: 1, height: 4, sold: false, fade: 1 };
+    const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    // settings strip
+    const sw = document.getElementById("swatches");
+    COLOURS.forEach((c, i) => {
+        const b = document.createElement("button");
+        b.type = "button"; b.style.background = c; b.setAttribute("aria-label", "colour " + c);
+        b.setAttribute("aria-pressed", i === 0 ? "true" : "false");
+        b.addEventListener("click", () => {
+            state.colour = c;
+            sw.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x === b ? "true" : "false"));
+            paintSwatches(); paintOutlines();
+        });
+        sw.appendChild(b);
+    });
+    function paintSwatches() {
+        document.querySelectorAll("[data-sws]").forEach(el => {
+            el.innerHTML = COLOURS.map(c => `<i style="background:${c}" class="${c === state.colour ? "on" : ""}"></i>`).join("");
+        });
+        document.querySelectorAll(".hex").forEach(el => el.textContent = state.colour.toUpperCase());
+    }
+    function paintOutlines() {
+        document.querySelectorAll("[data-outline]").forEach(el => {
+            el.style.borderColor = state.colour; el.style.background = hexA(state.colour, .12);
+            el.querySelector("span").style.color = state.colour;
+        });
+    }
+    const bind = (id, key, fmt) => {
+        const el = document.getElementById(id), out = document.getElementById(id + "Out");
+        const set = () => { state[key] = Number(el.value); out.textContent = fmt(state[key]); };
+        el.addEventListener("input", set); set();
+    };
+    bind("size", "size", v => v.toFixed(1) + "x");
+    bind("text", "text", v => v.toFixed(1) + "x");
+    bind("height", "height", v => v + (v === 1 ? " block" : " blocks"));
+    document.getElementById("sold").addEventListener("change", e => state.sold = e.target.checked);
+
+    function hexA(hex, a) {
+        const n = parseInt(hex.slice(1), 16);
+        return `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},${a})`;
+    }
+
+    // a small isometric world: x east, z south, y up, in blocks
+    const W = 460, H = 330, TW = 26, TH = 13, BH = 13, GRID = 15, PLOT = [3, 11], TOP = 10;
+    const OX = W / 2, OY = 112;
+    const iso = (x, y, z) => [OX + (x - z) * TW / 2, OY + (x + z) * TH / 2 - y * BH];
+    const noise = (x, z) => { const s = Math.sin(x * 12.9898 + z * 78.233) * 43758.5453; return s - Math.floor(s); };
+
+    function ground(ctx) {
+        for (let x = 0; x < GRID; x++) for (let z = 0; z < GRID; z++) {
+            const inPlot = x >= PLOT[0] && x <= PLOT[1] && z >= PLOT[0] && z <= PLOT[1];
+            const n = noise(x, z);
+            let col = n < .08 ? "#7a7d6b" : n < .2 ? "#4d7f34" : n < .6 ? "#5a8e3c" : "#629a42";
+            if (!inPlot && (x === 2 || z === 2)) col = n < .5 ? "#8b6a45" : "#7d5f3d"; // a path along the plot
+            const [a, b] = [iso(x, 0, z), iso(x + 1, 0, z)], [c, d] = [iso(x + 1, 0, z + 1), iso(x, 0, z + 1)];
+            ctx.fillStyle = col;
+            ctx.beginPath(); ctx.moveTo(...a); ctx.lineTo(...b); ctx.lineTo(...c); ctx.lineTo(...d); ctx.closePath(); ctx.fill();
+            ctx.strokeStyle = "rgba(0,0,0,.10)"; ctx.stroke();
+        }
+        // a little build on the plot next door
+        block(ctx, 13, 0, 6, "#b08a5a"); block(ctx, 13, 1, 6, "#b08a5a"); block(ctx, 13, 0, 7, "#b08a5a");
+        // a tree
+        block(ctx, 1, 0, 13, "#6b4b2e"); block(ctx, 1, 1, 13, "#6b4b2e");
+        for (const [dx, dz] of [[0,0],[1,0],[-1,0],[0,1],[0,-1]]) block(ctx, 1 + dx, 2, 13 + dz, "#2f6e2a");
+    }
+    function block(ctx, x, y, z, col) {
+        const top = [iso(x, y + 1, z), iso(x + 1, y + 1, z), iso(x + 1, y + 1, z + 1), iso(x, y + 1, z + 1)];
+        const left = [iso(x, y + 1, z + 1), iso(x + 1, y + 1, z + 1), iso(x + 1, y, z + 1), iso(x, y, z + 1)];
+        const right = [iso(x + 1, y + 1, z), iso(x + 1, y + 1, z + 1), iso(x + 1, y, z + 1), iso(x + 1, y, z)];
+        for (const [pts, shade] of [[top, 1], [left, .78], [right, .62]]) {
+            ctx.fillStyle = col; ctx.globalAlpha = 1;
+            ctx.beginPath(); pts.forEach((p, i) => i ? ctx.lineTo(...p) : ctx.moveTo(...p)); ctx.closePath(); ctx.fill();
+            ctx.fillStyle = `rgba(0,0,0,${1 - shade})`; ctx.fill();
+        }
+    }
+    function outline(ctx, a) {
+        const [x0, x1] = [PLOT[0], PLOT[1] + 1], y1 = TOP;
+        const c = [[x0, x0], [x1, x0], [x1, x1], [x0, x1]];
+        ctx.globalAlpha = a;
+        ctx.fillStyle = hexA(state.colour, .14);
+        ctx.beginPath(); c.forEach(([x, z], i) => i ? ctx.lineTo(...iso(x, 0, z)) : ctx.moveTo(...iso(x, 0, z))); ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = state.colour; ctx.lineWidth = 1.5;
+        ctx.beginPath(); c.forEach(([x, z], i) => i ? ctx.lineTo(...iso(x, 0, z)) : ctx.moveTo(...iso(x, 0, z))); ctx.closePath(); ctx.stroke();
+        ctx.globalAlpha = a * .45;
+        ctx.beginPath(); c.forEach(([x, z], i) => i ? ctx.lineTo(...iso(x, y1, z)) : ctx.moveTo(...iso(x, y1, z))); ctx.closePath(); ctx.stroke();
+        for (const [x, z] of c) { ctx.beginPath(); ctx.moveTo(...iso(x, 0, z)); ctx.lineTo(...iso(x, y1, z)); ctx.stroke(); }
+        ctx.globalAlpha = 1; ctx.lineWidth = 1;
+    }
+    function nameTag(ctx, text, x, y, scale, a, colour) {
+        ctx.font = `${Math.round(17 * scale)}px VT323, monospace`;
+        const w = ctx.measureText(text).width + 8 * scale, h = 16 * scale;
+        ctx.globalAlpha = a * .55; ctx.fillStyle = "#000"; ctx.fillRect(x - w / 2, y - h, w, h);
+        ctx.globalAlpha = a; ctx.fillStyle = colour || "#fff"; ctx.textAlign = "center"; ctx.textBaseline = "bottom";
+        ctx.fillText(text, x, y - 1 * scale); ctx.globalAlpha = 1;
+    }
+    const centre = () => (PLOT[0] + PLOT[1] + 1) / 2;
+    const NAME = "plot_east_1";
+
+    const markers = {
+        arrow(ctx, t, a) {
+            const s = state.size, bob = reduce ? 0 : Math.sin(t / 700) * .5;
+            const base = Math.min(state.height + bob, TOP - 4 * s);
+            const [cx, cy] = iso(centre(), Math.max(0, base), centre());
+            const L = 4 * s * BH, hw = 1.6 * s * BH, sw = .55 * s * BH, head = 1.5 * s * BH;
+            ctx.beginPath();
+            ctx.moveTo(cx - sw, cy - L); ctx.lineTo(cx + sw, cy - L); ctx.lineTo(cx + sw, cy - head); ctx.lineTo(cx + hw, cy - head);
+            ctx.lineTo(cx, cy); ctx.lineTo(cx - hw, cy - head); ctx.lineTo(cx - sw, cy - head); ctx.closePath();
+            ctx.globalAlpha = a * .2; ctx.fillStyle = state.colour; ctx.fill();
+            ctx.globalAlpha = a * .55; ctx.strokeStyle = state.colour; ctx.lineWidth = 1.5; ctx.stroke(); ctx.lineWidth = 1;
+            nameTag(ctx, NAME, cx, cy - L - 6, state.text, a);
+        },
+        sphere(ctx, t, a) {
+            const s = state.size, r = 1.3 * s * BH;
+            const [cx, cy0] = iso(centre(), Math.min(state.height, TOP - 2 * s) + 1.3 * s, centre());
+            const cy = cy0 + (reduce ? 0 : Math.sin(t / 900) * 2);
+            const letters = (NAME + "  ").split(""), turn = reduce ? 0 : t / 1600;
+            const ring = (front) => letters.forEach((ch, i) => {
+                const ang = turn + i / letters.length * Math.PI * 2, depth = Math.sin(ang);
+                if ((depth > 0) !== front) return;
+                const x = cx + Math.cos(ang) * r * 1.6, y = cy + depth * r * .35;
+                ctx.font = `${Math.round(17 * state.text * (front ? 1 : .85))}px VT323, monospace`;
+                ctx.globalAlpha = a * (front ? 1 : .35); ctx.fillStyle = front ? "#fff" : state.colour;
+                ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(ch, x, y);
+            });
+            ring(false);
+            const g = ctx.createRadialGradient(cx - r * .35, cy - r * .35, r * .1, cx, cy, r);
+            g.addColorStop(0, hexA(state.colour, .55)); g.addColorStop(.6, hexA(state.colour, .22)); g.addColorStop(1, hexA(state.colour, .08));
+            ctx.globalAlpha = a; ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = hexA(state.colour, .6); ctx.stroke();
+            ring(true); ctx.globalAlpha = 1;
+        },
+        beacon(ctx, t, a) {
+            const s = state.size, pulse = reduce ? .5 : (Math.sin(t / 450) + 1) / 2;
+            const [gx, gy] = iso(centre(), 0, centre()), bw = .5 * s * BH;
+            const g = ctx.createLinearGradient(0, gy, 0, 0);
+            g.addColorStop(0, hexA(state.colour, .15 + pulse * .3)); g.addColorStop(1, hexA(state.colour, 0));
+            ctx.globalAlpha = a; ctx.fillStyle = g; ctx.fillRect(gx - bw / 2, 0, bw, gy);
+            ctx.fillStyle = hexA("#ffffff", .25 + pulse * .35); ctx.fillRect(gx - bw / 6, 0, bw / 3, gy);
+            const [cx, cy] = iso(centre(), Math.min(state.height, TOP - 1), centre()), k = .9 * s * BH;
+            ctx.beginPath(); ctx.moveTo(cx, cy - k * 1.4); ctx.lineTo(cx + k * .7, cy - k * .7); ctx.lineTo(cx, cy); ctx.lineTo(cx - k * .7, cy - k * .7); ctx.closePath();
+            ctx.fillStyle = hexA(state.colour, .5 + pulse * .3); ctx.fill(); ctx.strokeStyle = "#fff"; ctx.globalAlpha = a * .7; ctx.stroke();
+            nameTag(ctx, NAME, cx, cy - k * 1.4 - 6, state.text, a);
+        },
+        sign(ctx, t, a) {
+            const s = state.size, sway = reduce ? 0 : Math.sin(t / 1100) * 1.5;
+            const [cx, cy] = iso(centre(), Math.min(state.height, TOP - 2.6 * s), centre());
+            const w = 5.2 * s * BH, h = 2.8 * s * BH, x = cx - w / 2 + sway, y = cy - h;
+            ctx.globalAlpha = a; ctx.fillStyle = "#6e4f2f"; ctx.fillRect(x, y, w, h);
+            ctx.fillStyle = "rgba(0,0,0,.18)"; for (let i = 1; i < 4; i++) ctx.fillRect(x, y + h * i / 4, w, 1);
+            ctx.strokeStyle = state.colour; ctx.lineWidth = 2.5; ctx.strokeRect(x, y, w, h); ctx.lineWidth = 1;
+            ctx.textAlign = "center"; ctx.textBaseline = "middle"; const ts = state.text;
+            ctx.fillStyle = state.colour; ctx.font = `${Math.round(22 * ts)}px VT323, monospace`; ctx.fillText("FOR SALE", cx + sway, y + h * .3);
+            ctx.fillStyle = "#fff"; ctx.font = `${Math.round(16 * ts)}px VT323, monospace`; ctx.fillText(NAME, cx + sway, y + h * .58);
+            ctx.fillStyle = "#e9d9b4"; ctx.font = `${Math.round(14 * ts)}px VT323, monospace`; ctx.fillText("3 gold coins", cx + sway, y + h * .8);
+            ctx.globalAlpha = 1;
+        }
+    };
+
+    function draw(canvas, kind, t) {
+        const ctx = canvas.getContext("2d");
+        ctx.clearRect(0, 0, W, H);
+        const sky = ctx.createLinearGradient(0, 0, 0, H); sky.addColorStop(0, "#0f1a26"); sky.addColorStop(1, "#070a0e");
+        ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+        ground(ctx);
+        const a = state.fade;
+        if (a > .01) { outline(ctx, a); markers[kind](ctx, t, a); }
+        if (state.sold && a < .5) {
+            ctx.font = "16px VT323, monospace"; ctx.fillStyle = "#9aa3b5"; ctx.textAlign = "left"; ctx.textBaseline = "top";
+            ctx.fillText("Sold: nothing in the way", 10, 10);
+        }
+    }
+    const scenes = [...["arrow", "sphere", "beacon", "sign"].map(k => [document.getElementById("c-" + k), k]),
+                    ...[...document.querySelectorAll("[data-mini]")].map(c => [c, c.dataset.mini])];
+    function frame(t) {
+        state.fade += ((state.sold ? 0 : 1) - state.fade) * .08;
+        for (const [c, k] of scenes) draw(c, k, t);
+        if (!reduce) requestAnimationFrame(frame);
+    }
+    paintSwatches(); paintOutlines();
+    const start = () => reduce ? (state.fade = 1, setInterval(() => { state.fade = state.sold ? 0 : 1; frame(0); }, 200)) : requestAnimationFrame(frame);
+    (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(start, start);
+})();
+</script>

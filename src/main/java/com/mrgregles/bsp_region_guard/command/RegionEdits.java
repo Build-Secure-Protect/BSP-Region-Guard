@@ -371,6 +371,62 @@ public final class RegionEdits {
                 : r.id() + " prices in " + tier + " coins.");
     }
 
+    /** A plot's whole look from the PLOT LOOK window (D105 to D114), {@code arrow;#FFD23A;1.0;1.0;3}. */
+    public static Result plotLook(RegionStore store, Region r, String line) {
+        if (r.isGlobal()) {
+            return Result.fail("The world default has no look; set it on a plot for sale or an open area.");
+        }
+        com.mrgregles.bsp_region_guard.claim.PlotLook look = com.mrgregles.bsp_region_guard.claim.PlotLook.parse(line);
+        if (look == null) {
+            return Result.fail("That look could not be read.");
+        }
+        look.save(r);
+        store.touch(r);
+        return Result.ok(r.id() + " now shows " + lookText(look) + ".");
+    }
+
+    /** One part of a plot's look by command: marker, colour, size, namesize or height. */
+    public static Result plotLookPart(RegionStore store, Region r, String part, String value) {
+        if (r.isGlobal()) {
+            return Result.fail("The world default has no look; set it on a plot for sale or an open area.");
+        }
+        var look = com.mrgregles.bsp_region_guard.claim.PlotLook.of(r);
+        String v = value.trim().toLowerCase(Locale.ROOT);
+        try {
+            look = switch (part.toLowerCase(Locale.ROOT)) {
+                case "marker" -> {
+                    if (!com.mrgregles.bsp_region_guard.claim.PlotLook.MARKERS.contains(v)) {
+                        throw new IllegalArgumentException("Markers: " + String.join(", ", com.mrgregles.bsp_region_guard.claim.PlotLook.MARKERS) + ".");
+                    }
+                    yield look.withMarker(v);
+                }
+                case "colour", "color" -> {
+                    Integer c = com.mrgregles.bsp_region_guard.claim.PlotLook.parseColour(v);
+                    if (c == null) {
+                        throw new IllegalArgumentException("A colour is six hex digits, for example #FFD23A.");
+                    }
+                    yield look.withColour(c);
+                }
+                case "size" -> look.withSize(Float.parseFloat(v));
+                case "namesize" -> look.withText(Float.parseFloat(v));
+                case "height" -> look.withHeight(Integer.parseInt(v));
+                default -> throw new IllegalArgumentException("Parts: marker, colour, size, namesize, height.");
+            };
+        } catch (NumberFormatException e) {
+            return Result.fail("Give a number, for example 1.5 for a size or 4 for a height.");
+        } catch (IllegalArgumentException e) {
+            return Result.fail(e.getMessage());
+        }
+        look.save(r);
+        store.touch(r);
+        return Result.ok(r.id() + " now shows " + lookText(look) + ".");
+    }
+
+    public static String lookText(com.mrgregles.bsp_region_guard.claim.PlotLook look) {
+        return (look.marker().equals("outline") ? "just the outline" : "the " + look.marker()) + " in " + look.hex() + ", size " + look.size()
+                + ", name size " + look.text() + ", " + look.height() + " block" + (look.height() == 1 ? "" : "s") + " above the ground";
+    }
+
     /** The most plots one player may own inside this region (D100); empty or {@code none} removes the limit. */
     public static Result plotLimit(RegionStore store, Region r, String value) {
         String v = value.trim().toLowerCase(Locale.ROOT);

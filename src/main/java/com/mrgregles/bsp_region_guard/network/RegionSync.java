@@ -90,11 +90,21 @@ public final class RegionSync {
             boolean visible = all || r.isMember(player.getUUID())
                     || r.type() == RegionType.PLOT_FOR_SALE || r.type() == RegionType.OPEN_FOR_BUYING;
             if (visible) {
+                boolean forSale = r.type() == RegionType.PLOT_FOR_SALE || r.type() == RegionType.OPEN_FOR_BUYING;
                 list.add(new RegionListPacket.Summary(r.id(), r.name(), r.type().key(), r.priority(), r.parentId(), r.bounds(),
-                        r.owners().size(), r.members().size(), r.flags().size()));
+                        r.owners().size(), r.members().size(), r.flags().size(),
+                        forSale ? com.mrgregles.bsp_region_guard.claim.PlotLook.of(r) : null, forSale ? priceLine(r) : ""));
             }
         }
         return list;
+    }
+
+    /** The price as the for sale sign shows it (D108): {@code 3 gold coins}, or {@code 2 gold coins a block} for an open area. */
+    static String priceLine(Region r) {
+        String tier = com.mrgregles.bsp_region_guard.claim.Prices.tier(r);
+        return r.type() == RegionType.OPEN_FOR_BUYING
+                ? com.mrgregles.bsp_region_guard.claim.Prices.text(tier, ClaimData.costPerBlock(r)) + " a block"
+                : com.mrgregles.bsp_region_guard.claim.Prices.text(tier, ClaimData.price(r));
     }
 
     public static void sendList(ServerPlayer player, @Nullable String select, boolean open) {
@@ -104,7 +114,7 @@ public final class RegionSync {
             return;
         }
         List<String> servers = mayEdit(player) ? RemoteViews.servers() : List.of();
-        RegionNetwork.sendTo(player, new RegionListPacket(player.serverLevel().dimension().location(), listFor(player), select, open, "", servers));
+        RegionNetwork.sendTo(player, new RegionListPacket(player.serverLevel().dimension().location(), listFor(player), select, open, "", servers, mayEdit(player)));
     }
 
     /** Another server's regions in this world, read-only (D44). */
@@ -114,21 +124,33 @@ public final class RegionSync {
             list.add(new RegionListPacket.Summary(r.id(), r.name(), r.type().key(), r.priority(), r.parentId(), r.bounds(),
                     r.owners().size(), r.members().size(), r.flags().size()));
         }
-        RegionNetwork.sendTo(player, new RegionListPacket(player.serverLevel().dimension().location(), list, select, false, view.server(), RemoteViews.servers()));
+        RegionNetwork.sendTo(player, new RegionListPacket(player.serverLevel().dimension().location(), list, select, false, view.server(), RemoteViews.servers(), true));
     }
 
-    /** Every player in the store's world gets a fresh list (after a region changed). */
+    /** Worlds whose regions changed during this tick; their players get one fresh list when it ends. */
+    private static final java.util.Set<net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level>> CHANGED = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+    /**
+     * Every player in the store's world gets a fresh list (after a region changed), once at the end of the tick: an
+     * edit that touches several regions, or several edits in one tick, send one list rather than one each.
+     */
     public static void broadcast(RegionStore store) {
-        net.minecraft.server.MinecraftServer server = net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer();
-        if (server == null) {
+        CHANGED.add(store.dimension());
+    }
+
+    public static void onServerTick(net.minecraftforge.event.TickEvent.ServerTickEvent event) {
+        if (event.phase != net.minecraftforge.event.TickEvent.Phase.END || CHANGED.isEmpty()) {
             return;
         }
-        ServerLevel level = server.getLevel(store.dimension());
-        if (level == null) {
-            return;
-        }
-        for (ServerPlayer p : level.players()) {
-            sendList(p, null, false);
+        for (var dimension : List.copyOf(CHANGED)) {
+            CHANGED.remove(dimension);
+            ServerLevel level = event.getServer().getLevel(dimension);
+            if (level == null) {
+                continue;
+            }
+            for (ServerPlayer p : level.players()) {
+                sendList(p, null, false);
+            }
         }
     }
 
@@ -518,6 +540,9 @@ public final class RegionSync {
         }
         if (key.equals(com.mrgregles.bsp_region_guard.claim.Prices.COIN_TIER)) {
             return RegionEdits.coinTier(store, r, value);
+        }
+        if (key.equals("look")) {
+            return RegionEdits.plotLook(store, r, value);
         }
         if (key.equals(ClaimData.PLOT_LIMIT)) {
             return RegionEdits.plotLimit(store, r, value);

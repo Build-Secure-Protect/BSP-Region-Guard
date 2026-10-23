@@ -17,6 +17,8 @@ public final class RegionClient {
     @Nullable
     private static com.mrgregles.bsp_region_guard.network.SelectionPacket selection;
     private static boolean showRegions = true;
+    /** Whether the region key's first state was set on this connection: on for admins, off for players (D105). */
+    private static boolean showDecided;
 
     private RegionClient() {
     }
@@ -37,6 +39,10 @@ public final class RegionClient {
     }
 
     public static void receive(RegionListPacket msg) {
+        if (!showDecided) {
+            showDecided = true;
+            showRegions = msg.admin();
+        }
         list = msg;
         if (!msg.remote()) {
             ownList = msg;
@@ -77,6 +83,17 @@ public final class RegionClient {
         }
     }
 
+    /** Just bought a plot: offer to teleport there (D113). It replaces the Land Office, not the player's own typing. */
+    public static void receive(com.mrgregles.bsp_region_guard.network.PlotBoughtPacket msg) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player != null && !(mc.screen instanceof net.minecraft.client.gui.screens.ChatScreen)) {
+            if (mc.screen instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?>) {
+                mc.player.closeContainer(); // the Land Office is a container: tell the server it closed
+            }
+            mc.setScreen(new PlotBoughtScreen(msg));
+        }
+    }
+
     /** The banned items pop-up (D54): turned away from a region for carrying banned things. */
     public static void receive(com.mrgregles.bsp_region_guard.network.BannedPopupPacket msg) {
         Minecraft mc = Minecraft.getInstance();
@@ -111,7 +128,9 @@ public final class RegionClient {
     }
 
     public static void clear() {
+        showDecided = false;
         list = null;
+        ownList = null;
         detail = null;
         selection = null;
     }

@@ -57,7 +57,28 @@ public class PlotMapScreen extends Screen {
         boolean following, blocks;
     }
 
-    private record Tex(byte[] from, ResourceLocation id, DynamicTexture texture) {
+    /** Chunks per side in one terrain picture: 8 by 8 chunks are drawn at once instead of one by one. */
+    private static final int GROUP = 8;
+    /** Pictures kept while the map is open; beyond this, those not drawn this frame are let go. */
+    private static final int MAX_GROUPS = 300;
+
+    /**
+     * One terrain picture of {@link #GROUP} by {@link #GROUP} chunks of one world. {@code from} holds the colours each
+     * chunk was painted from, so a chunk is painted again only when new colours arrive for it.
+     */
+    private static final class Group {
+        final String dimension;
+        final byte[][] from = new byte[GROUP * GROUP][];
+        final ResourceLocation id;
+        final DynamicTexture texture;
+        boolean any;
+        int drawnAt;
+
+        Group(String dimension, ResourceLocation id, DynamicTexture texture) {
+            this.dimension = dimension;
+            this.id = id;
+            this.texture = texture;
+        }
     }
 
     private PlotMapStatePacket state;
@@ -82,7 +103,8 @@ public class PlotMapScreen extends Screen {
     private final List<Hit> hits = new ArrayList<>();
     /** The cards drawn this frame (card units): a click on one that hits no button goes no further, so it never reaches the map. */
     private final List<Hit> covers = new ArrayList<>();
-    private final Map<Long, Tex> textures = new HashMap<>();
+    private final Map<Long, Group> groups = new HashMap<>();
+    private int frame;
     private EditBox search, name, minY, maxY;
     private String message = "";
     private boolean messageOk = true;
@@ -449,38 +471,68 @@ public class PlotMapScreen extends Screen {
         return (int) (px / UI);
     }
 
+    /**
+     * The terrain, one picture per 8 by 8 chunks (review 2026-10-23): at the widest zoom that is a few dozen draws a
+     * frame instead of about two thousand. A picture is painted again only where new chunk colours arrived.
+     */
     private void drawTerrain(GuiGraphics g) {
+        frame++;
+        String dim = state.dimension();
         int cx0 = Math.floorDiv((int) Math.floor(ox), 16), cz0 = Math.floorDiv((int) Math.floor(oz), 16);
         int cx1 = Math.floorDiv((int) Math.ceil(ox + width / scale), 16), cz1 = Math.floorDiv((int) Math.ceil(oz + height / scale), 16);
         List<Long> missing = new ArrayList<>();
-        for (int cx = cx0; cx <= cx1; cx++) {
-            for (int cz = cz0; cz <= cz1; cz++) {
-                long key = ChunkPos.asLong(cx, cz);
-                byte[] colours = MapTileCache.chunk(state.dimension(), key);
-                if (colours == null) {
-                    missing.add(key);
+        for (int gx = Math.floorDiv(cx0, GROUP); gx <= Math.floorDiv(cx1, GROUP); gx++) {
+            for (int gz = Math.floorDiv(cz0, GROUP); gz <= Math.floorDiv(cz1, GROUP); gz++) {
+                long gkey = ChunkPos.asLong(gx, gz);
+                Group grp = groups.get(gkey);
+                if (grp != null && !grp.dimension.equals(dim)) {
+                    minecraft.getTextureManager().release(grp.id);
+                    groups.remove(gkey);
+                    grp = null;
+                }
+                boolean changed = false;
+                for (int i = 0; i < GROUP * GROUP; i++) {
+                    int cx = gx * GROUP + i % GROUP, cz = gz * GROUP + i / GROUP;
+                    byte[] colours = MapTileCache.chunk(dim, ChunkPos.asLong(cx, cz));
+                    if (colours == null) {
+                        if (cx >= cx0 && cx <= cx1 && cz >= cz0 && cz <= cz1) {
+                            missing.add(ChunkPos.asLong(cx, cz));
+                        }
+                        continue;
+                    }
+                    if (grp == null) {
+                        DynamicTexture tex = new DynamicTexture(GROUP * 16, GROUP * 16, true); // starts clear
+                        grp = new Group(dim, minecraft.getTextureManager().register("bsp_rg_plotmap", tex), tex);
+                        groups.put(gkey, grp);
+                    }
+                    if (grp.from[i] != colours) {
+                        grp.from[i] = colours;
+                        paint(grp.texture.getPixels(), (i % GROUP) * 16, (i / GROUP) * 16, colours);
+                        grp.any |= colours.length >= 256;
+                        changed = true;
+                    }
+                }
+                if (grp == null) {
                     continue;
                 }
-                if (colours.length < 256) {
-                    continue; // nothing there
+                if (changed) {
+                    grp.texture.upload();
                 }
-                Tex t = textures.get(key);
-                if (t == null || t.from() != colours) {
-                    if (t != null) {
-                        minecraft.getTextureManager().release(t.id());
-                    }
-                    NativeImage img = new NativeImage(16, 16, false);
-                    for (int i = 0; i < 256; i++) {
-                        int packed = colours[i] & 0xFF;
-                        img.setPixelRGBA(i % 16, i / 16, packed == 0 ? 0 : MapColor.getColorFromPackedId(packed));
-                    }
-                    DynamicTexture tex = new DynamicTexture(img);
-                    t = new Tex(colours, minecraft.getTextureManager().register("bsp_rg_plotmap", tex), tex);
-                    textures.put(key, t);
+                grp.drawnAt = frame;
+                if (grp.any) {
+                    int x0 = sx(gx * GROUP * 16), z0 = sz(gz * GROUP * 16), x1 = sx((gx + 1) * GROUP * 16), z1 = sz((gz + 1) * GROUP * 16);
+                    g.blit(grp.id, x0, z0, x1 - x0, z1 - z0, 0, 0, GROUP * 16, GROUP * 16, GROUP * 16, GROUP * 16);
                 }
-                int x0 = sx(cx * 16), z0 = sz(cz * 16), x1 = sx(cx * 16 + 16), z1 = sz(cz * 16 + 16);
-                g.blit(t.id(), x0, z0, x1 - x0, z1 - z0, 0, 0, 16, 16, 16, 16);
             }
+        }
+        if (groups.size() > MAX_GROUPS) { // panned far: let go of the pictures out of sight
+            groups.values().removeIf(grp -> {
+                boolean old = grp.drawnAt != frame;
+                if (old) {
+                    minecraft.getTextureManager().release(grp.id);
+                }
+                return old;
+            });
         }
         if (!missing.isEmpty()) {
             MapTileCache.want(state.dimension(), missing, false);
@@ -877,7 +929,8 @@ public class PlotMapScreen extends Screen {
         cardName.setY(ry);
         cardName.setWidth(110);
         cardName.visible = true;
-        g.drawString(font, "P " + p.priority(), x + 122, ry + 2, TEXT, false);
+        String priority = "P " + p.priority();
+        g.drawString(font, priority, Math.max(x + 117, x + 147 - font.width(priority)), ry + 2, TEXT, false); // ends before the "-"
         chip(g, x + 150, ry, 12, 12, "-", false, TEXT, () -> sendPriority(p, p.priority() - 1));
         chip(g, x + 164, ry, 12, 12, "+", false, TEXT, () -> sendPriority(p, p.priority() + 1));
         ry += 16;
@@ -920,10 +973,18 @@ public class PlotMapScreen extends Screen {
             chip(g, tx, ry, tw, 12, label, false, TQ, () -> openAdmin(p.id(), t));
             tx += tw + 3;
         }
+        if (mode == Mode.PLOT && (p.type().equals("plot_for_sale") || p.type().equals("open_for_buying"))) {
+            String label = Tr.t("look.button");
+            chip(g, tx, ry, font.width(label) + 10, 12, label, false, GOLD, () -> {
+                if (minecraft != null) {
+                    minecraft.setScreen(new PlotLookScreen(p.id(), this)); // D111; Esc comes back to the map
+                }
+            });
+        }
         ry += 16;
-        chip(g, x + 5, ry, 70, 12, Tr.t("vertical_fill"), true, GOLD, () -> send(new PlotMapActionPacket(PlotMapActionPacket.CORNERS, p.id(), "", "",
+        chip(g, x + 5, ry, 76, 12, Tr.t("vertical_fill"), true, GOLD, () -> send(new PlotMapActionPacket(PlotMapActionPacket.CORNERS, p.id(), "", "",
                 p.minX(), state.bottom(), p.minZ(), p.maxX(), state.top(), p.maxZ(), 0, false, false, 0)));
-        chip(g, x + 78, ry, 60, 12, Tr.t("tool.reshape"), tool == Tool.RESHAPE, TQ, () -> setTool(Tool.RESHAPE));
+        chip(g, x + 84, ry, 60, 12, Tr.t("tool.reshape"), tool == Tool.RESHAPE, TQ, () -> setTool(Tool.RESHAPE));
         chip(g, x + w - 61, ry, 56, 12, deleteArmed ? Tr.t("sure") : Tr.t("delete"), deleteArmed, BAD, () -> {
             if (deleteArmed) {
                 deleteArmed = false;
@@ -1563,11 +1624,22 @@ public class PlotMapScreen extends Screen {
         RegionNetwork.CHANNEL.sendToServer(p);
     }
 
+    /** One chunk's colours into a picture at ({@code x}, {@code y}); empty ground stays clear. */
+    private static void paint(@Nullable NativeImage img, int x, int y, byte[] colours) {
+        if (img == null) {
+            return;
+        }
+        for (int i = 0; i < 256; i++) {
+            int packed = colours.length < 256 ? 0 : colours[i] & 0xFF;
+            img.setPixelRGBA(x + i % 16, y + i / 16, packed == 0 ? 0 : MapColor.getColorFromPackedId(packed));
+        }
+    }
+
     private void releaseTextures() {
         if (minecraft != null) {
-            textures.values().forEach(t -> minecraft.getTextureManager().release(t.id()));
+            groups.values().forEach(grp -> minecraft.getTextureManager().release(grp.id));
         }
-        textures.clear();
+        groups.clear();
     }
 
     @Override

@@ -165,6 +165,14 @@ public final class RegionCommands {
                 })
                 .executes(ctx -> answer(ctx.getSource(), RegionEdits.coinTier(RegionStore.get(ctx.getSource().getLevel()), region(ctx.getSource(), id(ctx)),
                         StringArgumentType.getString(ctx, "tier")))))));
+        rg.then(Commands.literal("look").then(id()
+                .executes(ctx -> ok(ctx.getSource(), id(ctx) + " shows " + RegionEdits.lookText(com.mrgregles.bsp_region_guard.claim.PlotLook.of(region(ctx.getSource(), id(ctx)))) + "."))
+                .then(Commands.argument("part", StringArgumentType.word())
+                        .suggests((c, b) -> SharedSuggestionProvider.suggest(List.of("marker", "colour", "size", "namesize", "height"), b))
+                        .then(Commands.argument("value", StringArgumentType.word())
+                                .suggests((c, b) -> SharedSuggestionProvider.suggest(com.mrgregles.bsp_region_guard.claim.PlotLook.MARKERS, b))
+                                .executes(ctx -> answer(ctx.getSource(), RegionEdits.plotLookPart(RegionStore.get(ctx.getSource().getLevel()), region(ctx.getSource(), id(ctx)),
+                                        StringArgumentType.getString(ctx, "part"), StringArgumentType.getString(ctx, "value"))))))));
         rg.then(Commands.literal("plotlimit").then(id()
                 .executes(ctx -> {
                     int n = com.mrgregles.bsp_region_guard.claim.ClaimData.plotLimit(region(ctx.getSource(), id(ctx)));

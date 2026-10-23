@@ -58,7 +58,7 @@ public class SyncGameTests {
         RegionDetailPacket back2 = RegionDetailPacket.decode(buf);
         h.assertTrue(back2.equals(detail), "detail packet round trip");
 
-        RegionListPacket remote = new RegionListPacket(ResourceLocation.parse("minecraft:overworld"), List.of(), "hub", false, "survival-2", List.of("survival-1", "survival-2"));
+        RegionListPacket remote = new RegionListPacket(ResourceLocation.parse("minecraft:overworld"), List.of(), "hub", false, "survival-2", List.of("survival-1", "survival-2"), true);
         buf = new FriendlyByteBuf(Unpooled.buffer());
         RegionListPacket.encode(remote, buf);
         h.assertTrue(RegionListPacket.decode(buf).equals(remote), "list packet with the server switcher's fields");

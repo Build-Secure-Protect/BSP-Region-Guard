@@ -116,9 +116,17 @@ public final class BspCore {
 
     // ------------------------------------------------------------------ money: Shatter Coins (D95 to D98, RG-C9)
 
+    /** BSP Core's tiers never change while the game runs, so they are read once. */
+    @Nullable
+    private static List<String> tiers;
+
     /** The coin tiers by key, cheapest first (copper, gold, diamond, netherite, illyrium). */
     public static List<String> coinTiers() {
-        return BspCoins.tiers();
+        List<String> t = tiers;
+        if (t == null) {
+            tiers = t = List.copyOf(BspCoins.tiers());
+        }
+        return t;
     }
 
     /** One coin of this tier, in copper-coin units (BSP Core's config); 0 for an unknown tier. */

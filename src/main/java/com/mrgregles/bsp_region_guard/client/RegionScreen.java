@@ -385,6 +385,15 @@ public class RegionScreen extends HoloScreen {
         g.pose().popPose();
     }
 
+    /** {@code s} cut to {@code room} screen units at {@code scale}, ending in "..." when cut, so it stays inside its box. */
+    private String fit(String s, int room, float scale) {
+        int px = (int) (room / scale);
+        if (font.width(s) <= px) {
+            return s;
+        }
+        return font.plainSubstrByWidth(s, px - font.width("...")) + "...";
+    }
+
     private void text(GuiGraphics g, String s, int x, int y, int colour, float scale) {
         text(g, font, s, x, y, colour, scale);
     }
@@ -977,12 +986,12 @@ public class RegionScreen extends HoloScreen {
         int tx = px + 93, ty = cy + 36, tw = 80, th = 56;
         g.fill(tx, ty, tx + tw, ty + th, (TQ & 0xFFFFFF) | 0x22000000);
         frame(g, tx, ty, tw, th, TQ);
-        text(g, storage.equals("off") ? Tr.t("this_server") : storage, tx + 4, ty + 4, TQ, 0.75f);
+        text(g, fit(storage.equals("off") ? Tr.t("this_server") : storage, tw - 8, 0.75f), tx + 4, ty + 4, TQ, 0.75f);
         if (size == null) {
             text(g, Tr.t("no_border"), tx + 4, ty + 16, MUTED, 0.6f);
         } else {
             text(g, Tr.t("border_wide", size), tx + 4, ty + 16, TEXT, 0.6f);
-            text(g, Tr.t("border_around", whole(data.getOrDefault("borderX", "0")), whole(data.getOrDefault("borderZ", "0"))), tx + 4, ty + 25, MUTED, 0.6f);
+            text(g, fit(Tr.t("border_around", whole(data.getOrDefault("borderX", "0")), whole(data.getOrDefault("borderZ", "0"))), tw - 8, 0.6f), tx + 4, ty + 25, MUTED, 0.6f);
         }
         chip(g, tx + 4, ty + th - 13, 40, 10, size == null ? Tr.t("set") : Tr.t("change"), false, TQ, 0.5f,
                 () -> openInput(Input.BORDER, size == null ? "" : size + " " + whole(data.getOrDefault("borderX", "0")) + " " + whole(data.getOrDefault("borderZ", "0")),
@@ -1163,10 +1172,16 @@ public class RegionScreen extends HoloScreen {
             String paid = data.containsKey("boughtCoins") ? Tr.t("worth_copper", data.get("boughtCoins")) : money(data, data.getOrDefault("boughtFor", "?"), "pieces");
             text(g, Tr.t("bought_for_origin", paid, data.getOrDefault("origin", "?")), px + 6, cy + 13, TEXT, 0.75f);
             text(g, Tr.t("the_owner_gives_it_up_with_claim_abandon_an_admi"), px + 6, cy + 24, 0xFF6F7788, 0.5f);
-            text(g, Tr.t("buyer_may_set", data.getOrDefault("playerFlags", Tr.t("the_config_list"))), px + 6, cy + 36, GOLD, 0.6f);
+            text(g, fit(Tr.t("buyer_may_set", data.getOrDefault("playerFlags", Tr.t("the_config_list"))), paneW - 12, 0.6f), px + 6, cy + 36, GOLD, 0.6f);
             return;
         }
         text(g, Tr.t("plot_for_sale"), px + 6, cy + 5, GOLD, 0.6f);
+        // D111: the plot's look in the world, while it is for sale or open
+        chip(g, px + paneW - 40, cy + 3, 34, 10, Tr.t("look.button"), false, GOLD, 0.5f, () -> {
+            if (minecraft != null) {
+                minecraft.setScreen(new PlotLookScreen(s.id(), this));
+            }
+        });
         text(g, Tr.t("a_fixed_price_for_this_whole_region_the_buyer_be"), px + 6, cy + 12, 0xFF6F7788, 0.5f);
         String price = data.getOrDefault("price", "0");
         boolean coins = !data.getOrDefault("currency", "pieces").equals("pieces");
@@ -1193,7 +1208,7 @@ public class RegionScreen extends HoloScreen {
         button(g, px + 6, cy + 78, 70, 12, Tr.t("set_cost"), GOLD, () -> data("costPerBlock", cost, coins ? Tr.t("coins_per_block_of_ground_0_closes_the_area") : Tr.t("shatter_pieces_per_block_of_ground_0_closes_the")));
         button(g, px + 80, cy + 78, 56, 12, Tr.t("min_size"), MUTED, () -> data("minSize", data.getOrDefault("minSize", ""), Tr.t("smallest_side_in_blocks_empty_uses_the_config")));
         button(g, px + 140, cy + 78, 56, 12, Tr.t("max_size"), MUTED, () -> data("maxSize", data.getOrDefault("maxSize", ""), Tr.t("largest_side_in_blocks_empty_uses_the_config")));
-        text(g, Tr.t("buyer_may_set", data.getOrDefault("playerFlags", Tr.t("the_config_list"))), px + 6, cy + 96, GOLD, 0.6f);
+        text(g, fit(Tr.t("buyer_may_set", data.getOrDefault("playerFlags", Tr.t("the_config_list"))), paneW - 50, 0.6f), px + 6, cy + 96, GOLD, 0.6f);
         chip(g, px + paneW - 40, cy + 94, 34, 10, Tr.t("edit"), false, GOLD, 0.5f, () -> data("playerFlags", data.getOrDefault("playerFlags", ""), Tr.t("flags_the_buyer_may_set_comma_separated_default")));
         text(g, Tr.t("buying_happens_in_bsp_core_s_shop_screen_or_with"), px + 6, cy + 108, 0xFF6F7788, 0.5f);
         String limit = data.get("plotLimit");

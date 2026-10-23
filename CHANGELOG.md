@@ -4,6 +4,29 @@ All notable changes to BSP Region Guard. Format follows Keep a Changelog; versio
 
 ## [Unreleased]
 
+**Network protocol 8:** servers and players need this version together.
+
+### Added (2026-10-23, plot markers: D105 to D114)
+- **How plots for sale look in the world.** Every plot for sale and open area shows to every player in its own colour, with a marker over its middle carrying its name, until it is bought; then it disappears (the owner can still show their claim with the region key).
+  - Markers: **arrow** (a big downward arrow at 20% with the name above, bobbing), **orbit sphere** (the name's letters circling a glassy sphere), **spire beacon** (a pulsing beam with a turning crystal), **for sale sign** (FOR SALE, the name and the price), or **outline only**. New plots start with the gold arrow.
+  - Settings: colour (eight colours or any hex), marker size and name size (0.5x to 3x), height above the ground in the plot's middle (kept below the plot's top). Markers show within 96 blocks.
+  - Set in the new **PLOT LOOK** window (LOOK on the SALE tab, or on the region map's plot card in PLOT mode) with a preview that turns, or `/rg look <id> [marker|colour|size|namesize|height] <value>`.
+  - A copied plot takes the look and shows its own name.
+- **Teleport after buying** (D113): after buying a plot at a Land Office (or an outlined plot), a pop-up offers TELEPORT (to the ground in the plot's middle, or its teleport point) or STAY.
+
+### Changed (2026-10-23)
+- **The region key (B) starts off for players** and on for admins. Plots for sale show either way.
+- While an admin looks at another server's regions, the world drawing keeps showing this server's regions.
+- **Less work per frame** (review 2026-10-23): regions out of view are skipped; boxes are drawn in one batch for all faces and one for all edges (was two or three draws per region); a region's box is built once per list, not every frame; the sphere's shape is worked out once.
+- **The region map's terrain** is drawn as one picture per 8 by 8 chunks (was one draw per chunk, about two thousand a frame at the widest zoom). A picture is repainted only where new chunk colours arrive, and pictures far out of sight are let go after 300.
+- **Fewer packets:** a change to regions now sends each player in that world one fresh list at the end of the tick, however many regions changed in it.
+
+### Fixed (2026-10-23, review before release)
+- A plot's faint box hid its own marker from outside the plot (the faces were drawn first and blocked it). Markers are drawn first now.
+- The for sale sign's lines ran into each other at name size 2 and above; the board grows with the name size. Sphere letters ran together when the name size was larger than the marker size.
+- The PLOT LOOK preview lost its lines with Fabulous graphics; it now draws them on the screen itself.
+- Text that ran out of its box: the SALE tab's BUYER MAY SET line (now cut with "..."), the PLOT LOOK title and hint, the bought pop-up's question (now wrapped), the BORDER tab's server name and centre, long names on the sign, and VERTICAL FILL on the region map's card. A priority of three digits no longer runs into its "-" button. "1 blocks" reads "1 block".
+
 ## [0.5.0] - 2026-10-23
 
 Plots in PvP worlds, plot limits per region, and plots priced in Shatter Coins. **Needs BSP-Core 1.4.3 or newer** (was 1.1.0): coins go through BSP-Core's new `api.BspCoins` (request RG-C9); Region Guard now builds against BSP-Core 1.4.3. API version 6. Network protocol unchanged (7).

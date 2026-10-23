@@ -78,6 +78,7 @@ public class PlotMapGameTests {
             src.setFlag(Flags.TELEPORT, new FlagLocation(h.getLevel().dimension(), tp.getX() + 0.5, tp.getY(), tp.getZ() + 0.5, 0, 0));
             src.typeData().putLong(ClaimData.BOUGHT_FOR, 48000);
             src.typeData().putString(ClaimData.PLAYER_FLAGS, "entry,chest-access");
+            new com.mrgregles.bsp_region_guard.claim.PlotLook("beacon", 0x5AA9FF, 2f, 1.5f, 6).save(src);
             store(h).touch(src);
 
             Cuboid there = box(h, 10, 1, 4, 3);
@@ -93,6 +94,8 @@ public class PlotMapGameTests {
             FlagLocation moved = copy.flag(Flags.TELEPORT);
             h.assertTrue(moved != null && (int) Math.floor(moved.x()) == tp.getX() + 9, "the teleport point moved with it: " + moved);
             h.assertTrue(PlotMap.locked(copy), "and it starts locked");
+            h.assertTrue(com.mrgregles.bsp_region_guard.claim.PlotLook.of(copy).equals(new com.mrgregles.bsp_region_guard.claim.PlotLook("beacon", 0x5AA9FF, 2f, 1.5f, 6)),
+                    "the look comes with it (D112)");
 
             h.assertFalse(PlotMap.paste(admin, "pm_src", "pm_copy", "", box(h, 16, 1, 4, 3), 3).ok(), "a name in use is refused");
             h.assertFalse(PlotMap.paste(admin, "pm_src", "pm_big", "", box(h, 16, 1, 5, 3), 3).ok(), "so is another size");

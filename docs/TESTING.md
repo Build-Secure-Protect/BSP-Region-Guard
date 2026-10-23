@@ -448,3 +448,27 @@ On the network, as an admin on two servers whose overworlds look different. Buil
 - [ ] Move to server B through the proxy (`/server B` or an edge link). Open the region map: only server B's terrain is drawn, filling in as it arrives; nothing of server A's islands or plots remains.
 - [ ] Go back to server A: its terrain loads again (fresh, not left over from before).
 
+## 2026-10-23: plot markers and teleport after buying (D105 to D114)
+
+The new jar on the server and every client (network protocol 8). Built and tested headless (109 GameTests); none of the drawing below has been seen in a client.
+
+- [ ] As a player (not an admin): the region key (B) is off at first; plots for sale still show, in gold with an arrow over their middle and the name above it. Press B: your own claims show too.
+- [ ] As an admin, SALE tab of a plot for sale: LOOK opens the PLOT LOOK window. The preview turns with the TURN buttons and by dragging it.
+- [ ] Try each marker: ARROW (20% see-through, bobbing), SPHERE (letters circling it), BEACON (a pulsing beam from the ground, a turning crystal), SIGN (FOR SALE, the name, the price), OUTLINE ONLY (just the name). The preview follows each change.
+- [ ] Pick a colour from the eight, then type one in the hex box (e.g. #FF9F40): the preview and the swatch next to the box change. MARKER SIZE and NAME SIZE go from 0.50x to 3.00x; HEIGHT goes from 0 up to the plot's height (and never past 64).
+- [ ] SAVE: back on the SALE tab; in the world the plot shows the new look at once, for you and for a player nearby. CANCEL or Esc: nothing changes.
+- [ ] Walk around the plot: the marker and its name turn to face you. From more than 96 blocks away the marker goes (the outline stays).
+- [ ] A plot whose middle is on a hill: the marker stands the chosen height above the ground there, and never above the plot's top.
+- [ ] Region map, PLOT mode, pick a plot for sale: LOOK on the card opens the same window; Esc comes back to the map.
+- [ ] Copy that plot on the map: the copy has the same look and shows its own name.
+- [ ] An open area: the same look over the area's middle; the sign's price says "... a block". Plots outlined inside it have no marker once bought.
+- [ ] `/rg look <plot>` describes the look; `/rg look <plot> marker sign`, `colour #5AA9FF`, `size 2`, `namesize 1.5`, `height 6` each change one part.
+- [ ] As a player, buy the plot at a Land Office: the Land Office closes and "You bought ..." asks TELEPORT or STAY. TELEPORT puts you on the ground in the plot's middle (or on its teleport point). STAY or Esc leaves you where you are. The plot's marker and outline are gone for everyone.
+- [ ] Outline and buy a plot in an open area: the same pop-up. Enlarging a plot does not ask.
+- [ ] With frame rate shown (F3), stand among several plots with markers: no noticeable drop.
+- [ ] Stand outside a plot for sale and look at it: the marker shows through the plot's faint walls (it used to be hidden below the plot's top).
+- [ ] Video settings, Graphics: Fabulous. Open PLOT LOOK: the preview still shows the outline and the arrow's and sign's edges.
+- [ ] Sign with NAME SIZE 3: the three lines do not touch. Sphere with MARKER SIZE 0.5 and NAME SIZE 3: the letters stay apart.
+- [ ] A plot whose buyer may set a long list of flags: the SALE tab's BUYER MAY SET line ends in "..." before its edit button.
+- [ ] Region map, zoomed all the way out, frame rate shown (F3): it stays smooth while panning. Terrain fills in as it arrives with no gaps or stripes between 8-by-8-chunk squares; REFRESH (↻) repaints it; switching world with < > shows that world's terrain only.
+
