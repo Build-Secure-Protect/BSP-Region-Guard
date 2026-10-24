@@ -4,7 +4,19 @@ All notable changes to BSP Region Guard. Format follows Keep a Changelog; versio
 
 ## [Unreleased]
 
-**Network protocol 8:** servers and players need this version together.
+**Network protocol 9:** servers and players need this version together.
+
+### Added (2026-10-25, mine fill window: D115 to D119)
+- **MINE FILL window** (EDIT FILL on the MINE tab, or on the region map's card in MINE mode): the mine's blocks on the left, each with a percentage box (one decimal, so 0.5% diamond works) and the mine's **total** under them; a creative-style block browser on the right (the creative tabs with blocks, search, `@mod`), blocks already in the mine marked in gold. Click a block to add it.
+- **REST:** one block can be marked to fill whatever share is left; it is the mine's base, and the others grow as veins. The first block added to an empty mine is REST. Without a REST block the biggest share is the base, as before.
+- **SAVE** only when the total is 100%; the window says how much is left or too much. Existing mines open with their weights turned into percentages. Up to 24 blocks.
+- The MINE tab shows each block's share with one decimal and marks the REST block. Blocks are no longer typed in by name there (`/rg mine add` still works).
+
+### Changed (2026-10-25, region outlines: D120 to D124)
+- **Region outlines show while you hold the Region Wand** (either hand) and go away when you put it down; the gold outline of a selection too. The region key (B) still shows them without the wand and now **starts off for everyone**. Plots for sale keep showing to everyone with their markers. Players holding the plot tool see their own claims.
+
+### Fixed (2026-10-25, B14: buttons that seemed to do nothing)
+- The admin screen's buttons (RESET NOW, MOVE SPAWN, INTERVAL, RESIZE SHELL on the MINE tab, and every other one) worked, but the server's answer went to the action bar, which is hidden behind an open screen. Every button now lights up for a moment when clicked, and the answer shows in the screen's bottom line for six seconds (teal when it worked, red when it was refused). With no screen open it still goes to the action bar.
 
 ### Added (2026-10-23, plot markers: D105 to D114)
 - **How plots for sale look in the world.** Every plot for sale and open area shows to every player in its own colour, with a marker over its middle carrying its name, until it is bought; then it disappears (the owner can still show their claim with the region key).
@@ -20,6 +32,9 @@ All notable changes to BSP Region Guard. Format follows Keep a Changelog; versio
 - **Less work per frame** (review 2026-10-23): regions out of view are skipped; boxes are drawn in one batch for all faces and one for all edges (was two or three draws per region); a region's box is built once per list, not every frame; the sphere's shape is worked out once.
 - **The region map's terrain** is drawn as one picture per 8 by 8 chunks (was one draw per chunk, about two thousand a frame at the widest zoom). A picture is repainted only where new chunk colours arrive, and pictures far out of sight are let go after 300.
 - **Fewer packets:** a change to regions now sends each player in that world one fresh list at the end of the tick, however many regions changed in it.
+
+### Fixed (2026-10-24, B13: stuck in RESHAPE)
+- On the region map, RESHAPE could not be left: Esc dropped the pending shape, but the bar started the same reshape again on the next frame, so Esc never reached closing the map. The reshape bar now has **CANCEL** (also while folded), and Esc while reshaping goes back to PICK; a second Esc closes the map as before.
 
 ### Fixed (2026-10-23, review before release)
 - A plot's faint box hid its own marker from outside the plot (the faces were drawn first and blocked it). Markers are drawn first now.

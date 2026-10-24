@@ -17,7 +17,7 @@ import java.util.function.Supplier;
  * screen should show; {@code open} asks the client to open the screen. {@code viewing} is the other server whose
  * regions these are (owner decision D44, read-only), or empty for this server; {@code servers} lists the servers the
  * admin may switch between, this one first (empty without shared storage). {@code admin}: whether this player runs
- * Region Guard (the region key starts on for admins and off for players, D105).
+ * Region Guard (no longer read by the client since the region key starts off for everyone, D121; kept for the format).
  */
 public record RegionListPacket(ResourceLocation dimension, List<Summary> regions, @Nullable String select, boolean open, String viewing, List<String> servers,
                                boolean admin) {

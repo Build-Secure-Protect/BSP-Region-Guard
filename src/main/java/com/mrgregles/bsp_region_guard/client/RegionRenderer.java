@@ -23,8 +23,9 @@ import org.joml.Matrix4f;
  * centre, the way BSP Core draws its aura cubes. Also the wand selection, in gold. Only what the server sent is
  * drawn (admins get everything, players their own claims and plots for sale), and only while the toggle is on.
  *
- * <p>Plots for sale and open areas are the exception (D105): every player sees them in their own colour with their
- * marker ({@link PlotMarkers}), toggle or not, until they are bought.
+ * <p>Outlines show while the Region Wand is in either hand (D120, D124), or with the region key on (off at first, D121);
+ * the wand selection only with the wand in hand (D122). Plots for sale and open areas are the exception (D105, D123):
+ * every player sees them in their own colour with their marker ({@link PlotMarkers}) until they are bought.
  */
 public final class RegionRenderer {
     /** Regions whose nearest point is further than this from the camera are skipped. */
@@ -62,6 +63,11 @@ public final class RegionRenderer {
         return boxes;
     }
 
+    private static boolean holdingWand(Minecraft mc) {
+        var wand = com.mrgregles.bsp_region_guard.registry.ModItems.REGION_WAND.get();
+        return mc.player.getMainHandItem().is(wand) || mc.player.getOffhandItem().is(wand);
+    }
+
     private static float red(int rgb) {
         return (rgb >> 16 & 0xFF) / 255f;
     }
@@ -82,14 +88,16 @@ public final class RegionRenderer {
         if (mc.level == null || mc.player == null) {
             return;
         }
-        boolean show = RegionClient.showRegions();
+        // D120 to D122: outlines show while the Region Wand (the plot tool for players) is in either hand, or with the region key on
+        boolean wand = holdingWand(mc);
+        boolean show = wand || RegionClient.showRegions();
         RegionListPacket list = RegionClient.list();
         if (list != null && list.remote()) {
             list = RegionClient.ownList(); // another server's regions are not in this world
         }
         SelectionPacket sel = RegionClient.selection();
         boolean anyRegion = list != null && list.dimension().equals(mc.level.dimension().location());
-        boolean anySelection = show && sel != null && sel.dimension() != null && sel.dimension().equals(mc.level.dimension().location()) && (sel.pos1() != null || sel.pos2() != null);
+        boolean anySelection = wand && sel != null && sel.dimension() != null && sel.dimension().equals(mc.level.dimension().location()) && (sel.pos1() != null || sel.pos2() != null);
         if (!anyRegion && !anySelection) {
             return;
         }

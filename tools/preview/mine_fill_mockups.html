@@ -1,0 +1,215 @@
+<title>Mine Fill Mock-ups</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=VT323&family=IBM+Plex+Sans:wght@400;600&display=swap">
+<style>
+/* Layout: notes, then per option one 16:9 game window and a short for/against, then the defaults. Single dark look: these are game screens. */
+:root {
+    color-scheme: dark;
+    --page: #0b0e13; --panel: rgba(16,21,28,.97); --inset: #0c0e12; --line: #2a2f3a; --slot: #1a1f28;
+    --tq: #19d3b0; --vio: #b58cff; --gold: #ffd23a; --bad: #ff6b5c; --text: #e6eaf2; --muted: #9aa3b5; --hint: #6f7788;
+    --mc: "VT323", ui-monospace, Menlo, monospace; --ui: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+body { background: var(--page); color: var(--text); font-family: var(--ui); }
+.wrap { max-width: 1020px; margin: 0 auto; padding-block: 28px 64px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1 { font-family: var(--mc); font-weight: normal; font-size: 2.6rem; color: var(--tq); margin: 0 0 4px; text-wrap: balance; }
+h2 { font-family: var(--mc); font-weight: normal; font-size: 1.9rem; margin: 44px 0 4px; text-wrap: balance; }
+h2 .tag { color: var(--muted); font-size: 1.2rem; margin-left: 8px; }
+p, li { line-height: 1.55; color: var(--muted); max-width: 72ch; }
+p strong, li strong { color: var(--text); font-weight: 600; }
+.lede { color: var(--text); }
+.scroller { overflow-x: auto; margin-top: 10px; padding-bottom: 6px; }
+.win { position: relative; width: 960px; height: 540px; background: #05070a; font-family: var(--mc); overflow: hidden; user-select: none; }
+.terrain { position: absolute; inset: 0; opacity: .35;
+    background: repeating-linear-gradient(90deg, rgba(0,0,0,.07) 0 1px, transparent 1px 16px), repeating-linear-gradient(0deg, rgba(0,0,0,.07) 0 1px, transparent 1px 16px),
+      linear-gradient(135deg, #4c7a35, #5d8b3c 40%, #4a7232 70%, #6f8f45); }
+.pnl { position: absolute; background: var(--panel); border: 1px solid var(--line); color: var(--text); }
+.pnl.tq { border-color: var(--tq); } .pnl.gold { border-color: var(--gold); }
+.btn { display: inline-flex; align-items: center; justify-content: center; height: 20px; padding: 0 8px; font-family: var(--mc); font-size: 15px;
+    background: var(--inset); border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+.btn.on { color: var(--tq); border-color: var(--tq); background: rgba(25,211,176,.13); }
+.btn.gold { color: var(--gold); border-color: var(--gold); background: rgba(255,210,58,.12); }
+.btn.no { color: var(--bad); border-color: var(--bad); background: rgba(255,107,92,.1); }
+.btn.sq { width: 20px; padding: 0; }
+.btn.big { height: 26px; font-size: 18px; padding: 0 14px; }
+.lbl { font-size: 14px; color: var(--muted); letter-spacing: .04em; }
+.tiny { font-size: 13px; color: var(--hint); }
+.abs { position: absolute; }
+.flex { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.col { display: flex; flex-direction: column; gap: 4px; }
+.ico { width: 16px; height: 16px; border: 1px solid #000; flex: none; image-rendering: pixelated; }
+.row { display: flex; align-items: center; gap: 6px; font-size: 16px; height: 22px; padding: 0 4px; border-bottom: 1px solid #141821; }
+.row .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row .pct { width: 54px; height: 18px; background: #050608; border: 1px solid var(--line); color: var(--text); font-family: var(--mc); font-size: 16px; text-align: right; padding: 0 4px; }
+.row .pct:focus-visible { outline: 1px solid var(--tq); }
+.row .x { color: var(--bad); font-size: 14px; width: 16px; text-align: center; }
+.row.filler .nm::after { content: "  filler"; color: var(--hint); font-size: 13px; }
+.total { display: flex; align-items: center; gap: 8px; font-size: 18px; }
+.total b { font-weight: normal; }
+.ok { color: var(--tq); } .bad { color: var(--bad); } .muted { color: var(--muted); } .gold { color: var(--gold); }
+.grid { display: grid; gap: 2px; }
+.slot { width: 22px; height: 22px; background: var(--slot); border: 1px solid #2a3140; display: flex; align-items: center; justify-content: center; }
+.slot.chosen { outline: 1px solid var(--gold); }
+.tabs { display: flex; gap: 2px; }
+.tabs .slot.on { border-color: var(--tq); background: var(--inset); }
+.search { height: 18px; background: #050608; border: 1px solid var(--line); color: var(--hint); font-size: 15px; padding: 0 5px; display: flex; align-items: center; }
+.callout { position: absolute; font-family: var(--ui); font-size: 11px; color: #000; background: var(--gold); padding: 1px 6px; border-radius: 2px; pointer-events: none; z-index: 5; }
+.pros { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 4px 24px; margin-top: 6px; }
+.pros p { margin: 0; font-size: .92rem; }
+ol.dec li { margin: 5px 0; font-size: .95rem; }
+.cslot { position: relative; width: 40px; height: 46px; background: var(--slot); border: 1px solid #2a3140; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 4px; gap: 3px; }
+.cslot .ico { width: 22px; height: 22px; }
+.cslot span { font-size: 14px; }
+.cslot.sel { border-color: var(--tq); background: rgba(25,211,176,.10); }
+</style>
+
+<div class="wrap">
+    <h1>Mine Fill</h1>
+    <p class="lede">Today a mine's blocks are typed in by name with a weight ("minecraft:iron_ore 8"). These three layouts let you pick blocks from a creative-style browser instead, give each one a percentage in its own box, and show the mine's total at the bottom.</p>
+    <p>The browser is the one from the BANNED BLOCKS editor: the creative tabs across the top, a search box, and <strong>@mod</strong> to show one mod's blocks. Only blocks can be added (not items). Type in the percentage boxes in layout B to see the total change.</p>
+
+    <h2>A. Inside the MINE tab <span class="tag">a browser that slides in</span></h2>
+    <div class="scroller"><div class="win" aria-label="Option A">
+        <div class="terrain"></div>
+        <div class="pnl tq" style="left:30px;top:24px;width:900px;height:492px">
+            <div class="ok abs" style="left:14px;top:10px;font-size:22px">REGIONS - OVERWORLD</div>
+            <div class="col abs" style="left:14px;top:44px;width:250px">
+                <div class="row">spawn<span class="tiny" style="margin-left:auto">P 10</span></div>
+                <div class="row" style="background:rgba(25,211,176,.12)"><span class="gold">iron_mine</span><span class="tiny" style="margin-left:auto">M 4</span></div>
+                <div class="row">coal_pit<span class="tiny" style="margin-left:auto">M 4</span></div>
+            </div>
+            <div class="abs" style="left:290px;top:10px;font-size:24px">Iron Mine (iron_mine)</div>
+            <div class="flex abs" style="left:290px;top:44px"><span class="btn">FLAGS</span><span class="btn">ACCESS</span><span class="btn">RANKS</span><span class="btn">SALE</span><span class="btn on">MINE</span><span class="btn">TELEPORT</span><span class="btn">INFO</span></div>
+            <div class="abs" style="left:290px;top:74px;width:290px">
+                <div class="lbl gold" style="margin-bottom:4px">FILL</div>
+                <div data-rows="a"></div>
+                <div class="total" style="margin-top:8px"><span class="muted">TOTAL</span> <b class="ok" data-total="a">100.0%</b><span class="btn" style="margin-left:auto">FILL THE REST</span></div>
+            </div>
+            <div class="pnl" style="left:596px;top:74px;width:290px;height:300px;border-color:var(--gold)">
+                <div class="flex abs" style="left:8px;top:8px"><span class="lbl gold">ADD BLOCKS</span><span class="tiny">click a block to add it</span><span class="btn sq" style="margin-left:22px">x</span></div>
+                <div class="tabs abs" style="left:8px;top:32px" data-tabs></div>
+                <div class="search abs" style="left:8px;top:60px;width:270px">search, or @mod</div>
+                <div class="grid abs" style="left:8px;top:86px;grid-template-columns:repeat(11,22px)" data-browser="a"></div>
+            </div>
+            <div class="abs" style="left:290px;top:392px;width:590px;border-top:1px solid var(--line);padding-top:8px">
+                <div class="flex"><span class="lbl gold">RESET</span><span style="font-size:16px">every 600 s, next in 214 s</span></div>
+                <div class="flex" style="margin-top:6px"><span class="btn">INTERVAL</span><span class="btn no">RESET NOW</span><span class="btn on">MOVE SPAWN</span><span class="btn">RESIZE SHELL</span></div>
+            </div>
+        </div>
+        <span class="callout" style="left:740px;top:84px">+ ADD BLOCKS opens this</span>
+    </div></div>
+    <div class="pros"><p><strong>For:</strong> everything for the mine stays on one tab; no new window.</p><p><strong>Against:</strong> tight at small window sizes: the browser covers the reset buttons' room, and long fill lists must scroll.</p></div>
+
+    <h2>B. A MINE FILL window <span class="tag">list left, browser right</span></h2>
+    <div class="scroller"><div class="win" aria-label="Option B">
+        <div class="terrain"></div>
+        <div class="abs" style="inset:0;background:rgba(0,0,0,.5)"></div>
+        <div class="pnl tq" style="left:60px;top:40px;width:840px;height:460px">
+            <div class="ok abs" style="left:14px;top:10px;font-size:22px">MINE FILL - iron_mine</div>
+            <div class="tiny abs" style="left:14px;top:34px">32 x 24 x 32 = 24,576 blocks</div>
+            <div class="abs" style="left:14px;top:56px;width:340px">
+                <div class="flex" style="font-size:14px;color:var(--hint);padding:0 4px 4px"><span style="width:18px"></span><span style="flex:1">BLOCK</span><span style="width:62px;text-align:right">%</span><span style="width:20px"></span></div>
+                <div data-rows="b" data-live></div>
+            </div>
+            <div class="abs" style="left:14px;top:360px;width:340px;border-top:1px solid var(--line);padding-top:8px">
+                <div class="total"><span class="muted">TOTAL OF THE MINE</span> <b class="ok" data-total="b">100.0%</b></div>
+                <div class="tiny" data-hint="b" style="margin-top:3px">The biggest share is the filler; the rest grow as veins.</div>
+                <div class="flex" style="margin-top:6px"><span class="btn">FILL THE REST</span><span class="btn">SPREAD EVENLY</span></div>
+            </div>
+            <div class="pnl" style="left:372px;top:56px;width:452px;height:340px">
+                <div class="tabs abs" style="left:8px;top:8px" data-tabs></div>
+                <div class="search abs" style="left:8px;top:36px;width:200px">search, or @mod</div>
+                <div class="tiny abs" style="left:218px;top:38px">Natural blocks: 64 · click or drag to add</div>
+                <div class="grid abs" style="left:8px;top:62px;grid-template-columns:repeat(18,22px)" data-browser="b"></div>
+            </div>
+            <div class="flex abs" style="right:14px;bottom:12px"><span class="btn big">CANCEL</span><span class="btn big on" data-save="b">SAVE</span></div>
+        </div>
+        <span class="callout" style="left:420px;top:30px">opened from EDIT FILL on the MINE tab or the map's MINE card</span>
+    </div></div>
+    <div class="pros"><p><strong>For:</strong> room for long lists and a big browser; looks and works like the BANNED BLOCKS editor; SAVE only when the total is 100%.</p><p><strong>Against:</strong> one more window; the reset buttons stay on the MINE tab.</p></div>
+
+    <h2>C. Inventory style <span class="tag">chosen blocks as slots</span></h2>
+    <div class="scroller"><div class="win" aria-label="Option C">
+        <div class="terrain"></div>
+        <div class="abs" style="inset:0;background:rgba(0,0,0,.5)"></div>
+        <div class="pnl tq" style="left:120px;top:30px;width:720px;height:480px">
+            <div class="ok abs" style="left:14px;top:10px;font-size:22px">MINE FILL - iron_mine</div>
+            <div class="lbl abs" style="left:14px;top:40px">IN THE MINE</div>
+            <div class="flex abs" style="left:14px;top:58px;gap:4px;width:690px" data-cslots></div>
+            <div class="flex abs" style="left:14px;top:114px;gap:10px">
+                <span class="lbl">iron ore</span><span class="btn sq">-</span><span style="font-size:18px">8.0%</span><span class="btn sq">+</span>
+                <span class="tiny">click a slot, then set its share; right-click removes</span>
+            </div>
+            <div class="total abs" style="right:14px;top:114px"><span class="muted">TOTAL</span> <b class="ok">100.0%</b></div>
+            <div class="abs" style="left:14px;top:142px;right:14px;border-top:1px solid var(--line)"></div>
+            <div class="tabs abs" style="left:14px;top:152px" data-tabs></div>
+            <div class="search abs" style="left:14px;top:180px;width:200px">search, or @mod</div>
+            <div class="grid abs" style="left:14px;top:206px;grid-template-columns:repeat(28,22px)" data-browser="c"></div>
+            <div class="flex abs" style="right:14px;bottom:12px"><span class="btn big">CANCEL</span><span class="btn big on">SAVE</span></div>
+        </div>
+    </div></div>
+    <div class="pros"><p><strong>For:</strong> feels like the creative inventory; the whole mine at a glance as slots.</p><p><strong>Against:</strong> one share changed at a time with − and +; harder to read exact numbers for many blocks.</p></div>
+
+    <h2>Open with them <span class="tag">defaults, also asked in chat</span></h2>
+    <ol class="dec">
+        <li>Layout B, the MINE FILL window.</li>
+        <li>Shares are percentages with one decimal (0.1% steps), so rare ores like 0.5% diamond work.</li>
+        <li>SAVE only when the total is exactly 100%; FILL THE REST puts whatever is missing into the filler (the biggest share).</li>
+        <li>The browser shows blocks only, with the creative tabs, search and @mod, and the blocks already in the mine marked.</li>
+        <li>Existing mines open with their weights turned into percentages.</li>
+    </ol>
+</div>
+
+<script>
+(() => {
+    const B = {
+        stone: ["Stone", "#8a8f98"], deepslate: ["Deepslate", "#4a4a52"], andesite: ["Andesite", "#9a9a9a"], granite: ["Granite", "#9a6a55"],
+        tuff: ["Tuff", "#6c6d63"], cobble: ["Cobblestone", "#7a7a7a"], gravel: ["Gravel", "#857d7a"], dirt: ["Dirt", "#866043"],
+        coal: ["Coal Ore", "#3b3b3b"], iron: ["Iron Ore", "#d8af93"], copper: ["Copper Ore", "#c87b4f"], gold: ["Gold Ore", "#f5d34a"],
+        redstone: ["Redstone Ore", "#c33"], lapis: ["Lapis Lazuli Ore", "#2b4fb5"], diamond: ["Diamond Ore", "#5de6e0"], emerald: ["Emerald Ore", "#2ecc71"],
+        zinc: ["Zinc Ore (Create)", "#9fb5a5"], osmium: ["Osmium Ore (Mekanism)", "#a8c0d8"], tin: ["Tin Ore", "#c7c7d4"], quartz: ["Nether Quartz Ore", "#e8e0d8"],
+    };
+    const ico = (k, cls = "ico") => `<span class="${cls}" style="background:linear-gradient(135deg,${B[k][1]} 0 45%,#0003 45% 55%,${B[k][1]} 55%),${B[k][1]};background-blend-mode:multiply"></span>`;
+    const fill = [["stone", 82.0], ["iron", 8.0], ["coal", 6.0], ["copper", 2.5], ["gold", 1.0], ["diamond", 0.5]];
+    const keys = Object.keys(B);
+    const chosen = new Set(fill.map(f => f[0]));
+
+    document.querySelectorAll("[data-rows]").forEach(el => {
+        const live = el.hasAttribute("data-live"), id = el.dataset.rows;
+        el.innerHTML = fill.map(([k, p], i) => `<div class="row${i === 0 ? " filler" : ""}">${ico(k)}<span class="nm">${B[k][0]}</span>`
+            + (live ? `<input class="pct" id="pct-${id}-${k}" inputmode="decimal" value="${p.toFixed(1)}" aria-label="${B[k][0]} percent">` : `<span class="pct" style="display:inline-flex;align-items:center;justify-content:flex-end">${p.toFixed(1)}</span>`)
+            + `<span class="muted" style="font-size:14px">%</span><span class="x">x</span></div>`).join("")
+            + `<div class="row" style="color:var(--tq);justify-content:flex-start">+ ADD BLOCKS</div>`;
+    });
+    document.querySelectorAll("[data-tabs]").forEach(el => {
+        el.innerHTML = ["stone", "iron", "dirt", "diamond", "zinc", "osmium", "quartz"].map((k, i) => `<span class="slot${i === 1 ? " on" : ""}">${ico(k)}</span>`).join("");
+    });
+    document.querySelectorAll("[data-browser]").forEach(el => {
+        const n = el.dataset.browser === "c" ? 56 : el.dataset.browser === "b" ? 180 : 99;
+        let out = "";
+        for (let i = 0; i < n; i++) {
+            const k = keys[i % keys.length];
+            out += `<span class="slot${chosen.has(k) && i < keys.length ? " chosen" : ""}">${ico(k)}</span>`;
+        }
+        el.innerHTML = out;
+    });
+    document.querySelectorAll("[data-cslots]").forEach(el => {
+        el.innerHTML = fill.map(([k, p]) => `<span class="cslot${k === "iron" ? " sel" : ""}">${ico(k)}<span>${p}%</span></span>`).join("")
+            + `<span class="cslot" style="justify-content:center;color:var(--tq);font-size:20px">+</span>`;
+    });
+    // layout B: the total follows the boxes; SAVE only at 100%
+    const live = document.querySelector("[data-live]");
+    const total = document.querySelector('[data-total="b"]'), hint = document.querySelector('[data-hint="b"]'), save = document.querySelector('[data-save="b"]');
+    const sum = () => {
+        let t = 0;
+        live.querySelectorAll("input").forEach(i => { const v = parseFloat(i.value); if (!isNaN(v)) t += v; });
+        t = Math.round(t * 10) / 10;
+        const ok = Math.abs(t - 100) < 0.05;
+        total.textContent = t.toFixed(1) + "%";
+        total.className = ok ? "ok" : "bad";
+        hint.textContent = ok ? "The biggest share is the filler; the rest grow as veins." : (t < 100 ? (100 - t).toFixed(1) + "% left to share out." : (t - 100).toFixed(1) + "% too much.");
+        save.className = ok ? "btn big on" : "btn big";
+    };
+    live.addEventListener("input", sum);
+})();
+</script>

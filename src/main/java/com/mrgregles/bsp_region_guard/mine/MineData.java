@@ -15,7 +15,12 @@ import java.util.List;
 
 /** The mine settings kept in a region's type data: the fill table, the interval, the next reset and the spawn point. */
 public final class MineData {
-    public static final String FILL = "fill", INTERVAL = "intervalSeconds", NEXT_RESET = "nextResetAt", SPAWN = "mineSpawn";
+    public static final String FILL = "fill", INTERVAL = "intervalSeconds", NEXT_RESET = "nextResetAt", SPAWN = "mineSpawn",
+            FILLER = "mineFiller";
+    /** The MINE FILL window saves shares in tenths of a percent, so they add up to this (D116, D117). */
+    public static final int WHOLE = 1000;
+    /** Most rows the MINE FILL window saves at once (they travel in one action of up to 1024 characters). */
+    public static final int MAX_ROWS = 24;
 
     /** One row of the fill table. {@code weight} is relative: a block with weight 90 next to one with 10 covers about nine tenths. */
     public record Entry(ResourceLocation block, int weight) {
@@ -59,6 +64,21 @@ public final class MineData {
             entries.add(new Entry(block, weight));
         }
         setFill(mine, entries);
+    }
+
+    /** The block that fills the remaining space (D117): the mine's filler, the others grow as veins; null when none was chosen. */
+    @Nullable
+    public static ResourceLocation filler(Region mine) {
+        String s = mine.typeData().getString(FILLER);
+        return s.isEmpty() ? null : ResourceLocation.tryParse(s);
+    }
+
+    public static void setFiller(Region mine, @Nullable ResourceLocation block) {
+        if (block == null) {
+            mine.typeData().remove(FILLER);
+        } else {
+            mine.typeData().putString(FILLER, block.toString());
+        }
     }
 
     public static int totalWeight(List<Entry> entries) {

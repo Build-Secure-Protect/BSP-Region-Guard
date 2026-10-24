@@ -47,6 +47,21 @@ public class RegionScreen extends HoloScreen {
     private int winW = W, winH = H, listH = LIST_H, paneW = PANE_W, contentH = CONTENT_H;
 
     /** A clickable rectangle registered while drawing and consumed by the next click. */
+    /** How long the server's answer stays in the bottom line, and how long a clicked button stays lit (B14). */
+    private static final long ANSWER_MS = 6000, PRESS_MS = 250;
+    @Nullable
+    private String answer;
+    private boolean answerOk;
+    private long answerAt, pressedAt;
+    @Nullable
+    private Hit pressed;
+
+    void onAnswer(String text, boolean ok) {
+        answer = text;
+        answerOk = ok;
+        answerAt = net.minecraft.Util.getMillis();
+    }
+
     private record Hit(int x, int y, int w, int h, Runnable action) {
         boolean contains(double mx, double my) {
             return mx >= x && mx < x + w && my >= y && my < y + h;
@@ -412,7 +427,11 @@ public class RegionScreen extends HoloScreen {
 
     /** A bordered label that acts as a button; {@code on} draws it in the accent. */
     private void chip(GuiGraphics g, int x, int y, int w, int h, String label, boolean on, int colour, float scale, @Nullable Runnable action) {
-        g.fill(x, y, x + w, y + h, on ? (colour & 0xFFFFFF) | 0x22000000 : INSET);
+        // B14: a clicked button lights up for a moment, so the click is seen
+        boolean flash = pressed != null && pressed.x() == x && pressed.y() == y && pressed.w() == w && pressed.h() == h
+                && net.minecraft.Util.getMillis() - pressedAt < PRESS_MS;
+        on |= flash;
+        g.fill(x, y, x + w, y + h, flash ? (colour & 0xFFFFFF) | 0x66000000 : on ? (colour & 0xFFFFFF) | 0x22000000 : INSET);
         frame(g, x, y, w, h, on ? colour : LINE);
         int tw = (int) (font.width(label) * scale);
         text(g, label, x + (w - tw) / 2, y + (int) ((h - 8 * scale) / 2) + 1, on ? colour : MUTED, scale);
@@ -735,7 +754,11 @@ public class RegionScreen extends HoloScreen {
                 }
             });
         }
-        text(g, Tr.t("changes_save_at_once_esc_closes"), px, y + winH - 13, MUTED, 0.75f);
+        if (answer != null && net.minecraft.Util.getMillis() - answerAt < ANSWER_MS) { // B14: what the server said to the last click
+            text(g, fit(answer, paneW, 0.75f), px, y + winH - 13, answerOk ? TQ : BAD, 0.75f);
+        } else {
+            text(g, Tr.t("changes_save_at_once_esc_closes"), px, y + winH - 13, MUTED, 0.75f);
+        }
     }
 
     private void drawInput(GuiGraphics g, int x, int y) {
@@ -1261,7 +1284,10 @@ public class RegionScreen extends HoloScreen {
                 // shown as is
             }
             text(g, font.plainSubstrByWidth(row[0], 180), px + 6, ry, TEXT, 0.6f);
-            text(g, row[1] + "  (" + (total > 0 ? 100 * w / total : 0) + "%)", px + 130, ry, MUTED, 0.6f);
+            // D116: the share as the MINE FILL window shows it, one decimal; the block that fills the rest is marked
+            boolean isRest = row[0].equals(data.getOrDefault(com.mrgregles.bsp_region_guard.mine.MineData.FILLER, ""));
+            String share = String.format(java.util.Locale.ROOT, "%.1f%%", total > 0 ? 100.0 * w / total : 0);
+            text(g, isRest ? share + "  " + Tr.t("fill.rest") : share, px + 130, ry, isRest ? GOLD : MUTED, 0.6f);
             String block = row[0];
             chip(g, px + 176, ry - 1, 12, 8, "x", false, BAD, 0.5f, () -> send(new RegionActionPacket(RegionActionPacket.MINE_ADD, selected == null ? "" : selected, block, "0")));
             ry += 8;
@@ -1270,7 +1296,12 @@ public class RegionScreen extends HoloScreen {
             text(g, Tr.t("more_mine", rows.size() - 7), px + 6, ry, MUTED, 0.5f);
             ry += 8;
         }
-        button(g, px + 6, ry + 1, 70, 11, Tr.t("add_block"), GOLD, () -> openInput(Input.MINE_BLOCK, "", Tr.t("block_id_and_weight_e_g_minecraft_iron_ore_8")));
+        // D115: blocks are picked in the MINE FILL window's browser, not typed
+        button(g, px + 6, ry + 1, 70, 11, Tr.t("fill.edit"), GOLD, () -> {
+            if (minecraft != null && selected != null) {
+                minecraft.setScreen(new MineFillScreen(selected, this));
+            }
+        });
         int ty = cy + 86;
         text(g, Tr.t("reset"), px + 6, ty, GOLD, 0.6f);
         String secs = data.getOrDefault("secondsToReset", "-1");
@@ -1430,6 +1461,8 @@ public class RegionScreen extends HoloScreen {
         }
         for (Hit h : hits) {
             if (h.contains(mx, my)) {
+                pressed = h;
+                pressedAt = net.minecraft.Util.getMillis();
                 h.action().run();
                 return true;
             }

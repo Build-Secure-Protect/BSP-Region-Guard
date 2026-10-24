@@ -645,6 +645,7 @@ public class PlotMapScreen extends Screen {
         g.drawString(font, steps, x + 12 + font.width(title), y + 4, MUTED, false);
         chip(g, x + w - 16, y + 2, 12, 12, toolFolded ? "▸" : "▾", false, MUTED, () -> toolFolded = !toolFolded);
         if (toolFolded) {
+            chip(g, x + w - 70, y + 2, 50, 12, Tr.t("cancel"), false, BAD, this::cancelReshape); // a way out while folded too
             return;
         }
         int ry = y + 16;
@@ -973,6 +974,14 @@ public class PlotMapScreen extends Screen {
             chip(g, tx, ry, tw, 12, label, false, TQ, () -> openAdmin(p.id(), t));
             tx += tw + 3;
         }
+        if (mode == Mode.MINE && p.type().equals("mine")) {
+            String label = Tr.t("fill.edit");
+            chip(g, tx, ry, font.width(label) + 10, 12, label, false, GOLD, () -> {
+                if (minecraft != null) {
+                    minecraft.setScreen(new MineFillScreen(p.id(), this)); // D115; Esc comes back to the map
+                }
+            });
+        }
         if (mode == Mode.PLOT && (p.type().equals("plot_for_sale") || p.type().equals("open_for_buying"))) {
             String label = Tr.t("look.button");
             chip(g, tx, ry, font.width(label) + 10, 12, label, false, GOLD, () -> {
@@ -1205,7 +1214,12 @@ public class PlotMapScreen extends Screen {
         return b != null && (b[0] != p.minX() || b[1] != p.minZ() || b[2] != p.maxX() || b[3] != p.maxZ() || lo == null || hi == null || lo != p.minY() || hi != p.maxY());
     }
 
-    /** The reshape bar: drag a side or corner, the height, VERTICAL FILL, DONE (undoable), RESET. */
+    /** Leaves RESHAPE for PICK without sending anything; changes not sent with DONE are dropped. */
+    private void cancelReshape() {
+        setTool(Tool.PICK);
+    }
+
+    /** The reshape bar: drag a side or corner, the height, VERTICAL FILL, DONE (undoable), RESET, CANCEL. */
     private void drawReshapeBar(GuiGraphics g) {
         Plot p = shapeTarget();
         int[] b = shape();
@@ -1217,9 +1231,10 @@ public class PlotMapScreen extends Screen {
         boolean heightOk = lo != null && hi != null && lo <= hi && lo >= state.bottom() && hi <= state.top();
         boolean changed = shapeChanged(p);
         card(g, x, y, w, h, heightOk ? TQ : BAD);
-        String title = Tr.t("pm_reshape_of", p.id());
+        String title = font.plainSubstrByWidth(Tr.t("pm_reshape_of", p.id()), w - 140);
         g.drawString(font, title, x + 5, y + 4, TEXT, false);
-        g.drawString(font, Tr.t("pm_reshape_hint"), x + 12 + font.width(title), y + 4, MUTED, false);
+        // the hint stops before the folded bar's CANCEL and the fold button
+        g.drawString(font, font.plainSubstrByWidth(Tr.t("pm_reshape_hint"), Math.max(0, w - 75 - 12 - font.width(title))), x + 12 + font.width(title), y + 4, MUTED, false);
         chip(g, x + w - 16, y + 2, 12, 12, toolFolded ? "▸" : "▾", false, MUTED, () -> toolFolded = !toolFolded);
         if (toolFolded) {
             return;
@@ -1239,8 +1254,9 @@ public class PlotMapScreen extends Screen {
             maxY.setValue(String.valueOf(state.top()));
         });
         boolean ready = changed && heightOk && !shapeSent;
-        chip(g, x + w - 112, ry, 54, 12, Tr.t("pm_done"), ready, TQ, ready ? this::reshapeDone : null);
-        chip(g, x + w - 54, ry, 48, 12, Tr.t("pm_reset_shape"), false, MUTED, () -> shape = null);
+        chip(g, x + w - 166, ry, 54, 12, Tr.t("pm_done"), ready, TQ, ready ? this::reshapeDone : null);
+        chip(g, x + w - 109, ry, 48, 12, Tr.t("pm_reset_shape"), false, MUTED, () -> shape = null);
+        chip(g, x + w - 58, ry, 52, 12, Tr.t("cancel"), false, BAD, this::cancelReshape);
         String line = heightOk ? Tr.t("pm_corners_size", b[0], b[1], b[2], b[3], b[2] - b[0] + 1, b[3] - b[1] + 1, lo, hi) : Tr.t("pm_heights_run", state.bottom(), state.top());
         g.drawString(font, font.plainSubstrByWidth(line, w - 10), x + 5, ry + 17, heightOk ? MUTED : BAD, false);
     }
@@ -1567,7 +1583,11 @@ public class PlotMapScreen extends Screen {
                 cancel();
                 return true;
             }
-            if (draw1 != null || shape != null || deleteArmed) {
+            if (tool == Tool.RESHAPE && shapeTarget() != null) {
+                cancelReshape(); // back to PICK; the bar would otherwise start the same reshape again next frame
+                return true;
+            }
+            if (draw1 != null || deleteArmed) {
                 resetTools();
                 return true;
             }

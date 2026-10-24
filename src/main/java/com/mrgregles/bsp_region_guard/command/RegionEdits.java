@@ -502,6 +502,60 @@ public final class RegionEdits {
         return r.type() == RegionType.MINE ? null : Result.fail(r.id() + " is not a mine. Use /rg mine create " + r.id() + " first.");
     }
 
+    /**
+     * The whole fill table from the MINE FILL window (D115 to D117): {@code table} is {@code block=tenths;...} adding up
+     * to 100.0% ({@link MineData#WHOLE}); {@code rest} is the block that fills the remaining space, or empty.
+     */
+    public static Result mineFill(RegionStore store, Region r, String table, String rest) {
+        Result notMine = notAMine(r);
+        if (notMine != null) {
+            return notMine;
+        }
+        List<MineData.Entry> entries = new java.util.ArrayList<>();
+        int total = 0;
+        for (String part : table.split(";")) {
+            if (part.isBlank()) {
+                continue;
+            }
+            int eq = part.lastIndexOf('=');
+            ResourceLocation id = eq < 0 ? null : ResourceLocation.tryParse(part.substring(0, eq).trim());
+            if (id == null || !ForgeRegistries.BLOCKS.containsKey(id) || ForgeRegistries.BLOCKS.getValue(id) == net.minecraft.world.level.block.Blocks.AIR) {
+                return Result.fail("Not a block: " + part + ".");
+            }
+            int share;
+            try {
+                share = Integer.parseInt(part.substring(eq + 1).trim());
+            } catch (NumberFormatException e) {
+                return Result.fail("Not a share: " + part + ".");
+            }
+            if (share <= 0 || share > MineData.WHOLE) {
+                return Result.fail("Every block needs a share above 0%: " + id + ".");
+            }
+            if (entries.stream().anyMatch(x -> x.block().equals(id))) {
+                return Result.fail(id + " is in the list twice.");
+            }
+            entries.add(new MineData.Entry(id, share));
+            total += share;
+        }
+        if (entries.isEmpty()) {
+            return Result.fail("A mine needs at least one block.");
+        }
+        if (entries.size() > MineData.MAX_ROWS) {
+            return Result.fail("A mine takes at most " + MineData.MAX_ROWS + " blocks.");
+        }
+        if (total != MineData.WHOLE) {
+            return Result.fail(String.format(Locale.ROOT, "The shares add up to %.1f%%; they must make 100%%.", total / 10.0));
+        }
+        ResourceLocation filler = rest.isBlank() ? null : ResourceLocation.tryParse(rest.trim());
+        if (filler != null && entries.stream().noneMatch(x -> x.block().equals(filler))) {
+            return Result.fail("The block that fills the rest must be in the list.");
+        }
+        MineData.setFill(r, entries);
+        MineData.setFiller(r, filler);
+        store.touch(r);
+        return Result.ok(r.id() + ": " + entries.size() + " block" + (entries.size() == 1 ? "" : "s") + (filler == null ? "." : ", the rest filled with " + filler + "."));
+    }
+
     public static Result makeMine(RegionStore store, Region r) {
         if (r.isGlobal()) {
             return Result.fail("The world default cannot be a mine.");

@@ -16,9 +16,8 @@ public final class RegionClient {
     private static RegionDetailPacket detail;
     @Nullable
     private static com.mrgregles.bsp_region_guard.network.SelectionPacket selection;
-    private static boolean showRegions = true;
-    /** Whether the region key's first state was set on this connection: on for admins, off for players (D105). */
-    private static boolean showDecided;
+    /** The region key (B): off at first for everyone and on every new connection (D121); the wand shows outlines anyway. */
+    private static boolean showRegions;
 
     private RegionClient() {
     }
@@ -39,10 +38,6 @@ public final class RegionClient {
     }
 
     public static void receive(RegionListPacket msg) {
-        if (!showDecided) {
-            showDecided = true;
-            showRegions = msg.admin();
-        }
         list = msg;
         if (!msg.remote()) {
             ownList = msg;
@@ -63,6 +58,8 @@ public final class RegionClient {
             screen.onDetail(msg);
         } else if (Minecraft.getInstance().screen instanceof ClaimScreen screen) {
             screen.onDetail(msg);
+        } else if (Minecraft.getInstance().screen instanceof MineFillScreen screen) {
+            screen.onDetail(msg);
         }
     }
 
@@ -80,6 +77,16 @@ public final class RegionClient {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player != null && !(mc.screen instanceof net.minecraft.client.gui.screens.ChatScreen)) {
             mc.setScreen(new EdgePromptScreen(msg));
+        }
+    }
+
+    /** The server's answer to an action (B14): in the open screen's bottom line, else on the action bar. */
+    public static void receive(com.mrgregles.bsp_region_guard.network.ActionAnswerPacket msg) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.screen instanceof RegionScreen screen) {
+            screen.onAnswer(msg.text(), msg.ok());
+        } else if (mc.player != null) {
+            mc.player.displayClientMessage(net.minecraft.network.chat.Component.literal(msg.text()), true);
         }
     }
 
@@ -128,7 +135,7 @@ public final class RegionClient {
     }
 
     public static void clear() {
-        showDecided = false;
+        showRegions = false;
         list = null;
         ownList = null;
         detail = null;

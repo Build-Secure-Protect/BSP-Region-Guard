@@ -210,4 +210,33 @@ public class MineGameTests {
             h.succeed();
         });
     }
+
+    /** D115 to D117: the MINE FILL window's table is checked and saved, with the block that fills the rest. */
+    @GameTest(template = EMPTY)
+    public void the_fill_window_saves_shares_that_make_100_percent(GameTestHelper h) {
+        Region m = mine(h, "mn_window", new BlockPos(1, 1, 1), new BlockPos(6, 4, 6));
+        RegionStore store = store(h);
+        try {
+            var ok = com.mrgregles.bsp_region_guard.command.RegionEdits.mineFill(store, m, "minecraft:stone=825;minecraft:iron_ore=150;minecraft:gold_ore=25", "minecraft:stone");
+            h.assertTrue(ok.ok(), "saved: " + ok.message());
+            List<MineData.Entry> fill = MineData.fill(m);
+            h.assertTrue(fill.size() == 3 && fill.get(1).block().equals(IRON) && fill.get(1).weight() == 150, "the shares are kept in tenths of a percent");
+            h.assertTrue(STONE.equals(MineData.filler(m)), "stone fills the rest");
+            h.assertFalse(com.mrgregles.bsp_region_guard.command.RegionEdits.mineFill(store, m, "minecraft:stone=825;minecraft:iron_ore=150", "").ok(), "97.5% is refused");
+            h.assertFalse(com.mrgregles.bsp_region_guard.command.RegionEdits.mineFill(store, m, "minecraft:not_a_block=1000", "").ok(), "an unknown block is refused");
+            h.assertFalse(com.mrgregles.bsp_region_guard.command.RegionEdits.mineFill(store, m, "minecraft:stone=500;minecraft:stone=500", "").ok(), "the same block twice is refused");
+            h.assertFalse(com.mrgregles.bsp_region_guard.command.RegionEdits.mineFill(store, m, "minecraft:stone=1000;minecraft:iron_ore=0", "").ok(), "a share of 0 is refused");
+            h.assertFalse(com.mrgregles.bsp_region_guard.command.RegionEdits.mineFill(store, m, "minecraft:stone=1000", "minecraft:iron_ore").ok(), "the REST block must be in the list");
+            h.assertTrue(STONE.equals(MineData.filler(m)) && MineData.fill(m).size() == 3, "a refused table changes nothing");
+            h.assertTrue(com.mrgregles.bsp_region_guard.command.RegionEdits.mineFill(store, m, "minecraft:stone=1000", "").ok() && MineData.filler(m) == null,
+                    "without a REST block the biggest share is the base");
+            h.assertFalse(com.mrgregles.bsp_region_guard.command.RegionEdits.mineFill(store, store.global(), "minecraft:stone=1000", "").ok(), "only mines have a fill");
+            // the base: the chosen block even when it is not the biggest share, else the biggest
+            h.assertTrue(MineFiller.fillerIndex(List.of(600, 400), 1) == 1, "the REST block is the base");
+            h.assertTrue(MineFiller.fillerIndex(List.of(400, 600), -1) == 1, "else the biggest share");
+        } finally {
+            store.remove("mn_window");
+        }
+        h.succeed();
+    }
 }

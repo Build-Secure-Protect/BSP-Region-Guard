@@ -150,7 +150,7 @@ public final class Mines {
         }
         MineFiller.Job job;
         try {
-            job = MineFiller.plan(level, mine.bounds(), fill, level.getRandom());
+            job = MineFiller.plan(level, mine.bounds(), fill, level.getRandom(), MineData.filler(mine));
         } catch (IllegalArgumentException e) {
             return e.getMessage();
         }

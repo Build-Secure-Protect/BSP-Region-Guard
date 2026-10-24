@@ -65,13 +65,36 @@ public final class MineFiller {
         }
     }
 
+    /** Which entry fills the box: the one chosen to fill the rest (D117) when there is one ({@code chosen} >= 0), else the heaviest. */
+    public static int fillerIndex(List<Integer> weights, int chosen) {
+        if (chosen >= 0 && chosen < weights.size()) {
+            return chosen;
+        }
+        int filler = 0;
+        for (int i = 1; i < weights.size(); i++) {
+            if (weights.get(i) > weights.get(filler)) {
+                filler = i;
+            }
+        }
+        return filler;
+    }
+
     /** Plans a refill from the fill table. Entries whose block does not exist are skipped; at most 255 entries are used. */
     public static Job plan(ServerLevel level, Cuboid box, List<MineData.Entry> entries, RandomSource random) {
+        return plan(level, box, entries, random, null);
+    }
+
+    /** As above; {@code fillerBlock} is the block chosen to fill the remaining space (D117), else the heaviest entry fills. */
+    public static Job plan(ServerLevel level, Cuboid box, List<MineData.Entry> entries, RandomSource random, @org.jetbrains.annotations.Nullable net.minecraft.resources.ResourceLocation fillerBlock) {
         List<BlockState> states = new ArrayList<>();
         List<Integer> weights = new ArrayList<>();
+        int chosen = -1;
         for (MineData.Entry e : entries) {
             Block b = e.resolve();
             if (b != null && e.weight() > 0 && states.size() < 255) {
+                if (e.block().equals(fillerBlock)) {
+                    chosen = states.size();
+                }
                 states.add(b.defaultBlockState());
                 weights.add(e.weight());
             }
@@ -85,12 +108,7 @@ public final class MineFiller {
             states.add(net.minecraft.world.level.block.Blocks.STONE.defaultBlockState());
             weights.add(1);
         }
-        int filler = 0;
-        for (int i = 1; i < weights.size(); i++) {
-            if (weights.get(i) > weights.get(filler)) {
-                filler = i;
-            }
-        }
+        int filler = fillerIndex(weights, chosen);
         java.util.Arrays.fill(plan, (byte) filler);
         int total = 0;
         for (int w : weights) {

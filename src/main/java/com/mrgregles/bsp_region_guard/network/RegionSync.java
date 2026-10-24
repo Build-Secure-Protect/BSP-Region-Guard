@@ -328,13 +328,17 @@ public final class RegionSync {
 
     // ------------------------------------------------------------------ actions
 
+    /** Whether the last {@link #apply} on the server thread failed; colours its answer in the screen. */
+    private static boolean lastFailed;
+
     public static void handle(ServerPlayer player, RegionActionPacket msg) {
         if (!mayEdit(player)) {
             return;
         }
+        lastFailed = false;
         String outcome = apply(player, msg);
         if (outcome != null && !outcome.isEmpty()) {
-            player.displayClientMessage(Component.literal(outcome), true);
+            RegionNetwork.sendTo(player, new ActionAnswerPacket(outcome, !lastFailed)); // B14: shown in the open screen
         }
     }
 
@@ -489,6 +493,7 @@ public final class RegionSync {
             case RegionActionPacket.MINE_SPAWN -> RegionEdits.mineSpawn(player, store, r, a.equals("clear"));
             case RegionActionPacket.MINE_SHELL -> RegionEdits.mineShell(level, store, r, a.isEmpty() ? 5 : Integer.parseInt(a));
             case RegionActionPacket.MINE_RESET -> RegionEdits.mineReset(level, store, r);
+            case RegionActionPacket.MINE_FILL -> RegionEdits.mineFill(store, r, b, a);
             case RegionActionPacket.TRIGGER_ADD -> RegionEdits.addTrigger(player, store, r, a, b);
             case RegionActionPacket.TRIGGER_REMOVE -> RegionEdits.removeTrigger(store, r, Integer.parseInt(a));
             case RegionActionPacket.SET_DATA -> setData(level, store, r, a, b);
@@ -497,6 +502,7 @@ public final class RegionSync {
                  RegionActionPacket.EDGE_REFRESH -> border(player, level, r, action, a, b);
             default -> new RegionEdits.Result(false, "Unknown action " + action);
         };
+        lastFailed = !result.ok();
         return result.ok() && QUIET.contains(action) || result.message().isEmpty() ? null : result.message();
     }
 

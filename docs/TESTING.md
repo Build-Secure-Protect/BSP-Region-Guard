@@ -472,3 +472,39 @@ The new jar on the server and every client (network protocol 8). Built and teste
 - [ ] A plot whose buyer may set a long list of flags: the SALE tab's BUYER MAY SET line ends in "..." before its edit button.
 - [ ] Region map, zoomed all the way out, frame rate shown (F3): it stays smooth while panning. Terrain fills in as it arrives with no gaps or stripes between 8-by-8-chunk squares; REFRESH (↻) repaints it; switching world with < > shows that world's terrain only.
 
+## 2026-10-24: leaving RESHAPE (B13)
+
+- [ ] Region map, pick a region, RESHAPE, change nothing: the bar shows DONE (grey), RESET and a red CANCEL. CANCEL: the bar goes, the tool is PICK again, the region is still picked and unchanged.
+- [ ] RESHAPE again, drag a side, then CANCEL: the region keeps its old box (nothing was sent; UNDO count unchanged).
+- [ ] RESHAPE, press Esc: back to PICK. Esc again: the map closes.
+- [ ] Fold the reshape bar (▾): CANCEL is still on its title line and works.
+- [ ] RESHAPE, change the box, DONE, then CANCEL: the new box stays (UNDO brings the old one back).
+
+## 2026-10-25: button answers in the admin screen (B14, protocol 9)
+
+- [ ] MINE tab of a mine: click RESET NOW. The button flashes, and the bottom line says "iron_mine is resetting (... blocks)." in teal for a few seconds, then goes back to "Changes save at once. Esc closes."
+- [ ] MOVE SPAWN (or SET SPAWN): flashes; the bottom line says players are moved here when it resets.
+- [ ] Something refused (for example SALE on a region without corners): the answer shows in red.
+- [ ] A long answer is cut with "..." inside the pane.
+- [ ] With the screen closed, a command answer still shows on the action bar as before.
+
+## 2026-10-25: the MINE FILL window (D115 to D119)
+
+- [ ] MINE tab of a mine: the fill rows show shares like "80.0%"; EDIT FILL opens the MINE FILL window with the same blocks and percentages (old weights turned into percentages that add up to 100).
+- [ ] The browser on the right: the creative tabs that hold blocks (hover shows a tab's name), the search box (try "iron" and "@create"), blocks already in the mine framed in gold, the wheel scrolls the grid and the tabs.
+- [ ] Click a new block: it appears at the bottom of the list with an empty box; the total turns red and says how much is left. Type a share (e.g. 2.5): the total follows.
+- [ ] Mark a block REST: its box turns gold and shows what is left; the total shows 100.0% in teal and SAVE lights. Lower another share: REST grows. Raise the others past 100: "The REST block has nothing left".
+- [ ] Without REST: SAVE lights only at exactly 100.0%. Type "abc" or 0: a red message, no SAVE.
+- [ ] x removes a block (removing the REST block clears REST). A new, empty mine: the first block added is REST.
+- [ ] SAVE: back on the MINE tab, the rows show the new shares and "REST" in gold; RESET NOW refills with the REST block as the base and the others as veins.
+- [ ] Region map, MINE mode, pick a mine: EDIT FILL on the card opens the window; Esc comes back to the map.
+- [ ] 25th block: "A mine takes at most 24 blocks."
+
+## 2026-10-25: region outlines only with the wand (D120 to D124)
+
+- [ ] As an admin, define a region with the wand and put the wand away: the region's outline and the gold selection go. Take the wand out again: every region shows.
+- [ ] Wand in the off hand: outlines show too.
+- [ ] Without the wand, press B: outlines show; press B again: they go. After rejoining, B is off again.
+- [ ] Plots for sale keep their marker and outline with no wand and B off, for admins and players.
+- [ ] A player holding the plot tool sees their own claim; putting it away hides it.
+
