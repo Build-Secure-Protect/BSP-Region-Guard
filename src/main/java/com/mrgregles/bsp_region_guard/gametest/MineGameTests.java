@@ -239,4 +239,41 @@ public class MineGameTests {
         }
         h.succeed();
     }
+
+    /** B16: renaming a region changes its id too; children and a mine's shell follow, and the old id is free again. */
+    @GameTest(template = EMPTY)
+    public void renaming_a_mine_changes_its_id(GameTestHelper h) {
+        ServerLevel level = h.getLevel();
+        RegionStore store = store(h);
+        Region m = mine(h, "mine-i", new BlockPos(1, 1, 1), new BlockPos(6, 4, 6));
+        Region child = new Region("rn_child", level.dimension(), Cuboid.of(h.absolutePos(new BlockPos(2, 1, 2)), h.absolutePos(new BlockPos(3, 2, 3))), RegionType.PROTECTED);
+        child.setParentId("mine-i");
+        store.add(child);
+        try {
+            m.setFlag(Flags.PVP, State.DENY);
+            store.touch(m);
+            h.assertTrue(com.mrgregles.bsp_region_guard.command.RegionEdits.mineShell(level, store, m, 2).ok() && store.has("mine-i_shell"), "the mine has a shell");
+            var r = com.mrgregles.bsp_region_guard.command.RegionEdits.rename(store, m, "Mine-II");
+            h.assertTrue(r.ok(), "renamed: " + r.message());
+            Region moved = store.get("mine-ii");
+            h.assertTrue(store.get("mine-i") == null && moved != null && "Mine-II".equals(moved.name()), "the id follows the name: mine-ii, called Mine-II");
+            h.assertTrue(moved.type() == RegionType.MINE && moved.flag(Flags.PVP) == State.DENY && MineData.fill(moved).size() == 3, "everything it held came along");
+            h.assertTrue("mine-ii".equals(store.get("rn_child").parentId()), "its child points at the new id");
+            h.assertTrue(store.has("mine-ii_shell") && !store.has("mine-i_shell"), "the shell follows it");
+            h.assertTrue(com.mrgregles.bsp_region_guard.command.RegionEdits.create(level, "mine-i", null, 0).ok(), "the old id is free for a new region");
+            h.assertFalse(com.mrgregles.bsp_region_guard.command.RegionEdits.rename(store, store.get("mine-ii"), "mine-i").ok(), "a name whose id is taken is refused");
+            h.assertTrue(com.mrgregles.bsp_region_guard.command.RegionEdits.rename(store, store.get("mine-ii"), "MINE-II").ok() && store.has("mine-ii"),
+                    "a new name with the same id keeps the id");
+            String globalName = store.global().name();
+            h.assertTrue(com.mrgregles.bsp_region_guard.command.RegionEdits.rename(store, store.global(), "Spawn world").ok() && store.global().id().equals(Region.GLOBAL_ID),
+                    "the world default keeps its id");
+            store.global().setName(globalName);
+            store.touch(store.global());
+        } finally {
+            for (String id : List.of("mine-i", "mine-ii", "mine-i_shell", "mine-ii_shell", "rn_child")) {
+                store.remove(id);
+            }
+        }
+        h.succeed();
+    }
 }

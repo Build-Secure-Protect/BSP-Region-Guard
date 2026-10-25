@@ -145,6 +145,42 @@ public final class RegionStore extends SavedData {
         return true;
     }
 
+    /**
+     * Gives a region a new id (bug B16): the same region, everything it holds kept, under the new key; regions whose
+     * parent it was follow it. Shared storage sees the old id go and the new one arrive. Throws when the id is taken.
+     */
+    public Region renameId(Region region, String newId) {
+        String id = Region.validateId(newId);
+        if (region.isGlobal() || id.equals(Region.GLOBAL_ID)) {
+            throw new IllegalArgumentException("the world default keeps its id");
+        }
+        if (regions.get(region.id()) != region) {
+            throw new IllegalArgumentException(region.id() + " is not in this store");
+        }
+        if (id.equals(region.id())) {
+            return region;
+        }
+        if (regions.containsKey(id)) {
+            throw new IllegalArgumentException("a region named '" + id + "' already exists");
+        }
+        CompoundTag tag = region.save();
+        tag.putString("id", id);
+        Region moved = Region.load(tag);
+        regions.remove(region.id());
+        index.remove(region);
+        regions.put(id, moved);
+        index.add(moved);
+        for (Region r : regions.values()) {
+            if (region.id().equals(r.parentId())) {
+                r.setParentId(id);
+                r.bumpVersion();
+            }
+        }
+        moved.bumpVersion();
+        changed();
+        return moved;
+    }
+
     /** Call after changing a region in any way: re-indexes it (bounds may have moved) and marks the world data dirty. */
     public void touch(Region region) {
         if (regions.get(region.id()) != region) {

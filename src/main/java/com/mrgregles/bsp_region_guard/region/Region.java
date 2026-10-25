@@ -77,6 +77,12 @@ public final class Region {
     }
 
     /** Checks an id typed by a player: 1 to 32 characters, letters, digits, '_' and '-', or the global id. */
+    /** The id a name gives (B16): lower case, spaces as '_', only letters, digits, '_' and '-', at most {@link #MAX_ID_LENGTH} long. */
+    public static String idFor(String name) {
+        String id = name.trim().toLowerCase(java.util.Locale.ROOT).replaceAll("\\s+", "_").replaceAll("[^a-z0-9_-]", "");
+        return id.length() > MAX_ID_LENGTH ? id.substring(0, MAX_ID_LENGTH) : id;
+    }
+
     public static String validateId(String id) {
         if (id.equals(GLOBAL_ID)) {
             return id;

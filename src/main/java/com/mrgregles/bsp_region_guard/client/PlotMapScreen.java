@@ -104,6 +104,9 @@ public class PlotMapScreen extends Screen {
     /** The cards drawn this frame (card units): a click on one that hits no button goes no further, so it never reaches the map. */
     private final List<Hit> covers = new ArrayList<>();
     private final Map<Long, Group> groups = new HashMap<>();
+    /** The id a rename just sent will give the picked region (B16), until the map's answer arrives. */
+    @Nullable
+    private String renamedTo;
     private int frame;
     private EditBox search, name, minY, maxY;
     private String message = "";
@@ -221,6 +224,13 @@ public class PlotMapScreen extends Screen {
             if (msg.ok()) {
                 shape = null; // taken from the region's new box next frame
             }
+        }
+        if (renamedTo != null) { // B16: a rename gives the region a new id; keep it picked under that
+            if (picked != null && plot(picked) == null && plot(renamedTo) != null) {
+                picked = renamedTo;
+                cardNameFor = null;
+            }
+            renamedTo = null;
         }
         if (picked != null && plot(picked) == null) {
             picked = null; // deleted
@@ -1611,6 +1621,7 @@ public class PlotMapScreen extends Screen {
                 }
                 if (cardName.isFocused() && picked != null) {
                     send(new PlotMapActionPacket(PlotMapActionPacket.RENAME, picked, cardName.getValue().trim(), "", 0, 0, 0, 0, 0, 0, 0, false, false, 0));
+                    renamedTo = com.mrgregles.bsp_region_guard.region.Region.idFor(cardName.getValue());
                     cardName.setFocused(false);
                     setFocused(null);
                     return true;

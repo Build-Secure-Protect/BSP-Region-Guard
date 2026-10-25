@@ -433,6 +433,9 @@ public final class RegionSync {
             }
             String message = edit(player, level, store, r, msg.action(), a, b);
             Region after = store.get(r.id());
+            if (after == null && msg.action().equals(RegionActionPacket.RENAME)) {
+                after = store.get(Region.idFor(a)); // B16: renamed along with its id; the screen follows it
+            }
             sendList(player, after == null ? null : after.id(), false);
             if (after != null) {
                 sendDetail(player, after);

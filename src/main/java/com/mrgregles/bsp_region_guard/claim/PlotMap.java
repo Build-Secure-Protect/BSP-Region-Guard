@@ -56,12 +56,43 @@ public final class PlotMap {
     /** One confirmed action: the region as it was before (null for a paste or a create) and after. */
     private record Step(String dimension, String id, @Nullable CompoundTag before, CompoundTag after,
                         @Nullable String source, int rotation, @Nullable PlotBlocks.Job blocks, Kind kind) {
+        /** This step with a region's old id swapped for its new one (B16), in the ids and the saved regions. */
+        Step renamed(String from, String to) {
+            if (!id.equals(from) && !from.equals(source)) {
+                return this;
+            }
+            return new Step(dimension, id.equals(from) ? to : id, retag(before, from, to), retag(after, from, to), from.equals(source) ? to : source, rotation, blocks, kind);
+        }
+
+        @Nullable
+        private static CompoundTag retag(@Nullable CompoundTag tag, String from, String to) {
+            if (tag == null || !from.equals(tag.getString("id"))) {
+                return tag;
+            }
+            CompoundTag c = tag.copy();
+            c.putString("id", to);
+            return c;
+        }
+
         Step(String dimension, String id, @Nullable CompoundTag before, CompoundTag after, @Nullable String source, int rotation, @Nullable PlotBlocks.Job blocks) {
             this(dimension, id, before, after, source, rotation, blocks, before == null ? Kind.PASTE : Kind.MOVE);
         }
     }
 
     private static final Map<UUID, Deque<Step>> UNDO = new HashMap<>(), REDO = new HashMap<>();
+
+    /** After a region's id changed (B16): every admin's undo and redo steps follow it. */
+    public static void renameInHistory(String dimension, String from, String to) {
+        for (Map<UUID, Deque<Step>> history : java.util.List.of(UNDO, REDO)) {
+            for (Deque<Step> steps : history.values()) {
+                java.util.List<Step> copy = new java.util.ArrayList<>(steps);
+                steps.clear();
+                for (Step s : copy) {
+                    steps.add(s.dimension().equals(dimension) ? s.renamed(from, to) : s);
+                }
+            }
+        }
+    }
 
     private PlotMap() {
     }

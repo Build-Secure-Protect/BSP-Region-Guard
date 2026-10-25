@@ -552,7 +552,8 @@ public class RegionScreen extends HoloScreen {
             } else if (hover) {
                 g.fill(x + LIST_X + 1, ry, x + LIST_X + LIST_W - 1, ry + ROW, 0x14FFFFFF);
             }
-            String label = s.parent() != null ? "  " + s.id() : s.id();
+            // the region's name as set on INFO (its id until it is given one); the id stays in the header (B15)
+            String label = s.parent() != null ? "  " + s.name() : s.name();
             boolean noCorners = Region.noCorners(s.bounds());
             text(g, font.plainSubstrByWidth(label, noCorners ? 70 : 96), x + LIST_X + 6, ry + 2, sel ? TEXT : MUTED, 1f);
             int colour = 0xFF000000 | typeColour(s.type());

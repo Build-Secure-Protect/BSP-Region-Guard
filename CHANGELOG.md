@@ -4,7 +4,7 @@ All notable changes to BSP Region Guard. Format follows Keep a Changelog; versio
 
 ## [Unreleased]
 
-**Network protocol 9:** servers and players need this version together.
+**Network protocol 9:** servers and players need this version together. **Needs BSP-Core 1.4.6 or newer** (was 1.4.3); Region Guard now builds against 1.4.6.
 
 ### Added (2026-10-25, mine fill window: D115 to D119)
 - **MINE FILL window** (EDIT FILL on the MINE tab, or on the region map's card in MINE mode): the mine's blocks on the left, each with a percentage box (one decimal, so 0.5% diamond works) and the mine's **total** under them; a creative-style block browser on the right (the creative tabs with blocks, search, `@mod`), blocks already in the mine marked in gold. Click a block to add it.
@@ -14,6 +14,12 @@ All notable changes to BSP Region Guard. Format follows Keep a Changelog; versio
 
 ### Changed (2026-10-25, region outlines: D120 to D124)
 - **Region outlines show while you hold the Region Wand** (either hand) and go away when you put it down; the gold outline of a selection too. The region key (B) still shows them without the wand and now **starts off for everyone**. Plots for sale keep showing to everyone with their markers. Players holding the plot tool see their own claims.
+
+### Fixed (2026-10-25, B16: renaming changes the id too)
+- Renaming a region (INFO tab, the region map's card, or `/rg rename`) only changed its display name, so the old id stayed taken ("a region named 'mine-i' already exists"). A rename now changes the id as well: the name "Mine-II" gives the id `mine-ii`, "Tadana Plot 1" gives `tadana_plot_1` (lower case, spaces as `_`, only letters, digits, `_` and `-`). Everything the region holds comes along; regions whose parent it was follow it; a mine's `_shell` is renamed with it; the region map's undo steps and a plot's backup files follow the new id; shared storage drops the old id and writes the new one. A name whose id is already taken is refused. The world default keeps its id. The screen and the map stay on the renamed region.
+
+### Fixed (2026-10-25, B15: names in the region list)
+- The admin screen's region list showed each region's id, so a name set on the INFO tab (for example "Tadana Plot 1" for `tadana`) never showed there. The list now shows the name (the id until one is set); the id stays in the header above the tabs, and search finds either.
 
 ### Fixed (2026-10-25, B14: buttons that seemed to do nothing)
 - The admin screen's buttons (RESET NOW, MOVE SPAWN, INTERVAL, RESIZE SHELL on the MINE tab, and every other one) worked, but the server's answer went to the action bar, which is hidden behind an open screen. Every button now lights up for a moment when clicked, and the answer shows in the screen's bottom line for six seconds (teal when it worked, red when it was refused). With no screen open it still goes to the action bar.

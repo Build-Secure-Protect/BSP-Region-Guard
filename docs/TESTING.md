@@ -508,3 +508,21 @@ The new jar on the server and every client (network protocol 8). Built and teste
 - [ ] Plots for sale keep their marker and outline with no wand and B off, for admins and players.
 - [ ] A player holding the plot tool sees their own claim; putting it away hides it.
 
+## 2026-10-25: names in the region list (B15)
+
+- [ ] INFO tab, edit the name of a region (e.g. "Tadana Plot 1" for `tadana`), Enter: the list on the left shows "Tadana Plot 1" straight away; the header still shows "Tadana Plot 1 (tadana)".
+- [ ] A region without a name set shows its id, as before. Search finds the region by its name and by its id.
+- [ ] A long name is cut before the type letter and priority on the right of the row.
+- [ ] From 2026-10-25 every build needs BSP-Core 1.4.6 or newer on the server and the client; with an older BSP-Core, Region Guard refuses to load.
+
+## 2026-10-25: renaming changes the id (B16)
+
+- [ ] A mine `mine-i` (renamed earlier to "Mine-II" but still `mine-i` underneath): INFO, set the name to "Mine-II" again, Enter. The header now reads "Mine-II (mine-ii)" and the list keeps it selected. `/rg define Mine-I` with a wand selection now works.
+- [ ] The renamed mine still has its fill, flags, owners and reset timer; its shell is now `mine-ii_shell`; RESET NOW works.
+- [ ] A plot with backups: rename it; the map's BACKUPS still lists them and RESTORE works.
+- [ ] On the region map, rename a region from its card: the card stays on it; UNDO of an earlier move of that region still works.
+- [ ] Rename to a name whose id exists ("Spawn" when `spawn` exists): refused in red, nothing changes.
+- [ ] The world default can be given a name; its id stays `__global__`.
+- [ ] With shared storage: another server's view of this server's regions shows the new id, and the old one is gone.
+- [ ] Note: a player standing inside the region when it is renamed may see its greeting once more.
+

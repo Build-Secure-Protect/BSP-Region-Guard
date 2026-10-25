@@ -116,7 +116,7 @@ public class RegionShapeGameTests {
             h.assertTrue(r.type() == RegionType.PROTECTED, "still protected");
             h.assertFalse(RegionEdits.selectBounds(admin, r).ok(), "nothing to select");
             h.assertFalse(RegionEdits.verticalFill(level, store, r).ok(), "nothing to fill");
-            h.assertTrue(RegionEdits.flag(store, r, Flags.GREETING, "Soon", new com.mrgregles.bsp_region_guard.flag.FlagContext(level, admin)).ok() && RegionEdits.rename(store, r, "Harbour").ok(),
+            h.assertTrue(RegionEdits.flag(store, r, Flags.GREETING, "Soon", new com.mrgregles.bsp_region_guard.flag.FlagContext(level, admin)).ok() && RegionEdits.rename(store, r, "RS Wait").ok(),
                     "flags and names can be set before the corners");
         }, "rs_wait");
     }

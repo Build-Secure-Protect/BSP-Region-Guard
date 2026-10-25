@@ -453,6 +453,18 @@ public final class PlotBlocks {
 
     // ------------------------------------------------------------------ backup files
 
+    /** After a plot's id changed (B16): its backup files are renamed to the new id, so BACKUPS and RESTORE still find them. */
+    public static void renameBackups(MinecraftServer server, String from, String to) {
+        Path dir = folder(server);
+        for (String name : backups(server, from)) {
+            try {
+                Files.move(dir.resolve(name), dir.resolve(to + name.substring(from.length())));
+            } catch (IOException e) {
+                com.mrgregles.bsp_region_guard.BSPRegionGuard.LOGGER.warn("Could not rename backup {} for {}: {}", name, to, e.toString());
+            }
+        }
+    }
+
     static Path folder(MinecraftServer server) {
         return server.getWorldPath(LevelResource.ROOT).resolve(FOLDER);
     }

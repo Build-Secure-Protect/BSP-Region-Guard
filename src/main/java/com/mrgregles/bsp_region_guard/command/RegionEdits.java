@@ -209,10 +209,51 @@ public final class RegionEdits {
     }
 
     /** An empty name goes back to the id. */
+    /**
+     * Renames a region, and its id with it (bug B16): "Mine-II" becomes the id {@code mine-ii}, "Tadana Plot 1"
+     * {@code tadana_plot_1}. A mine's shell, the region map's undo steps and a plot's backup files follow the new id.
+     * The world default keeps its id; an empty name goes back to the id.
+     */
     public static Result rename(RegionStore store, Region r, String name) {
-        r.setName(name.trim().isEmpty() ? r.id() : name.trim());
-        store.touch(r);
-        return Result.ok("Region " + r.id() + " is now called \"" + r.name() + "\".");
+        String trimmed = name.trim();
+        String newId = r.isGlobal() || trimmed.isEmpty() ? r.id() : idFor(trimmed);
+        if (newId.isEmpty()) {
+            return Result.fail("A name needs at least one letter or digit.");
+        }
+        String oldId = r.id();
+        Region now = r;
+        if (!newId.equals(oldId)) {
+            if (store.has(newId)) {
+                return Result.fail("A region with the id " + newId + " already exists; pick another name.");
+            }
+            Region shell = store.get(oldId + "_shell");
+            if (shell != null && store.has(newId + "_shell")) {
+                return Result.fail("A region with the id " + newId + "_shell already exists, so the mine's shell could not follow.");
+            }
+            now = store.renameId(r, newId);
+            if (shell != null) {
+                Region movedShell = store.renameId(shell, newId + "_shell");
+                if (movedShell.name().equals(oldId + "_shell")) {
+                    movedShell.setName(newId + "_shell");
+                    store.touch(movedShell);
+                }
+            }
+            String dim = now.dimension().location().toString();
+            com.mrgregles.bsp_region_guard.claim.PlotMap.renameInHistory(dim, oldId, newId);
+            com.mrgregles.bsp_region_guard.claim.PlotMap.renameInHistory(dim, oldId + "_shell", newId + "_shell");
+            var server = net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer();
+            if (server != null) {
+                com.mrgregles.bsp_region_guard.claim.PlotBlocks.renameBackups(server, oldId, newId);
+            }
+        }
+        now.setName(trimmed.isEmpty() ? now.id() : trimmed);
+        store.touch(now);
+        return Result.ok(newId.equals(oldId) ? "Region " + now.id() + " is now called \"" + now.name() + "\"."
+                : "Region " + oldId + " is now " + now.id() + ", called \"" + now.name() + "\".");
+    }
+
+    public static String idFor(String name) {
+        return Region.idFor(name);
     }
 
     /** Adds or removes an owner or member; true when something changed. Saves the region. */

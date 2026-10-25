@@ -128,7 +128,8 @@ public class MapEditorGameTests {
         run(h, admin -> {
             RegionStore store = store(h);
             draw(admin, "me_card", "protected", box(h, 1, 1, 3, 3), 0, "");
-            h.assertTrue(act(admin, PlotMapActionPacket.RENAME, "me_card", "Market Hall", 0).ok() && store.get("me_card").name().equals("Market Hall"), "rename");
+            // B16: the id follows the name ("ME Card" keeps me_card), so the rest of the test still finds it
+            h.assertTrue(act(admin, PlotMapActionPacket.RENAME, "me_card", "ME Card", 0).ok() && store.get("me_card").name().equals("ME Card"), "rename");
             h.assertTrue(act(admin, PlotMapActionPacket.PRIORITY, "me_card", "", 4).ok() && store.get("me_card").priority() == 4, "priority");
             h.assertTrue(act(admin, PlotMapActionPacket.TYPE, "me_card", "open_for_buying", 0).ok() && store.get("me_card").type() == RegionType.OPEN_FOR_BUYING, "type");
             h.assertFalse(act(admin, PlotMapActionPacket.RESET, "me_card", "", 0).ok(), "RESET needs a mine");
