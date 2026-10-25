@@ -1,0 +1,70 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="size" content="452x268"><link rel="stylesheet" href="holo.css">
+<style>
+.slot { position: absolute; width: 16px; height: 16px; background: #171b22; outline: 1px solid #262b35; }
+.slot.mark { outline-color: var(--gold); }
+.slot svg, .ri svg { position: absolute; left: 2px; top: 2px; width: 12px; height: 12px; }
+.tabicon { position: absolute; width: 16px; height: 16px; background: #171b22; outline: 1px solid #262b35; }
+.tabicon.on { outline-color: var(--tq); background: var(--inset); }
+.tabicon svg { position: absolute; left: 2px; top: 2px; width: 12px; height: 12px; }
+.ri { position: absolute; width: 14px; height: 14px; }
+.pct { position: absolute; width: 30px; height: 11px; background: #050608; border: 1px solid var(--line); font-size: 8px; text-align: right; padding-right: 3px; box-sizing: border-box; line-height: 10px; }
+</style></head>
+<body>
+<div class="world"></div>
+<!-- The MINE FILL window (client/MineFillScreen.java, 420x236 units): blocks and shares left, the block browser right. -->
+<div class="screen" style="left:16px;top:16px;width:420px;height:236px" id="s">
+    <div class="abs t1 tq" style="left:10px;top:7px">MINE FILL - iron_mine</div>
+    <div class="abs t6 muted" style="left:10px;top:19px">32 x 24 x 32 = 24,576 blocks</div>
+    <div class="abs t5 muted" style="left:26px;top:30px">BLOCK</div>
+    <div class="abs t5 muted" style="left:122px;top:30px">%</div>
+    <div class="abs t5 muted" style="left:155px;top:30px">REST</div>
+    <div class="inset" style="left:10px;top:37px;width:176px;height:135px"></div>
+    <div class="abs" style="left:10px;top:178px;width:176px;height:1px;background:var(--line)"></div>
+    <div class="abs t75 muted" style="left:10px;top:182px">TOTAL OF THE MINE&nbsp;&nbsp;<span class="tq">100.0%</span></div>
+    <div class="abs t6 muted" style="left:10px;top:193px">The REST block fills what is left and is the mine's</div>
+    <div class="abs t6 muted" style="left:10px;top:199px">base; the others grow as veins.</div>
+    <div class="abs t6 gold" style="left:10px;top:221px">Added Diamond Ore: type its share.</div>
+    <div class="inset" style="left:194px;top:45px;width:104px;height:12px"><span class="abs t6 hint" style="left:3px;top:2px">search, or @mod</span></div>
+    <div class="abs t6 text" style="left:302px;top:47px">Natural Blocks</div>
+    <div class="chip" style="left:292px;top:216px;width:56px;height:14px">CANCEL</div>
+    <div class="chip on" style="left:354px;top:216px;width:56px;height:14px">SAVE</div>
+</div>
+<script>
+const B = { // [top, left, right, ore dots]
+  stone: ['#9a9a9a', '#7d7d7d', '#6b6b6b'], iron: ['#9a9a9a', '#7d7d7d', '#6b6b6b', '#d8af93'], coal: ['#9a9a9a', '#7d7d7d', '#6b6b6b', '#2a2a2a'],
+  copper: ['#9a9a9a', '#7d7d7d', '#6b6b6b', '#e0884f'], gold: ['#9a9a9a', '#7d7d7d', '#6b6b6b', '#f5d34a'], diamond: ['#9a9a9a', '#7d7d7d', '#6b6b6b', '#5de6e0'],
+  redstone: ['#9a9a9a', '#7d7d7d', '#6b6b6b', '#d23a2e'], lapis: ['#9a9a9a', '#7d7d7d', '#6b6b6b', '#2b4fb5'], emerald: ['#9a9a9a', '#7d7d7d', '#6b6b6b', '#2ecc71'],
+  deepslate: ['#5a5a62', '#46464e', '#3a3a42'], dsiron: ['#5a5a62', '#46464e', '#3a3a42', '#d8af93'], dsdiamond: ['#5a5a62', '#46464e', '#3a3a42', '#5de6e0'],
+  granite: ['#a77563', '#8a5f4f', '#764f42'], diorite: ['#d6d6d6', '#b4b4b4', '#9e9e9e'], andesite: ['#8f8f8f', '#767676', '#666666'],
+  tuff: ['#6c6d63', '#5a5b52', '#4c4d45'], gravel: ['#857d7a', '#6d6663', '#5d5754'], dirt: ['#8a6a42', '#6f5434', '#5e472b'],
+  calcite: ['#e2e2dc', '#c8c8c2', '#b4b4ae'], quartz: ['#7a2f2a', '#5f2420', '#4f1e1b', '#e8e0d8'], zinc: ['#9a9a9a', '#7d7d7d', '#6b6b6b', '#a6c9b4'],
+};
+function icon(k) {
+  const c = B[k];
+  let s = `<svg viewBox="0 0 12 12"><polygon points="6,0.5 11.5,3.2 6,6 0.5,3.2" fill="${c[0]}"/><polygon points="0.5,3.2 6,6 6,11.5 0.5,8.8" fill="${c[1]}"/><polygon points="11.5,3.2 6,6 6,11.5 11.5,8.8" fill="${c[2]}"/>`;
+  if (c[3]) s += `<rect x="4.5" y="2.4" width="1.6" height="1" fill="${c[3]}"/><rect x="2.2" y="5.4" width="1.4" height="1.4" fill="${c[3]}"/><rect x="8" y="6.2" width="1.4" height="1.4" fill="${c[3]}"/><rect x="3.4" y="8" width="1.2" height="1.2" fill="${c[3]}"/>`;
+  return s + '</svg>';
+}
+const s = document.getElementById('s');
+const add = h => s.insertAdjacentHTML('beforeend', h);
+const rows = [['stone', 'Stone', '82.0', true], ['iron', 'Iron Ore', '8', false], ['coal', 'Coal Ore', '6', false], ['copper', 'Copper Ore', '2.5', false], ['gold', 'Gold Ore', '1', false], ['diamond', 'Diamond Ore', '0.5', false]];
+rows.forEach(([k, name, pct, rest], i) => {
+  const y = 38 + i * 15;
+  add(`<div class="ri" style="left:10px;top:${y}px">${icon(k)}</div>`);
+  add(`<div class="abs t6 text" style="left:26px;top:${y + 4}px">${name}</div>`);
+  add(`<div class="pct ${rest ? 'gold' : 'text'}" style="left:110px;top:${y + 1}px">${pct}</div>`);
+  add(`<div class="abs t6 muted" style="left:142px;top:${y + 4}px">%</div>`);
+  add(`<div class="chip ${rest ? 'gold' : ''}" style="left:150px;top:${y + 1}px;width:24px;height:11px;font-size:5.6px">REST</div>`);
+  add(`<div class="chip bad" style="left:176px;top:${y + 1}px;width:10px;height:11px;font-size:5.6px">x</div>`);
+});
+['stone', 'iron', 'dirt', 'deepslate', 'granite', 'diamond', 'quartz', 'zinc', 'calcite', 'gravel'].forEach((k, i) => add(`<div class="tabicon${i === 0 ? ' on' : ''}" style="left:${204 + i * 17}px;top:26px">${icon(k)}</div>`));
+add(`<div class="chip" style="left:194px;top:26px;width:9px;height:16px">&lt;</div><div class="chip" style="left:389px;top:26px;width:9px;height:16px">&gt;</div>`);
+const grid = ['stone', 'granite', 'diorite', 'andesite', 'deepslate', 'calcite', 'tuff', 'dirt', 'gravel', 'coal', 'iron', 'copper', 'gold', 'redstone', 'emerald', 'lapis', 'diamond', 'dsiron', 'dsdiamond', 'quartz', 'zinc'];
+const chosen = new Set(['stone', 'iron', 'coal', 'copper', 'gold', 'diamond']);
+for (let i = 0; i < 12 * 8; i++) {
+  const k = i < grid.length ? grid[i] : null, x = 194 + (i % 12) * 17, y = 62 + Math.floor(i / 12) * 17;
+  add(`<div class="slot${k && chosen.has(k) ? ' mark' : ''}" style="left:${x}px;top:${y}px">${k ? icon(k) : ''}</div>`);
+}
+</script>
+</body></html>

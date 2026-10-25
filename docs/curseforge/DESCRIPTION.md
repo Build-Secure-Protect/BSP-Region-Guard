@@ -2,19 +2,20 @@
 
 # BSP Region Guard
 
-**World protection, banned blocks, land claims, a map that draws and edits every region, automated mines and linked servers for Minecraft 1.20.1, all run from in-game screens.**
+**World protection, banned blocks, land claims with eye-catching plot markers, a map that draws and edits every region, automated mines and linked servers for Minecraft 1.20.1, all run from in-game screens.**
 
 BSP Region Guard looks after the world on a Build Secure Protect server:
 - Admins draw regions and decide what may happen inside them, down to which blocks and items may be placed, used, broken or even carried in.
-- Players buy land and run their own plots. Admins draw, reshape, copy, move and back up regions, plots and mines on one full-window map.
-- Mines refill themselves on a timer.
+- Players buy land and run their own plots. Plots for sale stand out in the world with a marker and their name until someone buys them.
+- Admins draw, reshape, copy, move and back up regions, plots and mines on one full-window map.
+- Mines refill themselves on a timer, from blocks picked in a creative-style browser.
 - Several servers share regions, and players can walk from one server's world into the next.
 
 It takes WorldGuard's ideas to Forge and drives them from screens rather than long commands.
 
 It is made for the [Build Secure Protect](https://www.curseforge.com/minecraft/modpacks/build-secure-protect) modpack and works closely with its sister mods: **BSP-Core** (required), and **BSP-Teleport** and **BSP-RankUp** (optional).
 
-> Version 0.5.0. The screens in this description are drawn from the mod's own layout and colours, as illustrations.
+> Version 0.6.0. The screens in this description are drawn from the mod's own layout and colours, as illustrations.
 
 ---
 
@@ -24,7 +25,7 @@ It is made for the [Build Secure Protect](https://www.curseforge.com/minecraft/m
 |---|---|
 | **Minecraft** | 1.20.1, Forge 47.4.10 or newer; runs on Mohist |
 | **Install on** | the server **and** every player (the screens and in-world drawing are client side) |
-| **Requires** | [BSP-Core](https://github.com/Build-Secure-Protect/BSP-Core) 1.4.3 or newer |
+| **Requires** | [BSP-Core](https://github.com/Build-Secure-Protect/BSP-Core) 1.4.6 or newer |
 | **Works with** | [BSP-Teleport](https://github.com/Build-Secure-Protect/BSP-Teleport), BSP-RankUp, [LuckPerms](https://luckperms.net/) (Forge mod or the Bukkit plugin on Mohist) |
 | **Optional** | MySQL and Redis, only for several servers |
 
@@ -44,13 +45,13 @@ No wand outline? Press **+ NEW** anyway: the region is made without corners (it 
 Regions are drawn as see-through boxes in their type colour:
 - **teal:** protected areas
 - **violet:** players' claims
-- **gold:** plots for sale and mines
+- **gold:** mines (plots for sale have a colour of their own, section 7)
 
-Admins always see them. Players press **B** to see their own claims.
+**When they show:** hold the **Region Wand** (in either hand) and every region shows; put it away and they're gone, so finished regions never get in the way. Press **B** to show them without the wand. Players holding the plot tool see their own claims. Plots for sale always show, to everyone, until they're bought.
 
 ## 2. The admin screen
 
-Open it with `/rg gui`, or sneak and right-click with the wand. It fills the window. Every region in the world is listed on the left, with a search box and filters (protected, claims, mines, for sale). The tabs on the right hold the picked region's settings: FLAGS, ACCESS, RANKS, SALE, MINE, TELEPORT, INFO, and BANNED for its banned blocks (sections 3 to 10 below).
+Open it with `/rg gui`, or sneak and right-click with the wand. It fills the window. Every region in the world is listed on the left by its name, with a search box (names and ids) and filters (protected, claims, mines, for sale). The tabs on the right hold the picked region's settings: FLAGS, ACCESS, RANKS, SALE, MINE, TELEPORT, INFO, and BANNED for its banned blocks (sections 3 to 10 below).
 
 ![The admin screen, INFO tab](https://raw.githubusercontent.com/Build-Secure-Protect/BSP-Region-Guard/main/docs/curseforge/images/admin_info.png)
 
@@ -58,6 +59,8 @@ Under the region list:
 - **+ NEW:** makes a region from the wand outline, or, without one, a region whose corners you then click on the map.
 - **WAND:** gives you a wand.
 - **MAP:** opens the region map on the picked region (section 8).
+
+**Renaming on the INFO tab:** a new name renames the region's id too, so "Market Hall" becomes `market_hall` and the old id is free again. Everything the region holds comes along, including a mine's shell, child regions, plot backups and the map's undo history.
 
 **Size on the INFO tab:**
 - **The corners:** six numbers. Click one, type, and press Enter to save it.
@@ -69,7 +72,7 @@ The buttons under the pane:
 - **TELEPORT:** go to the picked region.
 - **SELECT:** put its corners back into the wand.
 
-Every change saves as soon as you make it.
+Every change saves as soon as you make it. A button lights up when clicked, and the server's answer ("iron_mine is resetting") shows in the line along the bottom.
 
 The screens are drawn larger than a normal Minecraft screen: twice as big, and the admin screen and the map's cards a little less so they fit more. They shrink to fit smaller windows. Each player can change that with `ui.scale` in `config/bsp_region_guard-client.toml`.
 
@@ -98,7 +101,7 @@ When regions overlap, the one with the **higher priority** decides. A region lef
 | **BSP** | `border-warning`, `border-message`, `teleport-in`, `teleport-out`, `set-home`, `totem-place`, `totem-drop`, `mine-only-break` |
 | **Banned blocks** (section 6) | `deny-place`, `deny-use`, `deny-break`, `deny-carry` |
 
-Where Forge has no event to cancel (fire spreading, water flowing in, snow forming, grass spreading, dispensers, falling sand), Region Guard uses 28 small server-side patches. Each group can be switched off in the server config.
+Where Forge has no event to cancel (fire spreading, water flowing in, snow forming, grass spreading, dispensers, falling sand), Region Guard uses 29 small server-side patches. Each group can be switched off in the server config.
 
 **BSP-Core admins** pass every rule so they can build anywhere. `/rg bypass` switches that off for testing.
 
@@ -186,8 +189,24 @@ Admins sell land in two ways:
 1. A player takes the plot tool (`/claim tool`) and clicks two corners.
 2. BSP-Core's **Land Office** opens with that ground drawn on a map, priced, and with nearby claims shown.
 3. The player buys it there.
+4. A window asks whether to **TELEPORT** to the middle of the new plot (or to its teleport point), or **STAY**.
 
-Plots for sale are bought at the Land Office block too.
+Plots for sale are bought at the Land Office block too, with the same offer to teleport.
+
+![The offer to teleport after buying](https://raw.githubusercontent.com/Build-Secure-Protect/BSP-Region-Guard/main/docs/curseforge/images/plot_bought.png)
+
+**Plots for sale stand out.** Every plot for sale and open area shows to every player in its own colour, with a marker over its middle carrying its name, until it's bought; then it disappears so it's never in the new owner's way:
+- **ARROW** (the default): a big arrow pointing down at the ground, 20% see-through, with the name above it.
+- **SPHERE:** a glassy sphere with the name's letters circling it.
+- **BEACON:** a thin beam of light rising from the plot, pulsing slowly, with a turning crystal.
+- **SIGN:** a big floating board with FOR SALE, the name and the price.
+- **OUTLINE ONLY:** just the coloured outline and the name.
+
+![The four plot markers](https://raw.githubusercontent.com/Build-Secure-Protect/BSP-Region-Guard/main/docs/curseforge/images/plot_markers.png)
+
+Admins pick a plot's look in the **PLOT LOOK** window (**LOOK** on the SALE tab, or on the region map's plot card): the marker, its colour (eight colours or any hex code), the marker's size and the name's size (0.5x to 3x), and how high it floats above the ground (never above the plot's top). A preview shows it and turns as you drag it. A copied plot takes the same look and shows its own name. Markers show within 96 blocks, and only what's in view is drawn, so they stay light on frame rate.
+
+![The PLOT LOOK window](https://raw.githubusercontent.com/Build-Secure-Protect/BSP-Region-Guard/main/docs/curseforge/images/plot_look.png)
 
 **Pieces or coins:** plots are paid from the player's **BSP-Core bank** in Shatter Pieces by default.
 - Set `claims.currency = "coins"` and they cost **Shatter Coins from the player's inventory** instead.
@@ -239,10 +258,11 @@ Each mode dims the other kinds of region.
 - **PICK:** click a region to open its card.
   - **On every card:** its name, priority, VERTICAL FILL, RESHAPE and DELETE (click twice).
   - **REGION mode:** the type.
-  - **PLOT mode:** copy, lock and backups.
+  - **PLOT mode:** copy, lock, backups, and LOOK for a plot for sale's marker.
+  - **MINE mode:** EDIT FILL for the mine's blocks.
   - **Admin screen tabs:** buttons open the region's FLAGS, ACCESS, SALE, MINE, TELEPORT or INFO tab, and Esc there brings you back to the map.
 - **DRAW:** drag a box, or click two corners. Panning with SPACE in between lets you reach far corners. A card asks for an id, a priority and a height, plus a price in PLOT mode. CREATE makes a protected region, a plot for sale or a mine, depending on the mode.
-- **RESHAPE:** drag the handles on the picked region's sides and corners, set its height, then DONE.
+- **RESHAPE:** drag the handles on the picked region's sides and corners, set its height, then DONE. CANCEL (or Esc) stops reshaping and keeps the region as it was.
 
 ![Drawing a new plot for sale](https://raw.githubusercontent.com/Build-Secure-Protect/BSP-Region-Guard/main/docs/curseforge/images/region_map_draw.png)
 
@@ -274,11 +294,14 @@ The copy becomes a new **plot for sale** with the original's size, flags, banned
 ## 9. Mines that refill themselves
 
 Any region can become a **mine**:
-- **Fill table:** list blocks with weights (stone 90, iron ore 8, diamond ore 1...). The heaviest block fills the mine and the others grow as fresh veins at every reset, so no two resets look alike.
+- **What it's made of:** **EDIT FILL** opens the **MINE FILL** window. Pick blocks from a creative-style browser (the creative tabs, search, and `@mod` for one mod's blocks), give each a share in percent (down to 0.5% for a rare ore), and watch the mine's total at the bottom. SAVE works once it makes 100%.
+- **Fill the rest:** mark one block **REST** and it takes whatever share is left: it's the mine's base, and the others grow as fresh veins through it at every reset, so no two resets look alike. Without a REST block, the biggest share is the base.
 - **Resets:** on a timer, with warnings at 60 and 10 seconds, or straight away with **RESET NOW**. Players inside are moved to the mine's spawn point.
 - **Shell:** an optional ring around the mine where only the mine's blocks may be dug.
 - **On the region map:** in MINE mode, draw a new mine where you want it, and use RESET and SHELL on the picked one.
 - **Ranks:** with LuckPerms or BSP-RankUp, keep the best mines for the higher ranks.
+
+![The MINE FILL window](https://raw.githubusercontent.com/Build-Secure-Protect/BSP-Region-Guard/main/docs/curseforge/images/mine_fill.png)
 
 ![The admin screen, MINE tab](https://raw.githubusercontent.com/Build-Secure-Protect/BSP-Region-Guard/main/docs/curseforge/images/admin_mine.png)
 
@@ -352,11 +375,13 @@ When a player reaches a linked edge, a window asks whether to travel:
 | `/rg plot backup <id>`, `/rg plot backups <id>`, `/rg plot restore <file>` | back up a plot's blocks, list its backups, restore one |
 | `/rg addowner`, `/rg removeowner`, `/rg addmember`, `/rg removemember` | owners and members |
 | `/rg addrank`, `/rg removerank` | the LuckPerms groups that may enter |
-| `/rg priority`, `/rg parent`, `/rg type`, `/rg rename`, `/rg info`, `/rg list` | region details |
+| `/rg priority`, `/rg parent`, `/rg type`, `/rg info`, `/rg list` | region details |
+| `/rg rename <id> <name>` | a new name, and the id that goes with it ("Market Hall" gives `market_hall`) |
 | `/rg teleport <id>` | go to a region |
 | `/rg border set <width> [x z]`, `/rg border off`, `/rg border link ...` | the world border and edge links |
 | `/rg mine ...` | fill table, interval, spawn, shell, reset |
 | `/rg sale ...`, `/rg plotflags ...` | plots for sale and open areas |
+| `/rg look <id> <part> <value>` | a plot for sale's marker: the part is `marker`, `colour`, `size`, `namesize` or `height`; `/rg look <id>` shows its look |
 | `/rg cointier <id> <tier>` | the coin tier a plot or open area is priced in (with `claims.currency = "coins"`) |
 | `/rg plotlimit <id> <number>` | how many plots one player may own inside a region (`none` removes the limit; `__global__`: in the world) |
 | `/rg claims pvp <rule>` | plots in this world when it counts as a PvP world: `allow`, `deny` or `default`; no rule shows the current one |
@@ -380,6 +405,6 @@ Full reference in [`docs/API.md`](https://github.com/Build-Secure-Protect/BSP-Re
 
 ---
 
-**Early release:** 0.5.0 is an early version and has not yet run on a large live network. Please report problems on the [issue tracker](https://github.com/Build-Secure-Protect/BSP-Region-Guard/issues).
+**Early release:** 0.6.0 is an early version and has not yet run on a large live network. Please report problems on the [issue tracker](https://github.com/Build-Secure-Protect/BSP-Region-Guard/issues).
 
 Source: [github.com/Build-Secure-Protect/BSP-Region-Guard](https://github.com/Build-Secure-Protect/BSP-Region-Guard) · MIT licence · Made for [Build Secure Protect](https://www.curseforge.com/minecraft/modpacks/build-secure-protect)

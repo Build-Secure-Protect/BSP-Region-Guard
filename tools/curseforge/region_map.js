@@ -106,15 +106,15 @@ if (V === 'reshape') {
   text(cx + 122, cy + 44, 'P 5', 'var(--text)'); chip(cx + 150, cy + 42, 12, 12, '-'); chip(cx + 164, cy + 42, 12, 12, '+');
   [['PROT', 'on'], ['SALE', ''], ['OPEN', ''], ['MINE', '']].reduce((tx, [t, c]) => { chip(tx, cy + 58, cw(t) + 10, 12, t, c); return tx + cw(t) + 13; }, cx + 5);
   ['FLAGS', 'ACCESS', 'TELEPORT', 'INFO'].reduce((tx, t) => { chip(tx, cy + 74, cw(t) + 10, 12, t); return tx + cw(t) + 13; }, cx + 5);
-  chip(cx + 5, cy + 90, 70, 12, 'VERTICAL FILL', 'gold'); chip(cx + 78, cy + 90, 60, 12, 'RESHAPE', 'on'); chip(cx + w - 61, cy + 90, 56, 12, 'DELETE');
+  chip(cx + 5, cy + 90, 76, 12, 'VERTICAL FILL', 'gold'); chip(cx + 84, cy + 90, 60, 12, 'RESHAPE', 'on'); chip(cx + w - 61, cy + 90, 56, 12, 'DELETE');
   // the reshape bar
   const bx = 8, by = UH - 48 - 22, bw = 440;
   card(bx, by, bw, 48, TQ);
-  text(bx + 5, by + 4, 'RESHAPE market_hall', 'var(--text)'); text(bx + 12 + cw('RESHAPE market_hall'), by + 4, 'drag a side or corner', 'var(--muted)');
+  text(bx + 5, by + 4, 'RESHAPE market_hall', 'var(--text)'); text(bx + 12 + cw('RESHAPE market_hall'), by + 4, 'drag a side or corner; Esc or CANCEL stops', 'var(--muted)');
   chip(bx + bw - 16, by + 2, 12, 12, '&#9662;');
   text(bx + 5, by + 19, 'Y', 'var(--muted)'); field(bx + 14, by + 16, 40, '62'); text(bx + 59, by + 19, 'to', 'var(--muted)'); field(bx + 73, by + 16, 40, '90');
   chip(bx + 119, by + 16, 76, 12, 'VERTICAL FILL', 'gold');
-  chip(bx + bw - 112, by + 16, 54, 12, 'DONE', 'on'); chip(bx + bw - 54, by + 16, 48, 12, 'RESET');
+  chip(bx + bw - 166, by + 16, 54, 12, 'DONE', 'on'); chip(bx + bw - 109, by + 16, 48, 12, 'RESET'); chip(bx + bw - 58, by + 16, 52, 12, 'CANCEL', 'bad');
   text(bx + 5, by + 33, 'x 26, z 25 to x 44, z 35: 19 x 11, y 62 to 90', 'var(--muted)');
   add(`<div class="abs" style="left:${W - 288}px;top:${UH - 16}px;width:284px;height:12px;background:rgba(5,6,8,.75)"></div>`);
   text(W - 284, UH - 14, 'x 44  z 30   8 px a block   SPACE or right-drag pans', 'var(--text)');

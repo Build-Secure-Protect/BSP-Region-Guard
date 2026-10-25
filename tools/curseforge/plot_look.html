@@ -1,0 +1,37 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="size" content="404x246"><link rel="stylesheet" href="holo.css">
+<style>.sw { position: absolute; width: 12px; height: 12px; } .sw.on { outline: 1px solid #fff; outline-offset: 1px; } .pv canvas { width: 198px; height: 148px; display: block; }</style></head>
+<body>
+<div class="world"></div>
+<!-- The PLOT LOOK window (client/PlotLookScreen.java, 372x214 units), opened with LOOK on the SALE tab or the map's plot card. -->
+<div class="screen" style="left:16px;top:16px;width:372px;height:214px">
+    <div class="abs t1 tq" style="left:10px;top:8px">PLOT LOOK - market_stall_3</div>
+    <div class="inset pv" style="left:10px;top:24px;width:198px;height:148px"><canvas id="pv"></canvas></div>
+    <div class="chip" style="left:10px;top:179px;width:40px;height:12px">&lt; TURN</div>
+    <div class="chip" style="left:53px;top:179px;width:40px;height:12px">TURN &gt;</div>
+    <div class="abs t6 muted" style="left:98px;top:182px">drag to turn; not to scale</div>
+    <div class="abs t75 muted" style="left:220px;top:24px">MARKER</div>
+    <div class="chip" style="left:220px;top:33px;width:59px;height:12px">OUTLINE ONLY</div>
+    <div class="chip on" style="left:282px;top:33px;width:31px;height:12px">ARROW</div>
+    <div class="chip" style="left:316px;top:33px;width:35px;height:12px">SPHERE</div>
+    <div class="chip" style="left:220px;top:47px;width:35px;height:12px">BEACON</div>
+    <div class="chip" style="left:258px;top:47px;width:24px;height:12px">SIGN</div>
+    <div class="abs t75 muted" style="left:220px;top:65px">COLOUR</div>
+    <div id="sws"></div>
+    <div class="inset" style="left:220px;top:91px;width:62px;height:12px"><span class="abs t75 text" style="left:3px;top:2px">#FFD23A</span></div>
+    <div class="sw" style="left:286px;top:91px;background:#ffd23a"></div>
+    <div class="abs t75 muted" style="left:220px;top:114px">MARKER SIZE</div><div class="chip" style="left:282px;top:111px;width:12px;height:12px">-</div><div class="abs t75 text" style="left:298px;top:114px">1.00x</div><div class="chip" style="left:342px;top:111px;width:12px;height:12px">+</div>
+    <div class="abs t75 muted" style="left:220px;top:130px">NAME SIZE</div><div class="chip" style="left:282px;top:127px;width:12px;height:12px">-</div><div class="abs t75 text" style="left:298px;top:130px">1.00x</div><div class="chip" style="left:342px;top:127px;width:12px;height:12px">+</div>
+    <div class="abs t75 muted" style="left:220px;top:146px">HEIGHT</div><div class="chip" style="left:282px;top:143px;width:12px;height:12px">-</div><div class="abs t75 text" style="left:298px;top:146px">2 blocks</div><div class="chip" style="left:342px;top:143px;width:12px;height:12px">+</div>
+    <div class="abs t6 muted" style="left:220px;top:161px">Shows while for sale. Hidden once bought.</div>
+    <div class="abs t6 muted" style="left:220px;top:167px">Copies with the plot.</div>
+    <div class="chip" style="left:244px;top:192px;width:56px;height:14px">CANCEL</div>
+    <div class="chip on" style="left:306px;top:192px;width:56px;height:14px">SAVE</div>
+</div>
+<script src="plot_scene.js"></script>
+<script>
+const C = ['#ffd23a', '#19d3b0', '#b58cff', '#ff6b5c', '#5aa9ff', '#7be36b', '#ff9f40', '#f2f2f2'];
+document.getElementById('sws').innerHTML = C.map((c, i) => `<div class="sw${i === 0 ? ' on' : ''}" style="left:${220 + i * 15}px;top:74px;background:${c}"></div>`).join('');
+document.fonts.ready.then(() => drawPlot(document.getElementById('pv'), {marker: 'arrow', colour: '#ffd23a', size: 1, text: 1, height: 2, name: 'Market Stall 3', price: ''}));
+</script>
+</body></html>

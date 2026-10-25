@@ -4,7 +4,9 @@ All notable changes to BSP Region Guard. Format follows Keep a Changelog; versio
 
 ## [Unreleased]
 
-**Network protocol 9:** servers and players need this version together. **Needs BSP-Core 1.4.6 or newer** (was 1.4.3); Region Guard now builds against 1.4.6.
+## [0.6.0] - 2026-10-25
+
+Plot markers and the PLOT LOOK window, the teleport offer after buying, the MINE FILL window, region outlines only with the wand, renaming that changes the id, and lighter drawing. **Network protocol 9:** servers and players need this version together. **Needs BSP-Core 1.4.6 or newer** (was 1.4.3); Region Guard now builds against 1.4.6. The API is unchanged (version 6).
 
 ### Added (2026-10-25, mine fill window: D115 to D119)
 - **MINE FILL window** (EDIT FILL on the MINE tab, or on the region map's card in MINE mode): the mine's blocks on the left, each with a percentage box (one decimal, so 0.5% diamond works) and the mine's **total** under them; a creative-style block browser on the right (the creative tabs with blocks, search, `@mod`), blocks already in the mine marked in gold. Click a block to add it.
@@ -33,7 +35,6 @@ All notable changes to BSP Region Guard. Format follows Keep a Changelog; versio
 - **Teleport after buying** (D113): after buying a plot at a Land Office (or an outlined plot), a pop-up offers TELEPORT (to the ground in the plot's middle, or its teleport point) or STAY.
 
 ### Changed (2026-10-23)
-- **The region key (B) starts off for players** and on for admins. Plots for sale show either way.
 - While an admin looks at another server's regions, the world drawing keeps showing this server's regions.
 - **Less work per frame** (review 2026-10-23): regions out of view are skipped; boxes are drawn in one batch for all faces and one for all edges (was two or three draws per region); a region's box is built once per list, not every frame; the sphere's shape is worked out once.
 - **The region map's terrain** is drawn as one picture per 8 by 8 chunks (was one draw per chunk, about two thousand a frame at the widest zoom). A picture is repainted only where new chunk colours arrive, and pictures far out of sight are let go after 300.
