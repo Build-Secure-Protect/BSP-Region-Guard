@@ -4,6 +4,9 @@ All notable changes to BSP Region Guard. Format follows Keep a Changelog; versio
 
 ## [Unreleased]
 
+### Fixed (2026-10-27, B17: missing ranks on the RANKS tab)
+- The RANKS tab showed at most 18 LuckPerms groups (six rows of three), so on a server with more groups the rest (in the owner's case everything after `titan_slayer`: vanguard, wanderer, warden, warlord...) never appeared. It now fills as many rows and columns as the pane has room for, the mouse wheel scrolls through the rest, and a line says how many more there are.
+
 ## [0.6.0] - 2026-10-25
 
 Plot markers and the PLOT LOOK window, the teleport offer after buying, the MINE FILL window, region outlines only with the wand, renaming that changes the id, and lighter drawing. **Network protocol 9:** servers and players need this version together. **Needs BSP-Core 1.4.6 or newer** (was 1.4.3); Region Guard now builds against 1.4.6. The API is unchanged (version 6).

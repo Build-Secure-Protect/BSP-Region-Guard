@@ -76,6 +76,7 @@
   "gui.bsp_region_guard.link": "+ LINK",
   "gui.bsp_region_guard.links_need_shared_storage": "links need shared storage",
   "gui.bsp_region_guard.plots_here": "PLOTS HERE",
+  "gui.bsp_region_guard.ranks_more": "%s more: scroll for them",
   "gui.bsp_region_guard.fill.edit": "EDIT FILL",
   "gui.bsp_region_guard.fill.title": "MINE FILL - %s",
   "gui.bsp_region_guard.fill.size": "%s x %s x %s = %s blocks",

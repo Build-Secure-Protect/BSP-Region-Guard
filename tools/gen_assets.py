@@ -95,6 +95,7 @@ GUI = {
     "link": "+ LINK",
     "links_need_shared_storage": "links need shared storage",
     "plots_here": "PLOTS HERE",
+    "ranks_more": "%s more: scroll for them",
     "fill.edit": "EDIT FILL",
     "fill.title": "MINE FILL - %s",
     "fill.size": "%s x %s x %s = %s blocks",

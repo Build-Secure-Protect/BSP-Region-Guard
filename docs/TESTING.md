@@ -526,3 +526,11 @@ The new jar on the server and every client (network protocol 8). Built and teste
 - [ ] With shared storage: another server's view of this server's regions shows the new id, and the old one is gone.
 - [ ] Note: a player standing inside the region when it is renamed may see its greeting once more.
 
+## 2026-10-27: every rank on the RANKS tab (B17)
+
+- [ ] On a server with more than 18 LuckPerms groups (or RankUp's ladder plus other groups), open a region's RANKS tab: the grid is filled, and the bottom right says "N more: scroll for them".
+- [ ] The mouse wheel over the pane scrolls the grid down to the last groups (vanguard, wanderer, warden, warlord...); every group LuckPerms has is there.
+- [ ] Ticking a group further down works and stays ticked after scrolling back.
+- [ ] A wider window shows more groups per row; the smallest window still shows three per row inside the pane.
+- [ ] Switching to another tab and back starts the grid at the top.
+

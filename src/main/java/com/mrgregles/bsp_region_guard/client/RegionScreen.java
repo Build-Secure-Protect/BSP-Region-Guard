@@ -88,7 +88,7 @@ public class RegionScreen extends HoloScreen {
     private final List<Hit> hits = new ArrayList<>();
     @Nullable
     private String selected;
-    private int tab, filter, listScroll, flagScroll;
+    private int tab, filter, listScroll, flagScroll, rankScroll;
     private boolean onlySet;
     private boolean confirmDelete;
     private long lastMapClick;
@@ -714,6 +714,7 @@ public class RegionScreen extends HoloScreen {
             chip(g, tx, y + 50, w, 12, tabName, tab == i, TQ, 0.75f, () -> {
                 tab = ti;
                 flagScroll = 0;
+                rankScroll = 0;
                 pickSide = null;
                 closeInput();
                 if (ti == BORDER_TAB) {
@@ -973,19 +974,22 @@ public class RegionScreen extends HoloScreen {
         if (available.isEmpty()) {
             text(g, Tr.t("luckperms_was_not_found_on_this_server_so_no_ran"), px + 6, cy + 24, MUTED, 0.6f);
         }
-        int col = 0, row = 0;
-        for (String rank : available) {
+        // B17: every group, as many across and down as the pane has room for; the wheel scrolls the rest
+        int cols = Math.max(3, (paneW - 12) / 86), rowsShown = Math.max(1, (contentH - 44) / 13);
+        int rowsAll = (available.size() + cols - 1) / cols;
+        rankScroll = Mth.clamp(rankScroll, 0, Math.max(0, rowsAll - rowsShown));
+        for (int i = rankScroll * cols; i < available.size() && i < (rankScroll + rowsShown) * cols; i++) {
+            String rank = available.get(i);
             boolean on = d.ranks().contains(rank.toLowerCase(Locale.ROOT));
+            int col = i % cols, row = i / cols - rankScroll;
             int bx = px + 6 + col * 86, by = cy + 22 + row * 13;
             chip(g, bx, by, 82, 11, (on ? Tr.t("x") : "[ ] ") + font.plainSubstrByWidth(rank, 90), on, VIO, 0.6f,
                     () -> act(on ? RegionActionPacket.REMOVE_RANK : RegionActionPacket.ADD_RANK, rank));
-            if (++col == 3) {
-                col = 0;
-                row++;
-            }
-            if (row > 5) {
-                break;
-            }
+        }
+        if (rowsAll > rowsShown) {
+            int above = rankScroll * cols, below = Math.max(0, available.size() - (rankScroll + rowsShown) * cols);
+            String more = Tr.t("ranks_more", above + below);
+            text(g, more, px + paneW - 6 - (int) (font.width(more) * 0.6f), cy + contentH - 13, MUTED, 0.6f);
         }
         if (inputMode != Input.RANK) {
             button(g, px + 4, cy + contentH - 18, 90, 14, Tr.t("type_a_rank"), VIO, () -> openInput(Input.RANK, "", Tr.t("luckperms_group_name_enter_to_add")));
@@ -1487,6 +1491,8 @@ public class RegionScreen extends HoloScreen {
                 map.zoom(delta > 0 ? -1 : 1);
             } else if (tab == 1) {
                 flagScroll -= (int) Math.signum(delta);
+            } else if (tab == 3) {
+                rankScroll -= (int) Math.signum(delta); // B17: RANKS
             }
             return true;
         }
