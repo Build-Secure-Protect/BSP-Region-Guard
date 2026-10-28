@@ -534,3 +534,14 @@ The new jar on the server and every client (network protocol 8). Built and teste
 - [ ] A wider window shows more groups per row; the smallest window still shows three per row inside the pane.
 - [ ] Switching to another tab and back starts the grid at the top.
 
+## 2026-10-28: network passwords out of the server config (T14)
+
+On a server that used shared storage with 0.6.0 (or a copy of its world and configs). Built and tested headless (112 GameTests, run twice, plus a start from an old server config).
+
+- [ ] Start once with the new jar. The log has one warning: "Region Guard moved storage.host, ..., storage.password ... to config/bsp_region_guard-network.toml"; it shows no password or host.
+- [ ] `config/bsp_region_guard-network.toml` now holds the host, port, database, user, password, tablePrefix and the Redis host, port, username and password; `serverconfig/bsp_region_guard-server.toml` shows them empty with "Moved to config/bsp_region_guard-network.toml".
+- [ ] `/rg storage status` connects as before (database and Redis); other servers still see this one's regions; BSP-Teleport and BSP-RankUp still find this server's name.
+- [ ] Restart: no second warning; nothing changes in either file.
+- [ ] A player joins: their game never receives the network file (it is a common config); the server file they receive has no passwords.
+- [ ] Change the database and Redis passwords in both the database/Redis and the network file on every server, and restart.
+

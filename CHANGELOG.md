@@ -4,6 +4,11 @@ All notable changes to BSP Region Guard. Format follows Keep a Changelog; versio
 
 ## [Unreleased]
 
+### Changed (2026-10-28, T14: network passwords no longer reach players; D126 to D129)
+- **The shared storage's connection moved to its own file, `config/bsp_region_guard-network.toml`.** Forge sends every server config file to each player at login, so the database and Redis passwords in `bsp_region_guard-server.toml` reached every player who joined. The new file is a common config and is never sent. It holds `[database]` host, port, database, user, password, tablePrefix and `[redis]` host, port, username, password. `storage.mode`, `storage.serverId`, `pollSeconds`, `syncMineResets`, `storage.redis.enabled`, `channel` and `safetyPollSeconds` stay in the server config.
+- **The move happens by itself** at the first start, before shared storage connects: each old value moves (a value already in the new file is kept), the old key stays in the server config empty with a note, and the log names the keys that moved, never a value. `RegionGuardApi.serverId()` is unchanged.
+- **After updating, change the database and Redis passwords**, remove them from any `defaultconfigs/` copy, and never ship `config/*-network.toml` in a client pack.
+
 ### Fixed (2026-10-27, B17: missing ranks on the RANKS tab)
 - The RANKS tab showed at most 18 LuckPerms groups (six rows of three), so on a server with more groups the rest (in the owner's case everything after `titan_slayer`: vanguard, wanderer, warden, warlord...) never appeared. It now fills as many rows and columns as the pane has room for, the mouse wheel scrolls through the rest, and a line says how many more there are.
 

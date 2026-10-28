@@ -24,8 +24,18 @@ public final class RegionGuardConfig {
     public static final ForgeConfigSpec.ConfigValue<List<? extends String>> CLAIM_LIMITS_BY_RANK, CLAIM_PLAYER_FLAGS;
     public static final ForgeConfigSpec.ConfigValue<String> CLAIM_CURRENCY, CLAIM_COIN_TIER;
 
-    public static final ForgeConfigSpec.ConfigValue<String> STORAGE_MODE, STORAGE_HOST, STORAGE_DATABASE, STORAGE_USER, STORAGE_PASSWORD, STORAGE_TABLE_PREFIX, STORAGE_SERVER_ID;
-    public static final ForgeConfigSpec.IntValue STORAGE_PORT, STORAGE_POLL_SECONDS;
+    public static final ForgeConfigSpec.ConfigValue<String> STORAGE_MODE, STORAGE_SERVER_ID;
+    public static final ForgeConfigSpec.IntValue STORAGE_POLL_SECONDS;
+    /**
+     * The connection now lives in {@link NetworkConfig} (D126, D127): these names stay and answer from there, so
+     * nothing that reads them changes.
+     */
+    public static final ForgeConfigSpec.ConfigValue<String> STORAGE_HOST, STORAGE_DATABASE, STORAGE_USER, STORAGE_PASSWORD, STORAGE_TABLE_PREFIX;
+    public static final ForgeConfigSpec.IntValue STORAGE_PORT;
+    /** The old server-config keys, kept so Forge does not delete them before the one-time move reads them (D128). */
+    public static final ForgeConfigSpec.ConfigValue<String> MOVED_STORAGE_HOST, MOVED_STORAGE_DATABASE, MOVED_STORAGE_USER, MOVED_STORAGE_PASSWORD,
+            MOVED_STORAGE_TABLE_PREFIX, MOVED_REDIS_HOST, MOVED_REDIS_USERNAME, MOVED_REDIS_PASSWORD;
+    public static final ForgeConfigSpec.IntValue MOVED_STORAGE_PORT, MOVED_REDIS_PORT;
     public static final ForgeConfigSpec.BooleanValue STORAGE_SYNC_MINE_RESETS;
     public static final ForgeConfigSpec.BooleanValue REDIS_ENABLED, BORDER_VANILLA_WALL;
     public static final ForgeConfigSpec.IntValue BORDER_WARN_DISTANCE;
@@ -88,24 +98,35 @@ public final class RegionGuardConfig {
         b.comment("Shared storage for several servers (optional). Regions are mirrored to MySQL under this server's id and",
                 "messages (mine resets, triggers) travel through a table polled every few seconds. No driver is bundled:",
                 "BSP Core's full jar provides one on Forge servers; Mohist ships its own.").push("storage");
-        STORAGE_MODE = b.comment("none or mysql").define("mode", "none");
-        STORAGE_HOST = b.define("host", "localhost");
-        STORAGE_PORT = b.defineInRange("port", 3306, 1, 65535);
-        STORAGE_DATABASE = b.define("database", "bsp");
-        STORAGE_USER = b.define("user", "bsp");
-        STORAGE_PASSWORD = b.comment("Plain text, as BSP Core's; keep the config file private.").define("password", "");
-        STORAGE_TABLE_PREFIX = b.define("tablePrefix", "bsp_rg_");
+        STORAGE_MODE = b.comment("none or mysql. The connection (host, user, password ...) is in config/" + NetworkConfig.FILE + ".").define("mode", "none");
+        String moved = "Moved to config/" + NetworkConfig.FILE + " (that file is not sent to players). Left here empty; an old value is moved there at the next start.";
+        MOVED_STORAGE_HOST = b.comment(moved).define("host", "localhost");
+        MOVED_STORAGE_PORT = b.comment(moved).defineInRange("port", 3306, 1, 65535);
+        MOVED_STORAGE_DATABASE = b.comment(moved).define("database", "bsp");
+        MOVED_STORAGE_USER = b.comment(moved).define("user", "bsp");
+        MOVED_STORAGE_PASSWORD = b.comment(moved).define("password", "");
+        MOVED_STORAGE_TABLE_PREFIX = b.comment(moved).define("tablePrefix", "bsp_rg_");
+        STORAGE_HOST = NetworkConfig.DB_HOST;
+        STORAGE_PORT = NetworkConfig.DB_PORT;
+        STORAGE_DATABASE = NetworkConfig.DB_DATABASE;
+        STORAGE_USER = NetworkConfig.DB_USER;
+        STORAGE_PASSWORD = NetworkConfig.DB_PASSWORD;
+        STORAGE_TABLE_PREFIX = NetworkConfig.DB_TABLE_PREFIX;
         STORAGE_SERVER_ID = b.comment("This server's name in the shared tables. Unique per server.").define("serverId", "server-1");
         STORAGE_POLL_SECONDS = b.comment("How often messages from other servers are fetched.").defineInRange("pollSeconds", 5, 1, 300);
         STORAGE_SYNC_MINE_RESETS = b.comment("When another server resets a mine, reset the mine with the same id in the same world here too.").define("syncMineResets", true);
         b.comment("Redis carries messages between servers within milliseconds (needs mode = mysql). Every message is also",
                 "written to the MySQL table, which is then read only every safetyPollSeconds to catch anything Redis missed.",
                 "Region Guard has its own small Redis client; nothing is bundled. Plain connection: keep Redis on the local network.").push("redis");
-        REDIS_ENABLED = b.define("enabled", false);
-        REDIS_HOST = b.define("host", "localhost");
-        REDIS_PORT = b.defineInRange("port", 6379, 1, 65535);
-        REDIS_USERNAME = b.comment("Leave empty unless Redis uses ACL users; the password alone is the usual requirepass.").define("username", "");
-        REDIS_PASSWORD = b.comment("Plain text; keep the config file private.").define("password", "");
+        REDIS_ENABLED = b.comment("The Redis connection is in config/" + NetworkConfig.FILE + ".").define("enabled", false);
+        MOVED_REDIS_HOST = b.comment(moved).define("host", "localhost");
+        MOVED_REDIS_PORT = b.comment(moved).defineInRange("port", 6379, 1, 65535);
+        MOVED_REDIS_USERNAME = b.comment(moved).define("username", "");
+        MOVED_REDIS_PASSWORD = b.comment(moved).define("password", "");
+        REDIS_HOST = NetworkConfig.REDIS_HOST;
+        REDIS_PORT = NetworkConfig.REDIS_PORT;
+        REDIS_USERNAME = NetworkConfig.REDIS_USERNAME;
+        REDIS_PASSWORD = NetworkConfig.REDIS_PASSWORD;
         REDIS_CHANNEL = b.comment("Servers that share messages use the same channel. Region Guard adds the prefix bsp_rg: to it.").define("channel", "messages");
         REDIS_SAFETY_POLL_SECONDS = b.comment("How often the MySQL message table is still read while Redis is connected.").defineInRange("safetyPollSeconds", 30, 5, 600);
         b.pop();

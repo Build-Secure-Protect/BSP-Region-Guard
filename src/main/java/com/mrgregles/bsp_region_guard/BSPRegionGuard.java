@@ -38,6 +38,7 @@ public class BSPRegionGuard {
 
     public BSPRegionGuard(FMLJavaModLoadingContext context) {
         context.registerConfig(ModConfig.Type.SERVER, RegionGuardConfig.SPEC);
+        context.registerConfig(ModConfig.Type.COMMON, NetworkConfig.SPEC, NetworkConfig.FILE); // D126: never sent to players
         context.registerConfig(ModConfig.Type.CLIENT, RegionGuardClientConfig.SPEC);
         Flags.init();
         com.mrgregles.bsp_region_guard.protection.TotemRule.init();
@@ -61,7 +62,10 @@ public class BSPRegionGuard {
                 mirror.onStoreChanged(store);
             }
         });
-        MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.event.server.ServerAboutToStartEvent e) -> com.mrgregles.bsp_region_guard.storage.RegionMirror.start(e.getServer()));
+        MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.event.server.ServerAboutToStartEvent e) -> {
+            NetworkConfig.moveFromServerConfig(); // D128: before shared storage connects, so it connects with the moved values
+            com.mrgregles.bsp_region_guard.storage.RegionMirror.start(e.getServer());
+        });
         MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.event.level.LevelEvent.Load e) -> {
             var mirror = com.mrgregles.bsp_region_guard.storage.RegionMirror.active();
             if (mirror != null && e.getLevel() instanceof net.minecraft.server.level.ServerLevel level) {

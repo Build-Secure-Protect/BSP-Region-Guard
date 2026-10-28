@@ -21,32 +21,46 @@ Redis is reached over a plain connection, so keep it on the local network:
 2. Allow port 6379 only from the four server machines in the firewall; never forward it from the internet.
 3. Restart Redis and check from another machine: `redis-cli -h <main LAN address> -a <password> ping` answers `PONG`.
 
-## Each backend's `serverconfig/bsp_region_guard-server.toml`
+## Each backend's two config files
+
+The connection (where the database and Redis are, and their passwords) is in **`config/bsp_region_guard-network.toml`**. Forge sends every server config file (`serverconfig/...-server.toml`) to each player when they join, so a password there would reach every player; the network file is never sent. **Never ship `config/*-network.toml` in the client pack**, and keep it private on the server.
+
+`config/bsp_region_guard-network.toml`:
 
 ```toml
-[storage]
-    mode = "mysql"
+[database]
     host = "<main LAN address>"
     port = 3306
     database = "bsp"
     user = "bsp"
     password = "..."
     tablePrefix = "bsp_rg_"     # the same on every server of one network
-    serverId = "survival-1"     # different on every server
+
+[redis]
+    host = "<main LAN address>"
+    port = 6379
+    username = ""            # only for an ACL user
+    password = "..."
+```
+
+`serverconfig/bsp_region_guard-server.toml` keeps what is not secret:
+
+```toml
+[storage]
+    mode = "mysql"
+    serverId = "survival-1"     # different on every server; the Velocity server name
     pollSeconds = 5
     syncMineResets = true
 
     [storage.redis]
         enabled = true
-        host = "<main LAN address>"
-        port = 6379
-        username = ""            # only for an ACL user
-        password = "..."
         channel = "messages"     # the same on every server of one network; a test network uses another
         safetyPollSeconds = 30
 ```
 
 On the main machine itself, `host = "localhost"` works for both.
+
+**Updating from 0.6.0 or older:** nothing to do by hand. At the first start the old host, port, database, user, password and tablePrefix (and the Redis ones) move from the server config into the network file by themselves; a value already in the network file is kept. The log says once which keys moved, never their values. The old keys stay in the server config, empty, with a note saying where they went. **Afterwards change the database and Redis passwords**, since the old ones may have reached players, and remove them from any `defaultconfigs/` copy.
 
 ## Checking it
 
