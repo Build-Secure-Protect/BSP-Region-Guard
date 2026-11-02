@@ -155,6 +155,8 @@
   "gui.bsp_region_guard.made_on": "made on %s",
   "gui.bsp_region_guard.make_shell": "MAKE SHELL",
   "gui.bsp_region_guard.make_this_a_mine": "MAKE THIS A MINE",
+  "gui.bsp_region_guard.mine_kept": "Mine settings kept. Blocks in the fill table: %s.",
+  "gui.bsp_region_guard.mine_kept_back": "MAKE THIS A MINE brings them back. It does not refill until then.",
   "gui.bsp_region_guard.making_it_a_mine_allows_breaking_and_refuses_pla": "Making it a mine allows breaking and refuses placing inside.",
   "gui.bsp_region_guard.map_scale.many": "1 px = %s blocks - wheel zooms - click a region - double-click opens FLAGS",
   "gui.bsp_region_guard.map_scale.one": "1 px = %s block - wheel zooms - click a region - double-click opens FLAGS",

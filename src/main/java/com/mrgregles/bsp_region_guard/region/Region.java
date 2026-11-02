@@ -3,6 +3,7 @@ package com.mrgregles.bsp_region_guard.region;
 import com.mrgregles.bsp_region_guard.api.Cuboid;
 import com.mrgregles.bsp_region_guard.flag.Flag;
 import com.mrgregles.bsp_region_guard.flag.FlagRegistry;
+import com.mrgregles.bsp_region_guard.flag.Flags;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
@@ -51,7 +52,6 @@ public final class Region {
     private RegionType type;
     private final Set<UUID> owners = new LinkedHashSet<>();
     private final Set<UUID> members = new LinkedHashSet<>();
-    private final Set<String> ranks = new LinkedHashSet<>();
     private final Map<Flag<?>, Object> flags = new LinkedHashMap<>();
     /** Flag values saved by a flag this server does not know (another mod not installed). Kept so nothing is lost. */
     private final CompoundTag unknownFlags = new CompoundTag();
@@ -184,8 +184,15 @@ public final class Region {
         return Collections.unmodifiableSet(members);
     }
 
+    /** The ranks that may enter: the {@code allowed-ranks} flag, which is what the entry check reads (bug B20). */
     public Set<String> ranks() {
-        return Collections.unmodifiableSet(ranks);
+        Set<String> set = flag(Flags.ALLOWED_RANKS);
+        if (set == null) {
+            return Set.of();
+        }
+        Set<String> out = new LinkedHashSet<>();
+        set.forEach(rank -> out.add(rank.toLowerCase()));
+        return Collections.unmodifiableSet(out);
     }
 
     public boolean addOwner(UUID uuid) {
@@ -206,11 +213,17 @@ public final class Region {
     }
 
     public boolean addRank(String rank) {
-        return ranks.add(rank.toLowerCase());
+        Set<String> now = new LinkedHashSet<>(ranks());
+        boolean changed = now.add(rank.toLowerCase());
+        setFlag(Flags.ALLOWED_RANKS, now);
+        return changed;
     }
 
     public boolean removeRank(String rank) {
-        return ranks.remove(rank.toLowerCase());
+        Set<String> now = new LinkedHashSet<>(ranks());
+        boolean changed = now.remove(rank.toLowerCase());
+        setFlag(Flags.ALLOWED_RANKS, now.isEmpty() ? null : now);
+        return changed;
     }
 
     public boolean isOwner(UUID uuid) {
@@ -223,7 +236,7 @@ public final class Region {
     }
 
     public boolean hasRank(String rank) {
-        return ranks.contains(rank.toLowerCase());
+        return ranks().contains(rank.toLowerCase());
     }
 
     // ------------------------------------------------------------------ flags
@@ -282,9 +295,6 @@ public final class Region {
         tag.putString("type", type.key());
         tag.put("owners", uuids(owners));
         tag.put("members", uuids(members));
-        ListTag rankList = new ListTag();
-        ranks.forEach(r -> rankList.add(net.minecraft.nbt.StringTag.valueOf(r)));
-        tag.put("ranks", rankList);
         CompoundTag flagTag = unknownFlags.copy();
         for (Map.Entry<Flag<?>, Object> e : flags.entrySet()) {
             flagTag.put(e.getKey().name(), saveFlag(e.getKey(), e.getValue()));
@@ -313,9 +323,6 @@ public final class Region {
         r.parentId = tag.contains("parent") ? tag.getString("parent") : null;
         readUuids(tag.getList("owners", Tag.TAG_INT_ARRAY), r.owners);
         readUuids(tag.getList("members", Tag.TAG_INT_ARRAY), r.members);
-        for (Tag t : tag.getList("ranks", Tag.TAG_STRING)) {
-            r.ranks.add(t.getAsString());
-        }
         CompoundTag flagTag = tag.getCompound("flags");
         for (String key : flagTag.getAllKeys()) {
             Flag<?> flag = FlagRegistry.get(key);
@@ -325,6 +332,9 @@ public final class Region {
             } else {
                 r.unknownFlags.put(key, flagTag.get(key).copy());
             }
+        }
+        for (Tag t : tag.getList("ranks", Tag.TAG_STRING)) {
+            r.addRank(t.getAsString()); // saved before B20, when the RANKS tab kept its own list
         }
         if (tag.contains("typeData")) {
             r.typeData = tag.getCompound("typeData").copy();

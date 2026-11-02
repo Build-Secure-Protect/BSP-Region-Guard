@@ -43,8 +43,14 @@ public final class Mines {
 
     // ------------------------------------------------------------------ setup helpers (commands and the screen)
 
-    /** Turns a region into a mine: type, break allowed and place refused inside. */
+    /**
+     * Turns a region into a mine: type, break allowed and place refused inside. Settings kept from when it was a mine
+     * before come back, but a reset that fell due meanwhile does not fire: the timer starts afresh.
+     */
     public static void makeMine(RegionStore store, Region r) {
+        if (r.type() != RegionType.MINE) {
+            r.typeData().remove(MineData.NEXT_RESET);
+        }
         r.setType(RegionType.MINE);
         r.setFlag(Flags.BLOCK_BREAK, State.ALLOW);
         r.setFlag(Flags.BLOCK_PLACE, State.DENY);

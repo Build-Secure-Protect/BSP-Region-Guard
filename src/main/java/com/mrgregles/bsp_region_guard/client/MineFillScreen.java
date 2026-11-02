@@ -53,7 +53,8 @@ public final class MineFillScreen extends HoloScreen {
     private final List<Row> rows = new ArrayList<>();
     @Nullable
     private ResourceLocation rest;
-    private boolean loaded;
+    /** The admin has changed something: a late answer from the server no longer replaces the rows. */
+    private boolean edited;
     private String size = "";
     private String status = "";
     private int scroll;
@@ -71,20 +72,19 @@ public final class MineFillScreen extends HoloScreen {
         RegionDetailPacket d = RegionClient.detail();
         if (d != null && d.id().equals(id)) {
             load(d);
-        } else {
-            RegionNetwork.CHANNEL.sendToServer(RegionActionPacket.of(RegionActionPacket.SELECT, id));
         }
+        // always ask: what this client holds can be older than the mine (a command, the map's type chips, another admin)
+        RegionNetwork.CHANNEL.sendToServer(RegionActionPacket.of(RegionActionPacket.SELECT, id));
     }
 
     /** The mine's fill table from the detail, its weights turned into percentages (D119). */
     void onDetail(RegionDetailPacket d) {
-        if (!loaded && d.id().equals(id)) {
+        if (!edited && d.id().equals(id)) {
             load(d);
         }
     }
 
     private void load(RegionDetailPacket d) {
-        loaded = true;
         rows.clear();
         List<ResourceLocation> blocks = new ArrayList<>();
         List<Integer> weights = new ArrayList<>();
@@ -221,6 +221,7 @@ public final class MineFillScreen extends HoloScreen {
                 int r = boundTo[slot];
                 if (r >= 0 && r < rows.size()) {
                     rows.get(r).text = v;
+                    edited = true;
                 }
             });
             box.visible = false;
@@ -304,7 +305,10 @@ public final class MineFillScreen extends HoloScreen {
             box.setY(ry + 1);
             box.visible = true;
             RegionScreen.text(g, font, "%", lx + 132, ry + 4, MUTED, 0.6f);
-            chip(g, lx + 140, ry + 1, 24, 11, Tr.t("fill.rest"), isRest, GOLD, () -> rest = isRest ? null : r.block);
+            chip(g, lx + 140, ry + 1, 24, 11, Tr.t("fill.rest"), isRest, GOLD, () -> {
+                rest = isRest ? null : r.block;
+                edited = true;
+            });
             chip(g, lx + 166, ry + 1, 10, 11, "x", false, BAD, () -> remove(r));
         }
         if (rows.size() > ROWS) {
@@ -330,6 +334,7 @@ public final class MineFillScreen extends HoloScreen {
     }
 
     private void remove(Row r) {
+        edited = true;
         rows.remove(r);
         if (r.block.equals(rest)) {
             rest = null;
@@ -351,6 +356,7 @@ public final class MineFillScreen extends HoloScreen {
             status = Tr.t("fill.full", MineData.MAX_ROWS);
             return;
         }
+        edited = true;
         rows.add(new Row(b, ""));
         if (rows.size() == 1) {
             rest = b;

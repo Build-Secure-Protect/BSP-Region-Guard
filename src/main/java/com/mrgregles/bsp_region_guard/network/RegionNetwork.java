@@ -10,7 +10,7 @@ import net.minecraftforge.network.simple.SimpleChannel;
 
 /** The mod's channel: {@code bsp_region_guard:main}. The server decides, the client displays. */
 public final class RegionNetwork {
-    private static final String PROTOCOL = "9"; // 2: edge-link travel pop-up; 3: server switcher; 4: claim wipe in the screen; 5: banned items pop-up; 6: plot map tiles and screen; 7: corners on the plot map; 8: plot looks and the bought-plot pop-up; 9: action answers in the screen
+    private static final String PROTOCOL = "10"; // 2: edge-link travel pop-up; 3: server switcher; 4: claim wipe in the screen; 5: banned items pop-up; 6: plot map tiles and screen; 7: corners on the plot map; 8: plot looks and the bought-plot pop-up; 9: action answers in the screen; 10: longer values in the region detail and actions
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             ResourceLocation.fromNamespaceAndPath(BSPRegionGuard.MODID, "main"), () -> PROTOCOL, PROTOCOL::equals, PROTOCOL::equals);
 

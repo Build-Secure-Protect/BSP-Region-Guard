@@ -19,7 +19,7 @@ public final class MineData {
             FILLER = "mineFiller";
     /** The MINE FILL window saves shares in tenths of a percent, so they add up to this (D116, D117). */
     public static final int WHOLE = 1000;
-    /** Most rows the MINE FILL window saves at once (they travel in one action of up to 1024 characters). */
+    /** Most rows the MINE FILL window saves at once. */
     public static final int MAX_ROWS = 24;
 
     /** One row of the fill table. {@code weight} is relative: a block with weight 90 next to one with 10 covers about nine tenths. */

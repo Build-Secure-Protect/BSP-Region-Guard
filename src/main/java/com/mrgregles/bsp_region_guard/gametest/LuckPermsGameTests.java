@@ -45,6 +45,10 @@ public class LuckPermsGameTests {
         Region r = new Region("lp_gate", level.dimension(), Cuboid.of(h.absolutePos(new BlockPos(2, 1, 2)), h.absolutePos(new BlockPos(9, 8, 9))), RegionType.PROTECTED);
         r.setFlag(Flags.ALLOWED_RANKS, Set.of("vip"));
         RegionStore.get(level).add(r);
+        Region mine = new Region("lp_mine", level.dimension(), Cuboid.of(h.absolutePos(new BlockPos(2, 12, 2)), h.absolutePos(new BlockPos(9, 18, 9))), RegionType.PROTECTED);
+        RegionStore.get(level).add(mine);
+        com.mrgregles.bsp_region_guard.mine.Mines.makeMine(RegionStore.get(level), mine);
+        com.mrgregles.bsp_region_guard.command.RegionEdits.rank(RegionStore.get(level), mine, "VIP", true); // ticking a rank on the RANKS tab (bug B20)
         try {
             group = lp.getGroupManager().createAndLoadGroup("vip").join();
             vipUser = lp.getUserManager().loadUser(vip.getUUID(), vip.getGameProfile().getName()).join();
@@ -66,10 +70,22 @@ public class LuckPermsGameTests {
             h.assertTrue(vip.blockPosition().equals(in), "the vip walks into the rank-gated region");
             h.assertTrue(pleb.blockPosition().equals(out), "the other player is held at the border");
 
+            MovementTracker.clearAll();
+            BlockPos mineOut = h.absolutePos(new BlockPos(11, 14, 5)), mineIn = h.absolutePos(new BlockPos(8, 14, 5));
+            for (ServerPlayer p : new ServerPlayer[]{vip, pleb}) {
+                p.setPos(mineOut.getX() + 0.5, mineOut.getY(), mineOut.getZ() + 0.5);
+                MovementTracker.tick(p, 0);
+                p.setPos(mineIn.getX() + 0.5, mineIn.getY(), mineIn.getZ() + 0.5);
+                MovementTracker.tick(p, 1);
+            }
+            h.assertTrue(vip.blockPosition().equals(mineIn), "the vip walks into the mine that has vip ticked");
+            h.assertTrue(pleb.blockPosition().equals(mineOut), "the other player is held at the mine's edge");
+
             h.assertTrue(Claims.INSTANCE.claimLimit(vip) == 5, "vip:5 from the config raises the claim limit: " + Claims.INSTANCE.claimLimit(vip));
             h.assertTrue(Claims.INSTANCE.claimLimit(pleb) == 3, "the default limit stays 3: " + Claims.INSTANCE.claimLimit(pleb));
         } finally {
             RegionStore.get(level).remove("lp_gate");
+            RegionStore.get(level).remove("lp_mine");
             MovementTracker.clearAll();
             if (vipUser != null) {
                 lp.getUserManager().cleanupUser(vipUser);

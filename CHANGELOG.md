@@ -4,6 +4,14 @@ All notable changes to BSP Region Guard. Format follows Keep a Changelog; versio
 
 ## [Unreleased]
 
+**Network protocol 10:** servers and players need this version together.
+
+### Fixed (2026-10-31, B18 to B20: mines and ranks)
+- **Ticking a rank on the RANKS tab now keeps other ranks out (B20).** The tab saved to a list the entry check never read, so on every region it did nothing; only `/rg flag <id> allowed-ranks` worked. The tab now sets the `allowed-ranks` flag. **Ranks already ticked on a region start to count after this update:** look over the RANKS tab of your regions before you restart. The region map's card has a RANKS button in REGION and MINE mode, and ACCESS in MINE mode too.
+- **A mine with a long block list no longer goes blank (B18).** A list over 256 characters (about 8 to 12 blocks) saved, but the server then failed to send that region to the screen. MINE FILL opened empty, and the RANKS, FLAGS, ACCESS and other tabs of that mine showed nothing, while resets still used the right blocks. The limit is now far above what a mine can reach, for banned block lists too. The MINE FILL window also asks the server afresh each time it opens.
+- **A mine set to another type keeps its settings (B19).** They were always kept on the server, but the MINE tab showed only "Not a mine". It now says they are kept and how many blocks there are, and MAKE THIS A MINE brings them back. The timer starts afresh, so a reset that fell due meanwhile does not fire at once.
+- **The MINE type button makes a working mine (B19).** On the INFO tab and the region map it only changed the type; it now also allows breaking and refuses placing, as MAKE THIS A MINE does.
+
 ### Changed (2026-10-28, T14: network passwords no longer reach players; D126 to D129)
 - **The shared storage's connection moved to its own file, `config/bsp_region_guard-network.toml`.** Forge sends every server config file to each player at login, so the database and Redis passwords in `bsp_region_guard-server.toml` reached every player who joined. The new file is a common config and is never sent. It holds `[database]` host, port, database, user, password, tablePrefix and `[redis]` host, port, username, password. `storage.mode`, `storage.serverId`, `pollSeconds`, `syncMineResets`, `storage.redis.enabled`, `channel` and `safetyPollSeconds` stay in the server config.
 - **The move happens by itself** at the first start, before shared storage connects: each old value moves (a value already in the new file is kept), the old key stays in the server config empty with a note, and the log names the keys that moved, never a value. `RegionGuardApi.serverId()` is unchanged.

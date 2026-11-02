@@ -203,8 +203,12 @@ public final class RegionEdits {
         if ((type == RegionType.CLAIM || type == RegionType.PLOT_FOR_SALE || type == RegionType.OPEN_FOR_BUYING) && !TotemRule.claimsAllowedIn(level)) {
             return Result.fail(TotemRule.plotsRefused(level));
         }
-        r.setType(type);
-        store.touch(r);
+        if (type == RegionType.MINE) {
+            Mines.makeMine(store, r); // the same as MAKE THIS A MINE: a mine has to let people dig (B19)
+        } else {
+            r.setType(type);
+            store.touch(r);
+        }
         return Result.ok("Region " + r.id() + " is now a " + type.key().replace('_', ' ') + " region.");
     }
 

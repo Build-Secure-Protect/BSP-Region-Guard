@@ -24,6 +24,9 @@ public record RegionDetailPacket(String id, String name, String type, int priori
                                  Map<String, String> flags, Map<String, String> inherited, List<String> availableRanks,
                                  int version, long updatedAt, Map<String, String> data) {
 
+    /** Longest flag or data value. A value over the limit stops the whole packet, and every tab of that region stays empty (bug B18). */
+    private static final int VALUE_MAX = 32767;
+
     public record Person(UUID uuid, String name) {
         void write(FriendlyByteBuf buf) {
             buf.writeUUID(uuid);
@@ -45,22 +48,22 @@ public record RegionDetailPacket(String id, String name, String type, int priori
         buf.writeCollection(msg.owners, (b, p) -> p.write(b));
         buf.writeCollection(msg.members, (b, p) -> p.write(b));
         buf.writeCollection(msg.ranks, (b, r) -> b.writeUtf(r, 64));
-        buf.writeMap(msg.flags, (b, k) -> b.writeUtf(k, 64), (b, v) -> b.writeUtf(v, 1024));
-        buf.writeMap(msg.inherited, (b, k) -> b.writeUtf(k, 64), (b, v) -> b.writeUtf(v, 1024));
+        buf.writeMap(msg.flags, (b, k) -> b.writeUtf(k, 64), (b, v) -> b.writeUtf(v, VALUE_MAX));
+        buf.writeMap(msg.inherited, (b, k) -> b.writeUtf(k, 64), (b, v) -> b.writeUtf(v, VALUE_MAX));
         buf.writeCollection(msg.availableRanks, (b, r) -> b.writeUtf(r, 64));
         buf.writeVarInt(msg.version);
         buf.writeLong(msg.updatedAt);
-        buf.writeMap(msg.data, (b, k) -> b.writeUtf(k, 64), (b, v) -> b.writeUtf(v, 256));
+        buf.writeMap(msg.data, (b, k) -> b.writeUtf(k, 64), (b, v) -> b.writeUtf(v, VALUE_MAX));
     }
 
     public static RegionDetailPacket decode(FriendlyByteBuf buf) {
         return new RegionDetailPacket(buf.readUtf(64), buf.readUtf(128), buf.readUtf(32), buf.readVarInt(),
                 buf.readNullable(b -> b.readUtf(64)), buf.readNullable(RegionListPacket::readCuboid),
                 buf.readList(Person::read), buf.readList(Person::read), buf.readList(b -> b.readUtf(64)),
-                buf.readMap(LinkedHashMap::new, b -> b.readUtf(64), b -> b.readUtf(1024)),
-                buf.readMap(LinkedHashMap::new, b -> b.readUtf(64), b -> b.readUtf(1024)),
+                buf.readMap(LinkedHashMap::new, b -> b.readUtf(64), b -> b.readUtf(VALUE_MAX)),
+                buf.readMap(LinkedHashMap::new, b -> b.readUtf(64), b -> b.readUtf(VALUE_MAX)),
                 buf.readList(b -> b.readUtf(64)), buf.readVarInt(), buf.readLong(),
-                buf.readMap(LinkedHashMap::new, b -> b.readUtf(64), b -> b.readUtf(256)));
+                buf.readMap(LinkedHashMap::new, b -> b.readUtf(64), b -> b.readUtf(VALUE_MAX)));
     }
 
     public static void handle(RegionDetailPacket msg, Supplier<NetworkEvent.Context> ctx) {

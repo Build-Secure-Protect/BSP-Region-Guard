@@ -174,6 +174,8 @@ GUI = {
     "made_on": "made on %s",
     "make_shell": "MAKE SHELL",
     "make_this_a_mine": "MAKE THIS A MINE",
+    "mine_kept": "Mine settings kept. Blocks in the fill table: %s.",
+    "mine_kept_back": "MAKE THIS A MINE brings them back. It does not refill until then.",
     "making_it_a_mine_allows_breaking_and_refuses_pla": "Making it a mine allows breaking and refuses placing inside.",
     "map_scale.many": "1 px = %s blocks - wheel zooms - click a region - double-click opens FLAGS",
     "map_scale.one": "1 px = %s block - wheel zooms - click a region - double-click opens FLAGS",

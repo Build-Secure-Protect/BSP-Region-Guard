@@ -913,7 +913,8 @@ public class PlotMapScreen extends Screen {
         }
         boolean plot = isPlot(p), edit = state.editable();
         boolean rowB = edit && (mode == Mode.REGION || mode == Mode.PLOT && plot);
-        int w = 210, h = cardFolded ? 18 : !edit ? 46 : rowB ? 108 : 92;
+        boolean fillRow = edit && mode == Mode.MINE && p.type().equals("mine");
+        int w = 210, h = cardFolded ? 18 : !edit ? 46 : rowB || fillRow ? 108 : 92;
         int x = Math.max(LIST_W + 16, Math.min(uw - w - 8, ui(sx(p.maxX() + 1)) + 8)), y = Math.max(BAR_H + 6, Math.min(uh - h - 24, ui(sz(p.minZ()))));
         if (tool == Tool.RESHAPE) {
             y = BAR_H + 6; // out of the way of the handles
@@ -969,28 +970,33 @@ public class PlotMapScreen extends Screen {
             chip(g, x + 160, ry, 46, 12, Tr.t("pm_backups"), p.id().equals(state.backupsOf()), TQ,
                     () -> send(PlotMapActionPacket.simple(PlotMapActionPacket.BACKUPS, p.id(), false)));
             ry += 16;
-        }
-        // the admin screen's tabs for this region; Esc there comes back here (D86)
-        int[] tabs = switch (mode) {
-            case REGION -> new int[]{1, 2, 6, 7};
-            case PLOT -> new int[]{4, 1, 2, 7};
-            case MINE -> new int[]{5, 1, 7};
-        };
-        String[] names = {"", "tab.flags", "tab.access", "tab.ranks", "tab.sale", "tab.mine", "tab.teleport", "tab.info"};
-        int tx = x + 5;
-        for (int t : tabs) {
-            String label = Tr.t(names[t]);
-            int tw = font.width(label) + 10;
-            chip(g, tx, ry, tw, 12, label, false, TQ, () -> openAdmin(p.id(), t));
-            tx += tw + 3;
-        }
-        if (mode == Mode.MINE && p.type().equals("mine")) {
+        } else if (fillRow) {
             String label = Tr.t("fill.edit");
-            chip(g, tx, ry, font.width(label) + 10, 12, label, false, GOLD, () -> {
+            chip(g, x + 5, ry, font.width(label) + 10, 12, label, false, GOLD, () -> {
                 if (minecraft != null) {
                     minecraft.setScreen(new MineFillScreen(p.id(), this)); // D115; Esc comes back to the map
                 }
             });
+            ry += 16;
+        }
+        // the admin screen's tabs for this region; Esc there comes back here (D86)
+        int[] tabs = switch (mode) {
+            case REGION -> new int[]{1, 2, 3, 6, 7};
+            case PLOT -> new int[]{4, 1, 2, 7};
+            case MINE -> new int[]{5, 3, 2, 1, 7};
+        };
+        String[] names = {"", "tab.flags", "tab.access", "tab.ranks", "tab.sale", "tab.mine", "tab.teleport", "tab.info"};
+        int labels = 0;
+        for (int t : tabs) {
+            labels += font.width(Tr.t(names[t]));
+        }
+        int pad = Math.max(4, Math.min(10, (w - 10 - 3 * (tabs.length - 1) - labels) / tabs.length)); // five tabs must fit the card
+        int tx = x + 5;
+        for (int t : tabs) {
+            String label = Tr.t(names[t]);
+            int tw = font.width(label) + pad;
+            chip(g, tx, ry, tw, 12, label, false, TQ, () -> openAdmin(p.id(), t));
+            tx += tw + 3;
         }
         if (mode == Mode.PLOT && (p.type().equals("plot_for_sale") || p.type().equals("open_for_buying"))) {
             String label = Tr.t("look.button");

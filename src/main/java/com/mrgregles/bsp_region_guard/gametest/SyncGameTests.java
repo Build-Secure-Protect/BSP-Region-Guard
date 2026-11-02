@@ -5,6 +5,8 @@ import com.mrgregles.bsp_region_guard.api.Cuboid;
 import com.mrgregles.bsp_region_guard.flag.FlagLocation;
 import com.mrgregles.bsp_region_guard.flag.Flags;
 import com.mrgregles.bsp_region_guard.flag.State;
+import com.mrgregles.bsp_region_guard.mine.MineData;
+import com.mrgregles.bsp_region_guard.mine.Mines;
 import com.mrgregles.bsp_region_guard.network.RegionActionPacket;
 import com.mrgregles.bsp_region_guard.network.RegionDetailPacket;
 import com.mrgregles.bsp_region_guard.network.RegionListPacket;
@@ -68,6 +70,94 @@ public class SyncGameTests {
         RegionActionPacket.encode(action, buf);
         h.assertTrue(RegionActionPacket.decode(buf).equals(action), "action packet round trip");
         h.succeed();
+    }
+
+    /**
+     * B18: a fill table longer than 256 characters made the region's detail packet throw on the server, so the save
+     * happened but the screen never heard of it, and every tab of that mine stayed empty.
+     */
+    @GameTest(template = EMPTY)
+    public void a_long_mine_fill_still_reaches_the_screen(GameTestHelper h) {
+        ServerPlayer admin = TestPlayers.mockServerPlayer(h);
+        Region r = new Region("sync_long_mine", h.getLevel().dimension(), Cuboid.of(h.absolutePos(new BlockPos(1, 1, 1)), h.absolutePos(new BlockPos(4, 4, 4))), RegionType.PROTECTED);
+        store(h).add(r);
+        try {
+            Mines.makeMine(store(h), r);
+            String[] ores = {"stone", "deepslate", "deepslate_coal_ore", "deepslate_iron_ore", "deepslate_copper_ore", "deepslate_gold_ore", "deepslate_redstone_ore",
+                    "deepslate_lapis_ore", "deepslate_diamond_ore", "deepslate_emerald_ore", "nether_quartz_ore", "nether_gold_ore", "ancient_debris"};
+            StringBuilder table = new StringBuilder("minecraft:" + ores[0] + "=" + (MineData.WHOLE - (ores.length - 1)));
+            for (int i = 1; i < ores.length; i++) {
+                table.append(";minecraft:").append(ores[i]).append("=1");
+            }
+            h.assertTrue(table.length() > 256, "the table is longer than the old limit");
+            RegionSync.apply(admin, new RegionActionPacket(RegionActionPacket.MINE_FILL, r.id(), "minecraft:stone", table.toString()));
+            h.assertTrue(MineData.fill(r).size() == ores.length, "saved");
+
+            Map<String, String> data = new java.util.HashMap<>();
+            RegionSync.mineDetail(store(h), r, data);
+            String longFlag = "minecraft:stone,".repeat(200);
+            RegionDetailPacket detail = new RegionDetailPacket(r.id(), r.name(), r.type().key(), 0, null, r.bounds(), List.of(), List.of(), List.of(),
+                    Map.of("deny-place", longFlag), Map.of(), List.of(), 1, 1L, data);
+            FriendlyByteBuf buf = new FriendlyByteBuf(Unpooled.buffer());
+            RegionDetailPacket.encode(detail, buf);
+            RegionDetailPacket back = RegionDetailPacket.decode(buf);
+            h.assertTrue(back.data().get("fill").equals(table.toString()), "the whole table reaches the screen");
+            h.assertTrue(back.flags().get("deny-place").equals(longFlag), "a long banned blocks list too");
+
+            RegionActionPacket save = new RegionActionPacket(RegionActionPacket.MINE_FILL, r.id(), "", "a".repeat(3000));
+            buf = new FriendlyByteBuf(Unpooled.buffer());
+            RegionActionPacket.encode(save, buf);
+            h.assertTrue(RegionActionPacket.decode(buf).equals(save), "24 blocks with long names fit in the action");
+            h.succeed();
+        } finally {
+            store(h).remove(r.id());
+            admin.discard();
+        }
+    }
+
+    /** B19: leaving the mine type stops the mine but keeps its settings; the screen is told about them; coming back restores them without a surprise reset. */
+    @GameTest(template = EMPTY)
+    public void a_mine_keeps_its_settings_through_a_type_change(GameTestHelper h) {
+        ServerLevel level = h.getLevel();
+        ServerPlayer admin = TestPlayers.mockServerPlayer(h);
+        Region r = new Region("sync_type_mine", level.dimension(), Cuboid.of(h.absolutePos(new BlockPos(1, 1, 1)), h.absolutePos(new BlockPos(4, 4, 4))), RegionType.PROTECTED);
+        store(h).add(r);
+        try {
+            RegionSync.apply(admin, new RegionActionPacket(RegionActionPacket.TYPE, r.id(), "mine", ""));
+            h.assertTrue(r.type() == RegionType.MINE && r.flag(Flags.BLOCK_BREAK) == State.ALLOW && r.flag(Flags.BLOCK_PLACE) == State.DENY,
+                    "the type chip makes a working mine, like MAKE THIS A MINE");
+            RegionSync.apply(admin, new RegionActionPacket(RegionActionPacket.MINE_FILL, r.id(), "minecraft:stone", "minecraft:stone=900;minecraft:iron_ore=100"));
+            RegionSync.apply(admin, new RegionActionPacket(RegionActionPacket.MINE_INTERVAL, r.id(), "300", ""));
+            RegionSync.apply(admin, new RegionActionPacket(RegionActionPacket.MINE_SPAWN, r.id(), "", ""));
+            MineData.setNextResetAt(r, 1L); // long overdue
+
+            RegionSync.apply(admin, new RegionActionPacket(RegionActionPacket.TYPE, r.id(), "protected", ""));
+            h.assertTrue(r.type() == RegionType.PROTECTED, "now protected");
+            Map<String, String> kept = new java.util.HashMap<>();
+            RegionSync.mineDetail(store(h), r, kept);
+            h.assertTrue("minecraft:stone=900;minecraft:iron_ore=100".equals(kept.get("fill")), "the screen still gets the blocks: " + kept);
+            h.assertTrue(!kept.containsKey("secondsToReset"), "no reset is promised while it is not a mine");
+
+            RegionSync.apply(admin, new RegionActionPacket(RegionActionPacket.TYPE, r.id(), "mine", ""));
+            h.assertTrue(MineData.fill(r).size() == 2 && "minecraft:stone".equals(String.valueOf(MineData.filler(r))), "blocks and REST are back");
+            h.assertTrue(MineData.intervalSeconds(r) == 300 && MineData.spawn(r) != null, "interval and spawn are back");
+            h.assertTrue(MineData.nextResetAt(r) == 0, "the old overdue reset does not fire on the way back");
+
+            RegionSync.apply(admin, new RegionActionPacket(RegionActionPacket.ADD_RANK, r.id(), "miner", ""));
+            h.assertTrue(r.hasRank("miner"), "a mine takes ranks");
+            h.assertTrue(r.flag(Flags.ALLOWED_RANKS) != null && r.flag(Flags.ALLOWED_RANKS).contains("miner"), "the RANKS tab sets what the entry check reads");
+            h.assertTrue(Region.load(r.save()).hasRank("miner"), "and it is saved");
+            net.minecraft.nbt.CompoundTag old = r.save();
+            old.getCompound("flags").remove("allowed-ranks");
+            net.minecraft.nbt.ListTag oldRanks = new net.minecraft.nbt.ListTag();
+            oldRanks.add(net.minecraft.nbt.StringTag.valueOf("elder"));
+            old.put("ranks", oldRanks);
+            h.assertTrue(Region.load(old).flag(Flags.ALLOWED_RANKS).contains("elder"), "ranks ticked before this fix start to count");
+            h.succeed();
+        } finally {
+            store(h).remove(r.id());
+            admin.discard();
+        }
     }
 
     @GameTest(template = EMPTY)

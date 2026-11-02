@@ -545,3 +545,20 @@ On a server that used shared storage with 0.6.0 (or a copy of its world and conf
 - [ ] A player joins: their game never receives the network file (it is a common config); the server file they receive has no passwords.
 - [ ] Change the database and Redis passwords in both the database/Redis and the network file on every server, and restart.
 
+
+## 2026-10-31: mines and ranks (B18 to B20)
+
+Built and tested headless (114 GameTests, LuckPerms test included). The screens are untested in game. Network protocol 10: server and client jars must both be new.
+
+Before restarting with the new jar, on a server that had the old one: the server log may hold `String too big (was N characters, max 256)` from a mine save. That confirms B18 was what you hit.
+
+- [ ] **Look first:** ranks already ticked on any region's RANKS tab start to count now. Go through them.
+- [ ] A mine with 12 or more blocks: open it. RANKS shows the groups, FLAGS and ACCESS show their contents, MINE lists the blocks.
+- [ ] EDIT FILL with those blocks, SAVE, EDIT FILL again: every block and share is there, REST still marked. The bottom line shows the server's answer after SAVE.
+- [ ] Banned blocks: a region with 60 or more banned blocks still opens with every tab filled.
+- [ ] Tick a rank on a mine's RANKS tab. A player without it is pushed back at the mine's edge with "Your rank is not allowed in there." A player with it, or a member, walks in. An admin with bypass walks in.
+- [ ] Untick it: the first player walks in. The FLAGS tab's `allowed-ranks` follows the RANKS tab.
+- [ ] A region that is not a mine: the same rank check works.
+- [ ] Set a mine with blocks, an interval and a spawn to PROTECTED on INFO: it stops refilling, and the MINE tab says the settings are kept and how many blocks. MAKE THIS A MINE: blocks, shares, REST, interval, spawn all back, and no reset fires at once.
+- [ ] Make a protected region a mine with the MINE button on INFO: FLAGS shows `block-break` allow and `block-place` deny, and a player can dig but not place.
+- [ ] Region map, REGION mode: the card's row reads FLAGS, ACCESS, RANKS, TELEPORT, INFO and stays inside the card. MINE mode: EDIT FILL on its own row, then MINE, RANKS, ACCESS, FLAGS, INFO inside the card. RANKS opens that tab; Esc comes back to the map.

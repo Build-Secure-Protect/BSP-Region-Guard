@@ -33,11 +33,11 @@ public record RegionActionPacket(String action, String regionId, String a, Strin
         buf.writeUtf(msg.action, 32);
         buf.writeUtf(msg.regionId, 64);
         buf.writeUtf(msg.a, 256);
-        buf.writeUtf(msg.b, 1024);
+        buf.writeUtf(msg.b, 32767);
     }
 
     public static RegionActionPacket decode(FriendlyByteBuf buf) {
-        return new RegionActionPacket(buf.readUtf(32), buf.readUtf(64), buf.readUtf(256), buf.readUtf(1024));
+        return new RegionActionPacket(buf.readUtf(32), buf.readUtf(64), buf.readUtf(256), buf.readUtf(32767));
     }
 
     public static void handle(RegionActionPacket msg, Supplier<NetworkEvent.Context> ctx) {

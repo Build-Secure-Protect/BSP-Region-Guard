@@ -214,15 +214,8 @@ public final class RegionSync {
             data.put("trigger." + (i + 1), triggers.get(i).describe());
         }
         data.remove(com.mrgregles.bsp_region_guard.trigger.Trigger.KEY);
-        if (r.type() == RegionType.MINE && view == null) {
-            StringBuilder fill = new StringBuilder();
-            for (var e : com.mrgregles.bsp_region_guard.mine.MineData.fill(r)) {
-                fill.append(fill.length() == 0 ? "" : ";").append(e.block()).append('=').append(e.weight());
-            }
-            data.put("fill", fill.toString());
-            data.put("secondsToReset", String.valueOf(com.mrgregles.bsp_region_guard.mine.Mines.secondsToReset(r)));
-            data.put("hasSpawn", String.valueOf(com.mrgregles.bsp_region_guard.mine.MineData.spawn(r) != null));
-            data.put("hasShell", String.valueOf(store.has(r.id() + "_shell")));
+        if (view == null && (r.type() == RegionType.MINE || r.typeData().contains(com.mrgregles.bsp_region_guard.mine.MineData.FILL))) {
+            mineDetail(store, r, data);
         }
         if (!r.isGlobal() && view == null) {
             String tier = com.mrgregles.bsp_region_guard.claim.Prices.tier(r);
@@ -240,6 +233,23 @@ public final class RegionSync {
         RegionNetwork.sendTo(player, new RegionDetailPacket(r.id(), r.name(), r.type().key(), r.priority(), r.parentId(), r.bounds(),
                 people(player, r.owners()), people(player, r.members()), new ArrayList<>(r.ranks()),
                 flags, inherited, LuckPermsBridge.groupNames(), r.version(), r.updatedAt(), data));
+    }
+
+    /**
+     * A mine's settings for the screen. A region that stopped being a mine keeps them, so they are sent then too and
+     * the MINE tab can say so (B19); only a running mine has a countdown.
+     */
+    public static void mineDetail(RegionStore store, Region r, Map<String, String> data) {
+        StringBuilder fill = new StringBuilder();
+        for (var e : com.mrgregles.bsp_region_guard.mine.MineData.fill(r)) {
+            fill.append(fill.length() == 0 ? "" : ";").append(e.block()).append('=').append(e.weight());
+        }
+        data.put("fill", fill.toString());
+        if (r.type() == RegionType.MINE) {
+            data.put("secondsToReset", String.valueOf(com.mrgregles.bsp_region_guard.mine.Mines.secondsToReset(r)));
+        }
+        data.put("hasSpawn", String.valueOf(com.mrgregles.bsp_region_guard.mine.MineData.spawn(r) != null));
+        data.put("hasShell", String.valueOf(store.has(r.id() + "_shell")));
     }
 
     /**

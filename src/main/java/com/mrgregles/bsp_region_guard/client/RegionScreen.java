@@ -1254,6 +1254,11 @@ public class RegionScreen extends HoloScreen {
             text(g, Tr.t("not_a_mine_a_mine_refills_itself_with_the_blocks"), px + 6, cy + 6, MUTED, 0.6f);
             text(g, Tr.t("making_it_a_mine_allows_breaking_and_refuses_pla"), px + 6, cy + 14, 0xFF6F7788, 0.5f);
             button(g, px + 6, cy + 26, 90, 12, Tr.t("make_this_a_mine"), GOLD, () -> act(RegionActionPacket.MINE_CREATE, ""));
+            String kept = d == null ? "" : d.data().getOrDefault("fill", "");
+            if (!kept.isEmpty()) { // B19: it was a mine; nothing was lost
+                text(g, Tr.t("mine_kept", kept.split(";").length), px + 6, cy + 42, TEXT, 0.6f);
+                text(g, Tr.t("mine_kept_back"), px + 6, cy + 50, 0xFF6F7788, 0.5f);
+            }
             return;
         }
         java.util.Map<String, String> data = d == null ? java.util.Map.of() : d.data();
