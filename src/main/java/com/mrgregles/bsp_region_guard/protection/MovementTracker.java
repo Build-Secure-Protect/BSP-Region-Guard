@@ -251,16 +251,9 @@ public final class MovementTracker {
                     return BannedBlocks.carryMessage(carried);
                 }
             }
-            if (!bypass && !memberHere && !RegionQuery.isExempt(level, pos, Flags.ENTRY, player)) {
-                if (RegionQuery.explicit(level, pos, Flags.ENTRY).orElse(State.ALLOW) == State.DENY) {
-                    String m = RegionQuery.value(level, pos, Flags.ENTRY_DENY_MESSAGE);
-                    return m == null ? "You are not allowed in there." : m;
-                }
-                Set<String> ranks = RegionQuery.value(level, pos, Flags.ALLOWED_RANKS);
-                if (ranks != null && !ranks.isEmpty() && !hasRank(player, ranks)) {
-                    String m = RegionQuery.value(level, pos, Flags.ENTRY_DENY_MESSAGE);
-                    return m == null ? "Your rank is not allowed in there." : m;
-                }
+            String kept = keptOut(level, pos, player, memberHere);
+            if (kept != null) {
+                return kept;
             }
             for (String id : entered) {
                 if (MinecraftForge.EVENT_BUS.post(new RegionEnterEvent(player, id, level.dimension(), teleport))) {
@@ -295,6 +288,37 @@ public final class MovementTracker {
         return null;
     }
 
+    /**
+     * Why the region rules keep this player out of {@code pos} (entry deny, or a rank they lack), or null when they
+     * may be there. Members of a region there, admins with bypass and exemptions pass. Banned items are not checked.
+     */
+    @Nullable
+    private static String keptOut(ServerLevel level, BlockPos pos, Player player, boolean memberHere) {
+        if (RegionQuery.bypasses(player) || memberHere || RegionQuery.isExempt(level, pos, Flags.ENTRY, player)) {
+            return null;
+        }
+        if (RegionQuery.explicit(level, pos, Flags.ENTRY).orElse(State.ALLOW) == State.DENY) {
+            String m = RegionQuery.value(level, pos, Flags.ENTRY_DENY_MESSAGE);
+            return m == null ? "You are not allowed in there." : m;
+        }
+        Set<String> ranks = RegionQuery.value(level, pos, Flags.ALLOWED_RANKS);
+        if (ranks != null && !ranks.isEmpty() && !hasRank(player, ranks)) {
+            String m = RegionQuery.value(level, pos, Flags.ENTRY_DENY_MESSAGE);
+            return m == null ? "Your rank is not allowed in there." : m;
+        }
+        return null;
+    }
+
+    /**
+     * The same rule for a spot a player reaches into from outside (bugs B21, B22): a spot they may not enter is a spot
+     * they may not break, build on or use ({@link Protection#mayPlayer}), so a mine kept for some ranks cannot be dug
+     * from its rim, from above or from its shell.
+     */
+    @Nullable
+    public static String keptOut(ServerLevel level, BlockPos pos, Player player) {
+        return keptOut(level, pos, player, isMemberOfAny(player, RegionStore.get(level).at(pos)));
+    }
+
     private static boolean isMemberOfAny(Player player, List<Region> regions) {
         for (Region r : regions) {
             if (!r.isGlobal() && r.isMember(player.getUUID())) {
@@ -305,7 +329,7 @@ public final class MovementTracker {
     }
 
     /** Rank gating needs LuckPerms; without it every rank passes and the log says so once. */
-    static boolean hasRank(ServerPlayer player, Set<String> ranks) {
+    static boolean hasRank(Player player, Set<String> ranks) {
         if (!LuckPermsBridge.isPresent()) {
             if (!warnedNoLuckPerms) {
                 warnedNoLuckPerms = true;

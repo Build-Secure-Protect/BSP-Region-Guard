@@ -276,4 +276,56 @@ public class MineGameTests {
         }
         h.succeed();
     }
+    /**
+     * B21: a player kept out of a mine (entry deny or a rank they lack) could still dig it from outside its box: from
+     * the rim, from above, or from the shell. A spot the player may not enter is a spot they may not break.
+     */
+    @GameTest(template = EMPTY)
+    public void a_player_kept_out_of_a_mine_cannot_dig_it_from_outside(GameTestHelper h) {
+        ServerLevel level = h.getLevel();
+        ServerPlayer outsider = TestPlayers.mockServerPlayer(h), member = TestPlayers.mockServerPlayer(h);
+        Region m = mine(h, "mn_keep_out", new BlockPos(4, 1, 4), new BlockPos(8, 4, 8));
+        try {
+            BlockPos edge = h.absolutePos(new BlockPos(4, 4, 6)), rim = h.absolutePos(new BlockPos(3, 5, 6));
+            outsider.setPos(rim.getX() + 0.5, rim.getY(), rim.getZ() + 0.5); // standing just outside, reaching in
+            level.setBlock(edge, Blocks.STONE.defaultBlockState(), 3);
+            BlockEvent.BreakEvent open = new BlockEvent.BreakEvent(level, edge, level.getBlockState(edge), outsider);
+            MinecraftForge.EVENT_BUS.post(open);
+            h.assertFalse(open.isCanceled(), "a mine anyone may enter can be dug by anyone");
+
+            m.setFlag(Flags.ENTRY, State.DENY);
+            m.addMember(member.getUUID());
+            store(h).touch(m);
+            BlockEvent.BreakEvent kept = new BlockEvent.BreakEvent(level, edge, level.getBlockState(edge), outsider);
+            MinecraftForge.EVENT_BUS.post(kept);
+            h.assertTrue(kept.isCanceled(), "a player who may not enter may not dig it from the rim");
+            BlockEvent.BreakEvent ok = new BlockEvent.BreakEvent(level, edge, level.getBlockState(edge), member);
+            MinecraftForge.EVENT_BUS.post(ok);
+            h.assertFalse(ok.isCanceled(), "a member still digs");
+
+            // B22: placing, chests, doors and the rest of the build family follow the same rule
+            m.setFlag(Flags.BLOCK_PLACE, State.ALLOW);
+            m.setFlag(Flags.CHEST_ACCESS, State.ALLOW);
+            m.setFlag(Flags.USE, State.ALLOW);
+            store(h).touch(m);
+            for (var f : new com.mrgregles.bsp_region_guard.flag.StateFlag[]{Flags.BLOCK_PLACE, Flags.CHEST_ACCESS, Flags.USE}) {
+                h.assertFalse(com.mrgregles.bsp_region_guard.protection.Protection.mayPlayer(level, edge, f, outsider), "kept out: no " + f.name() + " from outside");
+                h.assertTrue(com.mrgregles.bsp_region_guard.protection.Protection.mayPlayer(level, edge, f, member), "a member may " + f.name());
+            }
+            BlockPos above = edge.above();
+            level.setBlock(above, Blocks.AIR.defaultBlockState(), 3);
+            BlockEvent.EntityPlaceEvent place = new BlockEvent.EntityPlaceEvent(net.minecraftforge.common.util.BlockSnapshot.create(level.dimension(), level, edge),
+                    Blocks.STONE.defaultBlockState(), outsider);
+            MinecraftForge.EVENT_BUS.post(place);
+            h.assertTrue(place.isCanceled(), "placing into the mine from the rim is refused");
+            m.setFlag(Flags.ENTRY, null);
+            store(h).touch(m);
+            h.assertTrue(com.mrgregles.bsp_region_guard.protection.Protection.mayPlayer(level, edge, Flags.CHEST_ACCESS, outsider), "with no entry rule the chest is open to all, as set");
+            h.succeed();
+        } finally {
+            store(h).remove("mn_keep_out");
+            outsider.discard();
+            member.discard();
+        }
+    }
 }

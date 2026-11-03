@@ -1,5 +1,6 @@
 package com.mrgregles.bsp_region_guard.protection;
 
+import com.mrgregles.bsp_region_guard.flag.Flags;
 import com.mrgregles.bsp_region_guard.flag.StateFlag;
 import com.mrgregles.bsp_region_guard.region.RegionQuery;
 import net.minecraft.core.BlockPos;
@@ -35,7 +36,16 @@ public final class Protection {
         if (RegionQuery.bypasses(player)) {
             return true;
         }
-        return RegionQuery.allows(level, pos, flag, player);
+        return RegionQuery.allows(level, pos, flag, player) && keptOut(level, pos, flag, player) == null;
+    }
+
+    /**
+     * Building, breaking, chests, doors and the rest of the build family (bugs B21, B22): a spot the region rules keep
+     * the player out of is a spot they may not act on from outside either. The reason, or null when they may.
+     */
+    @Nullable
+    private static String keptOut(ServerLevel level, BlockPos pos, StateFlag flag, Player player) {
+        return flag == Flags.BUILD || flag.fallback() == Flags.BUILD ? MovementTracker.keptOut(level, pos, player) : null;
     }
 
     /** Something that is not a player (a mob, the world): true when the flag allows it. */
@@ -45,11 +55,19 @@ public final class Protection {
 
     /** Checks a player's action and, when refused, tells them. Returns true when the action may go ahead. */
     public static boolean checkPlayer(ServerLevel level, BlockPos pos, StateFlag flag, Player player) {
-        if (mayPlayer(level, pos, flag, player)) {
+        if (RegionQuery.bypasses(player)) {
             return true;
         }
-        tell(player, level, pos);
-        return false;
+        if (!RegionQuery.allows(level, pos, flag, player)) {
+            tell(player, level, pos);
+            return false;
+        }
+        String kept = keptOut(level, pos, flag, player);
+        if (kept != null) {
+            tellOnce(player, kept);
+            return false;
+        }
+        return true;
     }
 
     /** Shows the region's deny message on the action bar, at most once every 1.5 seconds per player. */

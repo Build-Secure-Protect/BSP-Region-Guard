@@ -562,3 +562,22 @@ Before restarting with the new jar, on a server that had the old one: the server
 - [ ] Set a mine with blocks, an interval and a spawn to PROTECTED on INFO: it stops refilling, and the MINE tab says the settings are kept and how many blocks. MAKE THIS A MINE: blocks, shares, REST, interval, spawn all back, and no reset fires at once.
 - [ ] Make a protected region a mine with the MINE button on INFO: FLAGS shows `block-break` allow and `block-place` deny, and a player can dig but not place.
 - [ ] Region map, REGION mode: the card's row reads FLAGS, ACCESS, RANKS, TELEPORT, INFO and stays inside the card. MINE mode: EDIT FILL on its own row, then MINE, RANKS, ACCESS, FLAGS, INFO inside the card. RANKS opens that tab; Esc comes back to the map.
+
+## 2026-11-02: digging a mine from outside (B21)
+
+Built and tested headless (115 GameTests, LuckPerms test included). Untested in game. Server-side change; the client jar from 2026-10-31 still connects (protocol 10).
+
+- [ ] A mine with a rank ticked on RANKS. A player without that rank stands at the edge (pushed back), then on the rim above the mine and in the shell around it: breaking any mine block is refused with "Your rank is not allowed in there." on the action bar.
+- [ ] A player with the rank digs the mine from inside and from the rim.
+- [ ] A member of the mine without the rank digs; an admin with bypass digs.
+- [ ] A mine with `entry` deny: the same, with "You are not allowed in there." (or the region's own `entry-deny-message`).
+- [ ] A mine with no ranks and no entry rule: anyone digs, as before.
+
+## 2026-11-02: placing, chests and doors from outside (B22)
+
+Built and tested headless (115 GameTests). Untested in game. Server side only.
+
+- [ ] A region with a rank ticked (or `entry` deny) that has a chest and a door just inside its edge, with `chest-access` and `use` set to allow. A player without the rank, standing outside: opening the chest, using the door, and placing a block inside are all refused with the entry message.
+- [ ] The same player cannot hurt an animal standing just inside, ride a horse inside, or use an anvil inside.
+- [ ] A member, a player with the rank, and an admin with bypass can do all of these.
+- [ ] Remove the rank and the entry rule: the stranger can open the chest and use the door again (as the flags allow).

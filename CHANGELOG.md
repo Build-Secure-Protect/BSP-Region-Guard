@@ -6,6 +6,9 @@ All notable changes to BSP Region Guard. Format follows Keep a Changelog; versio
 
 **Network protocol 10:** servers and players need this version together.
 
+### Fixed (2026-11-02, B21 and B22: acting on a region from outside)
+- **A player kept out of a region can no longer act on it from outside.** Entry and rank rules were only checked when a player walked in, so a player held at a ranked mine's edge could still dig it from the rim, from above, or from the shell around it, and place blocks, open chests and use doors the same way. Every building action now follows the same rule as walking in: breaking, placing, chests, doors and buttons, beds, riding, lighters, boats and minecarts, trampling, item frames, anvils, dripleaf and hurting animals. Entry deny or a missing rank refuses them with the entry message; members and admins with bypass still act. This applies to every region, not only mines. Server side only.
+
 ### Fixed (2026-10-31, B18 to B20: mines and ranks)
 - **Ticking a rank on the RANKS tab now keeps other ranks out (B20).** The tab saved to a list the entry check never read, so on every region it did nothing; only `/rg flag <id> allowed-ranks` worked. The tab now sets the `allowed-ranks` flag. **Ranks already ticked on a region start to count after this update:** look over the RANKS tab of your regions before you restart. The region map's card has a RANKS button in REGION and MINE mode, and ACCESS in MINE mode too.
 - **A mine with a long block list no longer goes blank (B18).** A list over 256 characters (about 8 to 12 blocks) saved, but the server then failed to send that region to the screen. MINE FILL opened empty, and the RANKS, FLAGS, ACCESS and other tabs of that mine showed nothing, while resets still used the right blocks. The limit is now far above what a mine can reach, for banned block lists too. The MINE FILL window also asks the server afresh each time it opens.

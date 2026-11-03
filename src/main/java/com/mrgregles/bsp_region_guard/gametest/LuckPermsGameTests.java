@@ -80,6 +80,14 @@ public class LuckPermsGameTests {
             }
             h.assertTrue(vip.blockPosition().equals(mineIn), "the vip walks into the mine that has vip ticked");
             h.assertTrue(pleb.blockPosition().equals(mineOut), "the other player is held at the mine's edge");
+            BlockPos edge = h.absolutePos(new BlockPos(9, 14, 5));
+            level.setBlock(edge, net.minecraft.world.level.block.Blocks.STONE.defaultBlockState(), 3);
+            var plebDig = new net.minecraftforge.event.level.BlockEvent.BreakEvent(level, edge, level.getBlockState(edge), pleb);
+            net.minecraftforge.common.MinecraftForge.EVENT_BUS.post(plebDig);
+            h.assertTrue(plebDig.isCanceled(), "and cannot dig the mine from there (B21)");
+            var vipDig = new net.minecraftforge.event.level.BlockEvent.BreakEvent(level, edge, level.getBlockState(edge), vip);
+            net.minecraftforge.common.MinecraftForge.EVENT_BUS.post(vipDig);
+            h.assertFalse(vipDig.isCanceled(), "the vip digs");
 
             h.assertTrue(Claims.INSTANCE.claimLimit(vip) == 5, "vip:5 from the config raises the claim limit: " + Claims.INSTANCE.claimLimit(vip));
             h.assertTrue(Claims.INSTANCE.claimLimit(pleb) == 3, "the default limit stays 3: " + Claims.INSTANCE.claimLimit(pleb));
