@@ -1,0 +1,214 @@
+<title>Banned Tag Entries</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=VT323&family=IBM+Plex+Sans:wght@400;600&display=swap">
+<style>
+/* Three options for showing a tag (or whole-mod) entry on the admin BANNED tab (client/BannedBlocksScreen.java, 420 x 236), drawn at 2x.
+   One dark look: these are game screens. */
+:root {
+    color-scheme: dark;
+    --page: #0b0e13; --panel: rgba(16,21,28,.97); --inset: #0c0e12; --line: #2a2f3a; --slot: #171b22; --slotline: #262b35;
+    --tq: #19d3b0; --vio: #b58cff; --gold: #ffd23a; --bad: #ff6b5c; --text: #e6eaf2; --muted: #9aa3b5; --hint: #6f7788;
+    --mc: "VT323", ui-monospace, Menlo, monospace; --ui: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+body { background: var(--page); color: var(--text); font-family: var(--ui); }
+.wrap { max-width: 1020px; margin: 0 auto; padding-block: 28px 64px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1 { font-family: var(--mc); font-weight: normal; font-size: 2.6rem; color: var(--tq); margin: 0 0 4px; text-wrap: balance; }
+h2 { font-family: var(--mc); font-weight: normal; font-size: 1.9rem; margin: 44px 0 4px; text-wrap: balance; }
+h2 .tag { color: var(--muted); font-size: 1.2rem; margin-left: 8px; }
+p, li { line-height: 1.55; color: var(--muted); max-width: 72ch; }
+p strong, li strong { color: var(--text); font-weight: 600; }
+.lede { color: var(--text); }
+code { font-family: ui-monospace, Menlo, monospace; font-size: .9em; color: var(--text); }
+.scroller { overflow-x: auto; margin-top: 10px; padding-bottom: 6px; }
+.win { position: relative; width: 872px; height: 504px; background: #05070a; font-family: var(--mc); overflow: hidden; user-select: none; }
+.terrain { position: absolute; inset: 0; opacity: .3;
+    background: linear-gradient(135deg, #4c7a35, #5d8b3c 40%, #4a7232 70%, #6f8f45); }
+.scr { position: absolute; left: 16px; top: 16px; width: 840px; height: 472px; background: var(--panel); border: 2px solid var(--tq); }
+.abs { position: absolute; white-space: nowrap; }
+.inset { position: absolute; background: var(--inset); border: 2px solid var(--line); }
+.t1 { font-size: 21px; line-height: 1; } .t6 { font-size: 13px; line-height: 1; } .t5 { font-size: 11px; line-height: 1; }
+.tq { color: var(--tq); } .gold { color: var(--gold); } .bad { color: var(--bad); } .vio { color: var(--vio); }
+.muted { color: var(--muted); } .hint { color: var(--hint); } .text { color: var(--text); }
+.chip { position: absolute; display: flex; align-items: center; justify-content: center; background: var(--inset); border: 2px solid var(--line);
+    color: var(--muted); font-size: 12px; line-height: 1; white-space: nowrap; }
+.chip.on { color: var(--tq); border-color: var(--tq); background: rgba(25,211,176,.13); }
+.chip.gold { color: var(--gold); border-color: var(--gold); background: rgba(255,210,58,.12); }
+.chip.new { outline: 2px dashed var(--gold); outline-offset: 2px; }
+.slot { position: absolute; width: 32px; height: 32px; background: var(--slot); outline: 2px solid var(--slotline); }
+.slot svg { position: absolute; left: 4px; top: 4px; width: 24px; height: 24px; }
+.slot .mk { position: absolute; left: 2px; top: 1px; font-size: 13px; color: var(--text); text-shadow: 1px 1px 0 #000; }
+.slot .rl { position: absolute; right: -2px; bottom: -2px; width: 12px; height: 12px; background: #000; font-size: 10px; display: grid; place-items: center; }
+.slot.from { outline-style: dashed; }
+.wide { position: absolute; height: 32px; background: rgba(255,210,58,.10); outline: 2px solid var(--gold); display: flex; align-items: center; gap: 8px; padding: 0 6px; box-sizing: border-box; }
+.tab { position: absolute; width: 36px; height: 36px; background: var(--slot); outline: 2px solid var(--slotline); }
+.tab.on { outline-color: var(--tq); background: var(--inset); }
+.tab svg { position: absolute; left: 6px; top: 6px; width: 24px; height: 24px; }
+.tab.new { outline: 2px dashed var(--gold); }
+.note { position: absolute; font: 13px var(--ui); color: var(--gold); white-space: normal; line-height: 1.35; }
+.cmp { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-top: 14px; }
+.cmp > div { min-width: 0; background: #10151c; border: 1px solid var(--line); padding: 10px 12px; }
+.cmp h3 { font: 600 .95rem var(--ui); color: var(--text); margin: 0 0 4px; }
+.cmp p { margin: 0; font-size: .9rem; }
+ol li { margin-bottom: 6px; }
+</style>
+
+<div class="wrap">
+<h1>Tag entries on the BANNED tab</h1>
+<p class="lede">Today a datapack tag such as <code>#bsp:sanctuary_bans</code> takes <strong>one slot</strong> on the admin BANNED tab, marked "#" in its corner with the tag's first item as its picture. Its 1,473 items appear nowhere on the screen, and the block browser on the right doesn't mark them either, because it only frames items banned by their own id.</p>
+<p>Three ways to show what a tag (or a BAN WHOLE MOD entry) covers. Every option also marks covered items in the browser, so dragging in something the tag already bans shows it is banned. Example region: a Sanctuary plot with the tag on PLACE and USE, plus TNT on its own. Coloured cubes stand in for item pictures.</p>
+
+<h2>A. Open the tag <span class="tag">click the tile to look inside</span></h2>
+<p>The left grid stays as it is: one tile per entry, the tag tile now wide with its name, count and OPEN (as in C's left grid) so it can't be missed. <strong>Click it</strong> and the left grid shows the tag's items (read-only, dashed frames) under a header with <strong>BACK</strong>. The tag is one entry, so its rules and REMOVE apply to the whole tag. Items inside it can't be freed one by one; the card says so and names the datapack.</p>
+<div class="scroller"><div class="win" id="a"><div class="terrain"></div></div></div>
+
+<h2>B. Opened in place <span class="tag">every item listed, grouped by entry</span></h2>
+<p>The left grid lists the region's own single items first, then a heading row for each tag or whole mod with its count and rules, followed by its items, like the players' BANNED HERE. The <strong>&#9662;</strong> folds a group away. Rules and REMOVE on the heading apply to the whole tag. One long scroll for 1,473 items; search narrows it.</p>
+<div class="scroller"><div class="win" id="b"><div class="terrain"></div></div></div>
+
+<h2>C. A BANNED tab in the browser <span class="tag">the left grid stays compact</span></h2>
+<p>The left grid keeps one wide tile per tag. The block browser gets a new first tab, <strong>BANNED</strong>, listing every item this region bans, from its own entries, its tags and whole mods. Pointing at an item shows which entry bans it. Everywhere in the browser, items covered by a tag have a dashed frame in the rule's colour and a "#" corner.</p>
+<div class="scroller"><div class="win" id="c"><div class="terrain"></div></div></div>
+
+<h2>Side by side</h2>
+<div class="cmp">
+  <div><h3>A. Open the tag</h3><p>Smallest change; the grid stays one tile per entry, which matches how the flag is stored. Seeing the items takes a click.</p></div>
+  <div><h3>B. Opened in place</h3><p>Everything is visible at once, as players see it. With a big tag the left grid becomes a long list, and the region's own items can scroll away under it.</p></div>
+  <div><h3>C. BANNED tab</h3><p>Keeps the editing side tidy and puts the full list where the blocks are browsed. Best for checking "is this banned?", but the list sits on the other side of the screen from the entries.</p></div>
+</div>
+
+<h2>Questions</h2>
+<ol>
+  <li><strong>Which option?</strong> Default: <strong>A</strong>, because it's the smallest change and still makes the tag obvious.</li>
+  <li><strong>Marking covered items in the browser</strong> (dashed frame and "#"), for every option? Default: yes.</li>
+  <li><strong>Adding a tag from the screen:</strong> a small field under the grid to type <code>#bsp:sanctuary_bans</code> and press Enter, instead of <code>/rg flag</code> only? Default: yes, on the bar beside BAN WHOLE MOD.</li>
+  <li><strong>Bans from a parent or the world default</strong> shown greyed on the left, with the region they come from (read-only)? Default: no for now. Your plots carry the tag themselves.</li>
+</ol>
+</div>
+
+<script>
+function cube(t, l, r, dot) {
+  let v = `<svg viewBox="0 0 12 12"><polygon points="6,0.5 11.5,3.2 6,6 0.5,3.2" fill="${t}"/><polygon points="0.5,3.2 6,6 6,11.5 0.5,8.8" fill="${l}"/><polygon points="11.5,3.2 6,6 6,11.5 11.5,8.8" fill="${r}"/>`;
+  if (dot) v += `<rect x="5" y="2.2" width="2" height="1.2" fill="${dot}"/><rect x="2.3" y="6" width="1.6" height="1.6" fill="${dot}"/><rect x="8" y="6.6" width="1.6" height="1.6" fill="${dot}"/>`;
+  return v + '</svg>';
+}
+const hsl = (h, s, l) => `hsl(${h} ${s}% ${l}%)`;
+const blk = (h, s, l, d) => cube(hsl(h, s, l + 12), hsl(h, s, l), hsl(h, s, l - 8), d);
+const TNT = cube('#e8e8e8', '#d23a2e', '#b02c22');
+const tagItem = i => [blk(205, 12, 44 + (i % 4) * 3, ['#5de6e0', '#ffd23a', '#ff6b5c', '#2ecc71'][i % 4]), blk(260, 18, 36, '#b58cff'), blk(32, 45, 40, '#c9a35a'), blk(10, 8, 40, '#ff6b5c')][(i * 5 + 1) % 4];
+const plain = i => [blk(100, 30, 34), blk(30, 30, 38), blk(0, 0, 50), blk(200, 30, 60), blk(45, 60, 50), blk(120, 25, 25)][i % 6];
+
+function frame(win, title) {
+  const w = document.getElementById(win);
+  w.insertAdjacentHTML('beforeend', `<div class="scr" id="${win}s"></div>`);
+  const s = document.getElementById(win + 's');
+  const add = h => s.insertAdjacentHTML('beforeend', h);
+  add(`<div class="abs t1 tq" style="left:16px;top:14px">BANNED BLOCKS</div>`);
+  add(`<div class="abs t6 muted" style="left:160px;top:18px">sanctuary_plot_1</div>`);
+  // the rule bar
+  [['PLACE', 'gold', true], ['USE', 'tq'], ['BREAK', 'vio'], ['CARRY', 'bad']].forEach(([n, c, on], i) =>
+    add(`<div class="chip" style="left:${16 + i * 40}px;top:44px;width:38px;height:22px;${on ? `color:var(--${c});border-color:var(--${c});background:rgba(255,210,58,.12)` : ''}">${n}</div>`));
+  add(`<div class="chip" style="left:16px;top:44px;width:0;height:0;border:0"></div>`);
+  // the browser side
+  add(`<div class="inset" style="left:368px;top:76px;width:456px;height:312px"></div>`);
+  add(`<div class="abs" style="left:596px;top:80px;width:224px;height:24px;background:#050608;border:2px solid var(--line)"><span class="t6 hint" style="position:absolute;left:6px;top:5px">search, or @mod</span></div>`);
+  add(`<div class="inset" style="left:16px;top:396px;width:336px;height:64px;background:#0a0d12"></div>`);
+  add(`<div class="abs t5 hint" style="left:368px;top:398px">Drop blocks on the left (shift-click works too). Right-click a slot to step through its rules.</div>`);
+  add(`<div class="abs t5 hint" style="left:368px;top:414px">Drag a banned block back here, or press x, to allow it again.</div>`);
+  add(`<div class="chip" style="left:368px;top:436px;width:110px;height:22px">BAN WHOLE MOD</div>`);
+  add(`<div class="chip" style="left:740px;top:436px;width:84px;height:22px;color:var(--text)">DONE</div>`);
+  return add;
+}
+function tabs(add, extra) {
+  const icons = [blk(100, 30, 34), blk(0, 0, 50), blk(30, 30, 38), blk(205, 12, 47, '#5de6e0'), blk(260, 18, 36, '#b58cff'), blk(32, 45, 40, '#c9a35a'), blk(45, 60, 50), blk(200, 30, 60), blk(120, 25, 25), blk(10, 8, 40, '#ff6b5c')];
+  let x = 368;
+  if (extra) { add(`<div class="tab on new" style="left:${x}px;top:40px"><span class="abs t5 bad" style="left:3px;top:13px">BAN</span></div>`); x += 38; }
+  icons.slice(0, extra ? 9 : 10).forEach((ic, i) => { add(`<div class="tab${!extra && i === 3 ? ' on' : ''}" style="left:${x}px;top:40px">${ic}</div>`); x += 38; });
+}
+function browser(add, heading, cover, items) {
+  add(`<div class="abs t6 text" style="left:376px;top:86px">${heading}</div>`);
+  for (let i = 0; i < 13 * 8; i++) {
+    const x = 376 + (i % 13) * 34, y = 110 + Math.floor(i / 13) * 34;
+    const covered = cover(i);
+    const ic = items(i);
+    add(`<div class="slot${covered ? ' from' : ''}" style="left:${x}px;top:${y}px;${covered ? `outline-color:var(--${covered})` : ''}">${ic}${covered ? '<span class="mk">#</span>' : ''}</div>`);
+  }
+}
+function card(add, lines, chips) {
+  add(`<div class="slot" style="left:20px;top:402px;outline:none;background:none">${lines.icon}</div>`);
+  add(`<div class="abs t6 text" style="left:56px;top:404px">${lines.name}</div>`);
+  add(`<div class="abs t5 hint" style="left:56px;top:420px">${lines.sub}</div>`);
+  if (chips) [['PLACE', 'gold', 1], ['USE', 'tq', 1], ['BREAK', 'vio'], ['CARRY', 'bad']].forEach(([n, c, on], i) =>
+    add(`<div class="chip" style="left:${24 + i * 56}px;top:436px;width:52px;height:18px;font-size:11px;${on ? `color:var(--${c});border-color:var(--${c})` : ''}">${n}</div>`));
+  if (chips) add(`<div class="chip" style="left:256px;top:436px;width:88px;height:18px;font-size:11px">REMOVE</div>`);
+}
+const TAG_ICON = blk(205, 12, 47, '#5de6e0');
+function wideTag(add, x, y, w, open) {
+  add(`<div class="wide" style="left:${x}px;top:${y}px;width:${w}px"><span style="width:24px;height:24px;display:inline-block">${TAG_ICON}</span>
+    <span class="t6 gold">#bsp:sanctuary_bans</span><span class="t5 muted">1,473</span>${open ? '<span class="t6 tq" style="margin-left:auto">OPEN &#8250;</span>' : ''}</div>`);
+}
+
+// ---------------- A
+{
+  const add = frame('a');
+  add(`<div class="inset" style="left:16px;top:76px;width:336px;height:312px"></div>`);
+  // opened: header with BACK
+  add(`<div class="chip on" style="left:24px;top:82px;width:56px;height:20px">&#8249; BACK</div>`);
+  add(`<div class="abs t6 gold" style="left:90px;top:86px">#bsp:sanctuary_bans</div>`);
+  add(`<div class="abs t5 muted" style="left:248px;top:88px">1,473 items</div>`);
+  for (let i = 0; i < 9 * 8; i++) {
+    const x = 24 + (i % 9) * 34, y = 110 + Math.floor(i / 9) * 34;
+    if (y > 350) break;
+    add(`<div class="slot from" style="left:${x}px;top:${y}px;outline-color:var(--gold)${i === 12 ? ';outline:2px solid #fff' : ''}">${tagItem(i)}</div>`);
+  }
+  add(`<div class="abs" style="left:334px;top:110px;width:8px;height:270px;background:var(--slot)"></div><div class="abs" style="left:334px;top:110px;width:8px;height:14px;background:#4a5060"></div>`);
+  card(add, { icon: tagItem(12), name: 'Digital Miner (in #bsp:sanctuary_bans)', sub: 'Banned by the tag: change the tag in the datapack, or REMOVE the whole tag.' }, false);
+  add(`<div class="chip" style="left:24px;top:436px;width:140px;height:18px;font-size:11px">&#8249; BACK TO ENTRIES</div>`);
+  tabs(add, false);
+  browser(add, 'Mekanism', i => i % 3 !== 2 ? 'gold' : null, i => tagItem(i + 2));
+  add(`<div class="note" style="left:620px;top:-2px;width:236px">Browser: items the tag covers get a dashed gold frame and "#".</div>`);
+}
+// ---------------- B
+{
+  const add = frame('b');
+  add(`<div class="inset" style="left:16px;top:76px;width:336px;height:312px"></div>`);
+  // own items
+  add(`<div class="abs t5 muted" style="left:24px;top:84px">THIS REGION'S OWN</div>`);
+  add(`<div class="slot" style="left:24px;top:96px;outline-color:var(--gold)">${TNT}<span class="rl gold">P</span></div>`);
+  add(`<div class="slot" style="left:58px;top:96px;outline-color:var(--gold)">${cube('#d9a6ff', '#9b6bd6', '#7d52b5')}<span class="rl gold">P</span></div>`);
+  // tag heading row
+  add(`<div class="abs" style="left:22px;top:138px;width:316px;height:24px;background:rgba(255,210,58,.10);border-top:2px solid var(--gold)"></div>`);
+  add(`<div class="abs t6 gold" style="left:28px;top:144px">&#9662; #BSP:SANCTUARY_BANS</div>`);
+  add(`<div class="abs t5 muted" style="left:190px;top:146px">1,473</div>`);
+  add(`<div class="chip gold" style="left:236px;top:141px;width:22px;height:16px;font-size:10px">P</div><div class="chip on" style="left:260px;top:141px;width:22px;height:16px;font-size:10px">U</div><div class="chip" style="left:284px;top:141px;width:50px;height:16px;font-size:10px">REMOVE</div>`);
+  for (let i = 0; i < 9 * 6; i++) {
+    const x = 24 + (i % 9) * 34, y = 168 + Math.floor(i / 9) * 34;
+    if (y > 350) break;
+    add(`<div class="slot from" style="left:${x}px;top:${y}px;outline-color:var(--gold)"><span class="mk">#</span>${tagItem(i)}</div>`);
+  }
+  add(`<div class="abs" style="left:334px;top:84px;width:8px;height:298px;background:var(--slot)"></div><div class="abs" style="left:334px;top:84px;width:8px;height:10px;background:#4a5060"></div>`);
+  card(add, { icon: TAG_ICON, name: 'tag #bsp:sanctuary_bans: 1,473 items', sub: 'From a datapack. Its rules and REMOVE apply to the whole tag.' }, true);
+  tabs(add, false);
+  browser(add, 'Mekanism', i => i % 3 !== 2 ? 'gold' : null, i => tagItem(i + 2));
+  add(`<div class="note" style="left:620px;top:-2px;width:236px">Same browser marks as A.</div>`);
+}
+
+// ---------------- C
+{
+  const add = frame('c');
+  add(`<div class="inset" style="left:16px;top:76px;width:336px;height:312px"></div>`);
+  wideTag(add, 24, 84, 304, false);
+  add(`<div class="slot" style="left:24px;top:122px;outline-color:var(--gold)">${TNT}<span class="rl gold">P</span></div>`);
+  add(`<div class="slot" style="left:58px;top:122px;outline-color:var(--gold)">${cube('#d9a6ff', '#9b6bd6', '#7d52b5')}<span class="rl gold">P</span></div>`);
+  card(add, { icon: TAG_ICON, name: 'tag #bsp:sanctuary_bans: 1,473 items', sub: 'See them on the BANNED tab of the browser.' }, true);
+  tabs(add, true);
+  add(`<div class="abs t6 text" style="left:376px;top:86px">Banned here: 1,475</div>`);
+  for (let i = 0; i < 13 * 8; i++) {
+    const x = 376 + (i % 13) * 34, y = 110 + Math.floor(i / 13) * 34;
+    const own = i < 2;
+    add(`<div class="slot${own ? '' : ' from'}" style="left:${x}px;top:${y}px;outline-color:var(--gold)${i === 17 ? ';outline:2px solid #fff' : ''}">${own ? (i ? cube('#d9a6ff', '#9b6bd6', '#7d52b5') : TNT) : tagItem(i) }${own ? '' : '<span class="mk">#</span>'}</div>`);
+  }
+  add(`<div class="abs" style="left:614px;top:186px;background:rgba(16,0,16,.95);border:2px solid #2b0e5a;padding:6px 8px;font-size:13px;line-height:1.3"><div class="text">Elite Enriching Factory</div><div class="gold">banned by #bsp:sanctuary_bans</div><div class="hint">PLACE, USE</div></div>`);
+  add(`<div class="note" style="left:520px;top:-2px;width:330px">New first tab BANNED (dashed). Other tabs mark covered items as in A.</div>`);
+}
+</script>

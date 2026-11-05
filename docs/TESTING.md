@@ -632,3 +632,15 @@ Set up: a BSP-RankUp ladder (for example Peasant, Squire, Knight, Lord) and a re
 - [ ] `entry` deny on another region: "You are not allowed in there." as a title. Exit deny still shows on the action bar.
 - [ ] The Squire, standing outside, tries to break a block inside or open a chest inside: refused with the same title.
 - [ ] Without BSP-RankUp installed: "You need to be knight to enter".
+
+## 2026-11-05: tags on the admin BANNED tab (B24, D158)
+
+Untested in a game client. Needs the `bsp_bans` datapack (or any item tag) loaded.
+- [ ] A region with `deny-place #bsp:sanctuary_bans`: its BANNED tab shows one wide gold line, "#bsp:sanctuary_bans", "1,473 items" (about), and OPEN, above the single items.
+- [ ] OPEN: the grid shows the tag's items with dashed frames under < BACK; the wheel scrolls them; pointing at one names it "(in #bsp:sanctuary_bans)" on the card. < BACK returns.
+- [ ] While opened, the card (mouse off the items) shows the tag's rules and REMOVE; REMOVE frees the tag and returns to the entries.
+- [ ] The browser: Mekanism's tab shows its banned machines with dashed gold frames and "#"; items not in the tag are plain.
+- [ ] BAN WHOLE MOD on a Create block: a wide "every block of create" line with "*" marks in the browser.
+- [ ] Type `bsp:sanctuary_bans` in the tag field and press Enter on a fresh region: it is banned with the bar's rule. `#nope:nothing`: refused, "No tag #nope:nothing is loaded".
+- [ ] Right-click a tag's line steps its rule; dragging the line to the browser frees it.
+- [ ] Audit fixes: pointing at an opened tag's item shows the whole two-line hint; Esc in an opened tag goes back to the entries (a second Esc closes); the wheel moves 3 rows; typing in the search box narrows the opened tag ("12 of 1,473 items"); dropping a block on the left while a tag is opened goes back to the entries, where the new block shows; a one-item tag reads "1 item"; a long refused tag name is cut at the screen's edge.

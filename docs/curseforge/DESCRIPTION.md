@@ -164,6 +164,8 @@ Some things don't belong in some places: TNT at spawn, a quarry in the market, a
   - drag it back, or press x, to allow it again
 - **Search** works as in JEI: `@create` lists only Create's blocks, `@create drill` narrows that down, and plain words search every name and id.
 - **BAN WHOLE MOD** bans every block of the mod you last pointed at, as one entry.
+- **Tags:** type a tag such as `#bsp:sanctuary_bans` in the field under BAN WHOLE MOD and press Enter, so a datapack's list can be banned in one go.
+- **Tags and whole mods** each take a wide line at the top of the grid with how many items they cover. **OPEN** shows those items, and the browser marks every item they cover with a dashed frame.
 
 Every change saves at once.
 

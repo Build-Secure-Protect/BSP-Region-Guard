@@ -98,6 +98,21 @@ public class BannedListGameTests {
     }
 
     @GameTest(template = EMPTY)
+    public void tags_and_whole_mods_open_into_their_items(GameTestHelper h) {
+        // B24: the admin BANNED tab and BANNED HERE both open entries through BannedBlocks.itemsMatching
+        h.assertTrue(BannedBlocks.isGroupEntry("#bsp:sanctuary_bans") && BannedBlocks.isGroupEntry("@create") && BannedBlocks.isGroupEntry("create:*"),
+                "tags and whole mods are group entries");
+        h.assertFalse(BannedBlocks.isGroupEntry("minecraft:tnt"), "a single id is not");
+        List<ItemStack> swords = BannedBlocks.itemsMatching(Map.of("#minecraft:swords", "x"));
+        h.assertTrue(swords.stream().anyMatch(s -> s.is(Items.DIAMOND_SWORD)) && swords.stream().noneMatch(s -> s.is(Items.STONE)),
+                "a tag opens into its items: " + swords.size());
+        List<ItemStack> vanilla = BannedBlocks.itemsMatching(Map.of("@minecraft", "x"));
+        h.assertTrue(vanilla.size() > 500 && vanilla.stream().noneMatch(ItemStack::isEmpty), "a whole mod opens into every item of it, never air: " + vanilla.size());
+        h.assertTrue(BannedBlocks.itemsMatching(Map.of()).isEmpty(), "no entries, no items");
+        h.succeed();
+    }
+
+    @GameTest(template = EMPTY)
     public void the_banned_list_packet_carries_every_rule_through(GameTestHelper h) {
         var lists = new java.util.EnumMap<BannedBlocks.Rule, List<String>>(BannedBlocks.Rule.class);
         lists.put(BannedBlocks.Rule.PLACE, List.of("#bsp:sanctuary_bans", "@ballistix"));

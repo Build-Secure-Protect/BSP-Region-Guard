@@ -111,6 +111,32 @@ public final class BannedBlocks {
 
     // ------------------------------------------------------------------ matching
 
+    /** Tags ({@code #mod:tag}) and whole mods ({@code @mod}, {@code mod:*}): entries that cover many items. */
+    public static boolean isGroupEntry(String entry) {
+        return entry.startsWith("#") || entry.startsWith("@") || entry.endsWith(":*");
+    }
+
+    /**
+     * Every registered item any of these entries matches, in registry order: how a tag or whole mod is opened into the
+     * items it covers, for the screens. Scans the whole item registry, so callers keep the answer.
+     */
+    public static List<ItemStack> itemsMatching(Map<String, String> entries) {
+        List<ItemStack> out = new ArrayList<>();
+        if (entries.isEmpty()) {
+            return out;
+        }
+        for (net.minecraft.world.item.Item item : ForgeRegistries.ITEMS) {
+            if (item == net.minecraft.world.item.Items.AIR) {
+                continue;
+            }
+            ItemStack s = new ItemStack(item);
+            if (match(entries, s) != null) {
+                out.add(s);
+            }
+        }
+        return out;
+    }
+
     /** The entry that matches this item, or {@code null}. */
     @Nullable
     public static String match(Map<String, String> entries, ItemStack stack) {

@@ -6,6 +6,11 @@ All notable changes to BSP Region Guard. Format follows Keep a Changelog; versio
 
 **Network protocol 12:** servers and players need this version together. **API version 8.**
 
+### Fixed (2026-11-05, B24: tags on the admin BANNED tab; D158)
+- **A banned tag or whole mod now shows what it covers on the admin BANNED tab.** A datapack tag such as `#bsp:sanctuary_bans` took a single slot marked "#", so its items were nowhere on the screen, and the block browser left them unmarked. Each tag and whole mod now has a wide line at the top of the grid with its name, how many items it covers, and **OPEN**, which shows those items in the grid (read-only) under **< BACK**. The card names the tag an item belongs to. Its rules and REMOVE still apply to the whole tag.
+- **The block browser marks covered items:** a dashed frame in the rule's colour and a "#" (tag) or "*" (whole mod).
+- **Add a tag from the screen:** type it in the field under BAN WHOLE MOD (`#bsp:sanctuary_bans`, the `#` is optional) and press Enter. It is banned with the rule on the bar. A tag that isn't loaded is refused with a message. In an opened tag the search box narrows its items, the wheel moves three rows, and Esc goes back to the entries. Client side only; no protocol change.
+
 ### Added (2026-11-05, the rank needed on entry refusal; D149 to D157)
 - **A player kept out by a region's ranks is told which rank they need,** in the middle of the screen like `/title`. A rank on a BSP-RankUp ladder is named with where they stand: "You need Knight to enter" over "You are Squire: 200 more points." or "You are Peasant, 2 ranks to go.". With several ladders the ladder is named. Ranks on no ladder: "You need to be VIP to enter". Without BSP-RankUp the LuckPerms group names are used.
 - **A player above a listed rank on a ladder now gets in** even when the LuckPerms groups don't inherit, so a region only needs its lowest rank listed.

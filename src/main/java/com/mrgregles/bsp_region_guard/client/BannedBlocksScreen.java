@@ -11,6 +11,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.tags.BlockTags;
 import net.minecraft.tags.ItemTags;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.CreativeModeTabs;
@@ -38,6 +39,10 @@ import java.util.stream.Collectors;
  * its rules, hover it for its four switches, drag it back to the right (or press x) to free it. Every change is sent
  * at once as the region's {@code deny-place}, {@code deny-use}, {@code deny-break} and {@code deny-carry} lists, so
  * the server checks it exactly as it checks {@code /rg flag}.
+ * <p>
+ * Tags and whole mods (B24, mock-up option A): each takes a wide row at the top of the grid with its name, how many
+ * items it covers and OPEN, which shows those items in the grid (read-only) under a BACK key. The browser frames items
+ * a tag or whole mod covers with a dashed line and a "#" (or "*"), and a field beside BAN WHOLE MOD adds a tag by name.
  */
 public class BannedBlocksScreen extends HoloScreen {
     private static final int W = RegionScreen.W, H = RegionScreen.H;
@@ -92,6 +97,30 @@ public class BannedBlocksScreen extends HoloScreen {
     private ItemStack dragStack;
     @Nullable
     private String dragEntry;
+    /** The tag or whole mod whose items the left grid shows (OPEN), or null for the entries. */
+    @Nullable
+    private String opened;
+    private int openScroll;
+    /** The item of the opened tag under the mouse, for the card. */
+    @Nullable
+    private ItemStack hoverMember;
+    /** The items each tag or whole mod covers, worked out once per entry while the screen is open. */
+    private final Map<String, List<ItemStack>> members = new HashMap<>();
+    /** The browser's items and the tag or whole mod covering each ("" for none); emptied when the entries change. */
+    private final Map<Item, String> covered = new HashMap<>();
+    @Nullable
+    private Map<String, String> groupEntries;
+    /** The left grid's lines, rebuilt when the entries change. */
+    @Nullable
+    private List<Row> rowsCache;
+    /** The opened tag's items that pass the search, and what they were filtered for. */
+    private List<ItemStack> openShown = List.of();
+    private String openShownFor = "";
+    private EditBox tagBox;
+
+    /** One line of the left grid: a tag or whole mod on its own, or up to {@link #LIST_COLS} single items. */
+    private record Row(@Nullable String group, List<String> items) {
+    }
     private EditBox search;
     private String status = "";
 
@@ -107,6 +136,7 @@ public class BannedBlocksScreen extends HoloScreen {
     /** Reads the region's four lists from the last detail the server sent. */
     private void load() {
         banned.clear();
+        entriesChanged();
         RegionDetailPacket d = RegionClient.detail();
         if (d == null || !d.id().equals(regionId)) {
             return;
@@ -145,10 +175,140 @@ public class BannedBlocksScreen extends HoloScreen {
         banned.forEach((k, v) -> before.put(k, EnumSet.copyOf(v)));
         change.run();
         banned.values().removeIf(EnumSet::isEmpty);
+        entriesChanged();
         save(before);
     }
 
+    private void entriesChanged() {
+        covered.clear();
+        groupEntries = null;
+        rowsCache = null;
+        if (opened != null && !banned.containsKey(opened)) {
+            closeOpened();
+        }
+    }
+
+    private static boolean isGroup(String entry) {
+        return BannedBlocks.isGroupEntry(entry);
+    }
+
+    /** The items a tag or whole mod covers, matched as the server matches them (the same opening as BANNED HERE). */
+    private List<ItemStack> members(String entry) {
+        return members.computeIfAbsent(entry, e -> BannedBlocks.itemsMatching(Map.of(e, e)));
+    }
+
+    /** The opened tag's items, narrowed by the search box (as JEI's, {@code @mod} too); worked out again only when the search changes. */
+    private List<ItemStack> openedItems() {
+        String q = search == null ? "" : search.getValue().trim();
+        String key = opened + "|" + q;
+        if (!key.equals(openShownFor)) {
+            List<ItemStack> all = members(opened);
+            if (q.isEmpty()) {
+                openShown = all;
+            } else {
+                List<ItemStack> out = new ArrayList<>();
+                for (ItemStack s : all) {
+                    ResourceLocation id = ForgeRegistries.ITEMS.getKey(s.getItem());
+                    if (id != null && BannedBlocks.searchMatches(q, id, s.getHoverName().getString())) {
+                        out.add(s);
+                    }
+                }
+                openShown = out;
+            }
+            openShownFor = key;
+            openScroll = 0;
+        }
+        return openShown;
+    }
+
+    /** How a tag or whole mod is named on screen: a tag by itself, a whole mod as "every block of ...". */
+    private String groupName(String entry) {
+        return entry.startsWith("#") ? entry : label(entry);
+    }
+
+    /** "1 item", "1,473 items". */
+    private static String countText(int n) {
+        return n == 1 ? Tr.t("group_count_one") : Tr.t("group_count", String.format(Locale.ROOT, "%,d", n));
+    }
+
+    /** The tag or whole mod that covers a browser item, or null. */
+    @Nullable
+    private String coveredBy(ItemStack stack) {
+        if (groupEntries == null) {
+            groupEntries = new LinkedHashMap<>();
+            banned.keySet().stream().filter(BannedBlocksScreen::isGroup).forEach(e -> groupEntries.put(e, e));
+        }
+        if (groupEntries.isEmpty()) {
+            return null;
+        }
+        String hit = covered.computeIfAbsent(stack.getItem(), item -> {
+            String m = BannedBlocks.match(groupEntries, stack);
+            return m == null ? "" : m;
+        });
+        return hit.isEmpty() ? null : hit;
+    }
+
+    /** The left grid's lines: every tag and whole mod on its own line first, then the single items. */
+    private List<Row> rows() {
+        if (rowsCache != null) {
+            return rowsCache;
+        }
+        List<Row> out = new ArrayList<>();
+        for (String e : banned.keySet()) {
+            if (isGroup(e)) {
+                out.add(new Row(e, List.of()));
+            }
+        }
+        List<String> line = null;
+        for (String e : banned.keySet()) {
+            if (isGroup(e)) {
+                continue;
+            }
+            if (line == null || line.size() == LIST_COLS) {
+                line = new ArrayList<>();
+                out.add(new Row(null, line));
+            }
+            line.add(e);
+        }
+        rowsCache = out;
+        return out;
+    }
+
+    private void closeOpened() {
+        opened = null;
+        hoverMember = null;
+        openScroll = 0;
+        openShownFor = "";
+    }
+
+    /** Adds a tag typed in the field, with the rule on the bar; refused when the id is bad or no such tag is loaded. */
+    private void addTag(String raw) {
+        String t = raw.trim().toLowerCase(Locale.ROOT);
+        if (t.isEmpty()) {
+            return;
+        }
+        if (t.startsWith("#")) {
+            t = t.substring(1);
+        }
+        ResourceLocation id = ResourceLocation.tryParse(t);
+        if (id == null) {
+            status = Tr.t("tag_bad_id", "#" + t);
+            return;
+        }
+        String entry = "#" + id;
+        boolean loaded = BuiltInRegistries.ITEM.getTag(ItemTags.create(id)).isPresent() || BuiltInRegistries.BLOCK.getTag(BlockTags.create(id)).isPresent();
+        if (!loaded) {
+            status = Tr.t("tag_not_loaded", entry);
+            return;
+        }
+        ban(entry, brush);
+        tagBox.setValue("");
+    }
+
     private void ban(String entry, Rule rule) {
+        if (opened != null && !entry.equals(opened)) {
+            closeOpened(); // a block dropped while a tag is opened is its own entry: show the entries, where it lands
+        }
         edit(() -> banned.computeIfAbsent(entry, k -> EnumSet.noneOf(Rule.class)).add(rule));
         status = Tr.t("banned_now", label(entry), Tr.t("rule." + rule.key()));
     }
@@ -264,6 +424,12 @@ public class BannedBlocksScreen extends HoloScreen {
         search.setHint(Component.literal(Tr.t("search_blocks_hint")).withStyle(s -> s.withColor(0x9AA3B5)));
         search.setResponder(v -> refreshShown());
         addRenderableWidget(search);
+        tagBox = new EditBox(font, x + 186, y + 213, 66, 8, Component.literal(Tr.t("tag_field")));
+        tagBox.setBordered(false);
+        tagBox.setTextColor(TEXT);
+        tagBox.setMaxLength(128);
+        tagBox.setHint(Component.literal(Tr.t("tag_field_hint")).withStyle(s -> s.withColor(0x9AA3B5)));
+        addRenderableWidget(tagBox);
         loadTabs();
     }
 
@@ -324,7 +490,9 @@ public class BannedBlocksScreen extends HoloScreen {
                 hy += 5;
             }
         }
-        text(g, status.isEmpty() ? Tr.t("changes_save_at_once_esc_closes") : status, x + 184, y + 222, MUTED, 0.6f);
+        inset(g, x + 184, y + 212, 70, 10);
+        String line = status.isEmpty() ? Tr.t("changes_save_at_once_esc_closes") : status;
+        text(g, font.plainSubstrByWidth(line, (int) ((W - 184 - 8) / 0.6f)), x + 184, y + 224, MUTED, 0.6f);
 
         super.draw(g, mouseX, mouseY, partial);
 
@@ -343,48 +511,138 @@ public class BannedBlocksScreen extends HoloScreen {
 
     private void drawList(GuiGraphics g, int x, int y, int mouseX, int mouseY) {
         inset(g, x + 8, y + 38, 168, 156);
-        List<String> entries = new ArrayList<>(banned.keySet());
-        int rows = Math.max(LIST_ROWS, (entries.size() + LIST_COLS) / LIST_COLS);
-        listScroll = Math.max(0, Math.min(listScroll, rows - LIST_ROWS));
-        for (int i = 0; i < LIST_COLS * LIST_ROWS; i++) {
-            int sx = x + LIST_X + (i % LIST_COLS) * CELL, sy = y + LIST_Y + (i / LIST_COLS) * CELL;
-            int index = i + listScroll * LIST_COLS;
-            String entry = index < entries.size() ? entries.get(index) : null;
-            int border = SLOT_LINE;
-            if (entry != null) {
-                border = strongest(banned.get(entry)).colour;
+        if (opened != null) {
+            drawOpened(g, x, y, mouseX, mouseY);
+            return;
+        }
+        hoverMember = null;
+        List<Row> rows = rows();
+        int total = Math.max(LIST_ROWS, rows.size());
+        listScroll = Math.max(0, Math.min(listScroll, total - LIST_ROWS));
+        for (int r = 0; r < LIST_ROWS; r++) {
+            int sy = y + LIST_Y + r * CELL;
+            Row row = listScroll + r < rows.size() ? rows.get(listScroll + r) : null;
+            if (row != null && row.group() != null) {
+                drawGroupRow(g, x + LIST_X, sy, row.group(), mouseX, mouseY);
+                continue;
             }
-            slot(g, sx, sy, border, entry != null && entry.equals(hoverEntry));
-            if (entry != null) {
-                g.renderItem(icon(entry), sx, sy);
-                Rule s = strongest(banned.get(entry));
-                g.pose().pushPose();
-                g.pose().translate(0, 0, 200);
-                g.fill(sx + 11, sy + 11, sx + 17, sy + 17, 0xFF000000);
-                text(g, s.name().substring(0, 1), sx + 12, sy + 12, s.colour, 0.5f);
-                if (entry.startsWith("@") || entry.endsWith(":*") || entry.startsWith("#")) {
-                    text(g, entry.startsWith("#") ? "#" : "*", sx + 1, sy + 1, TEXT, 0.6f);
+            for (int c = 0; c < LIST_COLS; c++) {
+                int sx = x + LIST_X + c * CELL;
+                String entry = row != null && c < row.items().size() ? row.items().get(c) : null;
+                slot(g, sx, sy, entry == null ? SLOT_LINE : strongest(banned.get(entry)).colour, entry != null && entry.equals(hoverEntry));
+                if (entry == null) {
+                    continue;
                 }
-                g.pose().popPose();
+                g.renderItem(icon(entry), sx, sy);
+                ruleMark(g, sx, sy, strongest(banned.get(entry)));
                 if (mouseX >= sx && mouseX < sx + 16 && mouseY >= sy && mouseY < sy + 16) {
                     hoverEntry = entry;
                 }
             }
         }
-        // scroll bar
-        g.fill(x + 169, y + LIST_Y, x + 173, y + LIST_Y + LIST_ROWS * CELL, SLOT);
-        int bar = Math.max(12, LIST_ROWS * CELL * LIST_ROWS / rows);
-        int by = y + LIST_Y + (rows <= LIST_ROWS ? 0 : (LIST_ROWS * CELL - bar) * listScroll / (rows - LIST_ROWS));
-        g.fill(x + 169, by, x + 173, by + bar, 0xFF4A5060);
-        if (entries.isEmpty()) {
+        scrollBar(g, x, y, total, listScroll);
+        if (banned.isEmpty()) {
             text(g, Tr.t("nothing_banned_yet"), x + 14, y + 44, HINT, 0.6f);
         }
+    }
+
+    /** A tag or whole mod: one wide line with its picture, name, how many items it covers, and OPEN. */
+    private void drawGroupRow(GuiGraphics g, int gx, int sy, String entry, int mouseX, int mouseY) {
+        int w = LIST_COLS * CELL - 1;
+        Rule s = strongest(banned.get(entry));
+        g.fill(gx - 1, sy - 1, gx + w, sy + 17, (s.colour & 0xFFFFFF) | 0x1A000000);
+        frame(g, gx - 1, sy - 1, w + 1, 18, entry.equals(hoverEntry) ? 0xFFFFFFFF : s.colour);
+        g.renderItem(icon(entry), gx, sy);
+        ruleMark(g, gx, sy, s);
+        text(g, font.plainSubstrByWidth(groupName(entry), 160), gx + 20, sy + 2, s.colour, 0.6f);
+        text(g, countText(members(entry).size()), gx + 20, sy + 10, MUTED, 0.5f);
+        chip(g, gx + w - 31, sy + 2, 29, 12, Tr.t("tag_open"), true, TQ, 0.55f, () -> {
+            opened = entry;
+            openScroll = 0;
+            hoverEntry = entry;
+        });
+        if (mouseX >= gx && mouseX < gx + w && mouseY >= sy && mouseY < sy + 16) {
+            hoverEntry = entry;
+        }
+    }
+
+    /** An opened tag or whole mod: BACK and its name on the first line, its items under it (read-only). */
+    private void drawOpened(GuiGraphics g, int x, int y, int mouseX, int mouseY) {
+        List<ItemStack> items = openedItems();
+        int all = members(opened).size();
+        Rule s = strongest(banned.get(opened));
+        chip(g, x + LIST_X - 1, y + LIST_Y, 30, 12, Tr.t("tag_back"), true, TQ, 0.55f, this::closeOpened);
+        text(g, font.plainSubstrByWidth(groupName(opened), 200), x + LIST_X + 34, y + LIST_Y + 1, s.colour, 0.6f);
+        String count = items.size() == all ? countText(all)
+                : Tr.t("group_count_found", String.format(Locale.ROOT, "%,d", items.size()), String.format(Locale.ROOT, "%,d", all));
+        text(g, count, x + LIST_X + 34, y + LIST_Y + 8, MUTED, 0.5f);
+        int visible = LIST_ROWS - 1;
+        int rows = Math.max(visible, (items.size() + LIST_COLS - 1) / LIST_COLS);
+        openScroll = Math.max(0, Math.min(openScroll, rows - visible));
+        hoverMember = null;
+        for (int r = 0; r < visible; r++) {
+            int sy = y + LIST_Y + (r + 1) * CELL;
+            for (int c = 0; c < LIST_COLS; c++) {
+                int index = (openScroll + r) * LIST_COLS + c;
+                if (index >= items.size()) {
+                    break;
+                }
+                int sx = x + LIST_X + c * CELL;
+                ItemStack item = items.get(index);
+                boolean over = mouseX >= sx && mouseX < sx + 16 && mouseY >= sy && mouseY < sy + 16;
+                dashedSlot(g, sx, sy, over ? 0xFFFFFFFF : s.colour);
+                g.renderItem(item, sx, sy);
+                if (over) {
+                    hoverMember = item;
+                }
+            }
+        }
+        if (items.isEmpty()) {
+            String none = all > 0 ? Tr.t("tag_no_match") : opened.startsWith("#") ? Tr.t("tag_no_items") : Tr.t("mod_no_items");
+            text(g, none, x + 14, y + LIST_Y + CELL + 4, HINT, 0.6f);
+        }
+        scrollBar(g, x, y, rows + 1, openScroll);
+    }
+
+    /** The rule's first letter in the slot's corner. */
+    private void ruleMark(GuiGraphics g, int sx, int sy, Rule s) {
+        g.pose().pushPose();
+        g.pose().translate(0, 0, 200);
+        g.fill(sx + 11, sy + 11, sx + 17, sy + 17, 0xFF000000);
+        text(g, s.name().substring(0, 1), sx + 12, sy + 12, s.colour, 0.5f);
+        g.pose().popPose();
+    }
+
+    private void scrollBar(GuiGraphics g, int x, int y, int rows, int scroll) {
+        g.fill(x + 169, y + LIST_Y, x + 173, y + LIST_Y + LIST_ROWS * CELL, SLOT);
+        int bar = Math.max(12, LIST_ROWS * CELL * LIST_ROWS / Math.max(LIST_ROWS, rows));
+        int by = y + LIST_Y + (rows <= LIST_ROWS ? 0 : (LIST_ROWS * CELL - bar) * scroll / (rows - LIST_ROWS));
+        g.fill(x + 169, by, x + 173, by + bar, 0xFF4A5060);
     }
 
     private void drawCard(GuiGraphics g, int x, int y) {
         g.fill(x + 8, y + 198, x + 176, y + 230, 0xFF0A0D12);
         frame(g, x + 8, y + 198, 168, 32, LINE);
-        String entry = hoverEntry != null && banned.containsKey(hoverEntry) ? hoverEntry : null;
+        if (opened != null && hoverMember != null) { // one item of an opened tag: it goes with the tag
+            g.renderItem(hoverMember, x + 10, y + 200);
+            text(g, font.plainSubstrByWidth(Tr.t("in_entry", hoverMember.getHoverName().getString(), groupName(opened)), 240), x + 28, y + 201, TEXT, 0.6f);
+            String id = idOf(hoverMember);
+            text(g, id == null ? "" : id, x + 28, y + 208, HINT, 0.5f);
+            int ly = y + 216;
+            for (var line : font.split(Component.literal(opened.startsWith("#") ? Tr.t("member_of_tag") : Tr.t("member_of_mod")), (int) (160 / 0.5f))) {
+                if (ly > y + 222) {
+                    break; // the card has room for two lines
+                }
+                g.pose().pushPose();
+                g.pose().translate(x + 12, ly, 0);
+                g.pose().scale(0.5f, 0.5f, 1f);
+                g.drawString(font, line, 0, 0, MUTED, false);
+                g.pose().popPose();
+                ly += 6;
+            }
+            return;
+        }
+        String entry = opened != null ? opened : hoverEntry != null && banned.containsKey(hoverEntry) ? hoverEntry : null;
         if (entry == null) {
             text(g, Tr.t("hover_a_banned_block"), x + 12, y + 202, HINT, 0.6f);
             return;
@@ -453,9 +711,20 @@ public class BannedBlocksScreen extends HoloScreen {
             ItemStack s = index < shown.size() ? shown.get(index) : ItemStack.EMPTY;
             String id = s.isEmpty() ? null : idOf(s);
             EnumSet<Rule> rules = id == null ? null : banned.get(id);
-            slot(g, sx, sy, rules == null ? SLOT_LINE : strongest(rules).colour, false);
+            String by = rules == null && !s.isEmpty() ? coveredBy(s) : null;
+            if (by != null) { // covered by a tag or whole mod: dashed, with its mark
+                dashedSlot(g, sx, sy, strongest(banned.get(by)).colour);
+            } else {
+                slot(g, sx, sy, rules == null ? SLOT_LINE : strongest(rules).colour, false);
+            }
             if (!s.isEmpty()) {
                 g.renderItem(s, sx, sy);
+                if (by != null) {
+                    g.pose().pushPose();
+                    g.pose().translate(0, 0, 200);
+                    text(g, by.startsWith("#") ? "#" : "*", sx + 1, sy + 1, TEXT, 0.6f);
+                    g.pose().popPose();
+                }
                 if (mouseX >= sx && mouseX < sx + 16 && mouseY >= sy && mouseY < sy + 16) {
                     lastBrowsed = s;
                 }
@@ -472,9 +741,28 @@ public class BannedBlocksScreen extends HoloScreen {
         if (mx < x || my < y || mx >= x + LIST_COLS * CELL || my >= y + LIST_ROWS * CELL) {
             return null;
         }
-        int index = ((int) (my - y) / CELL + listScroll) * LIST_COLS + (int) (mx - x) / CELL;
-        List<String> entries = new ArrayList<>(banned.keySet());
-        return index < entries.size() ? entries.get(index) : null;
+        if (opened != null) {
+            return null; // an opened tag's items are not entries
+        }
+        List<Row> rows = rows();
+        int r = (int) (my - y) / CELL + listScroll, c = (int) (mx - x) / CELL;
+        if (r >= rows.size()) {
+            return null;
+        }
+        Row row = rows.get(r);
+        return row.group() != null ? row.group() : c < row.items().size() ? row.items().get(c) : null;
+    }
+
+    /** The item of the opened tag under the mouse, or null. */
+    @Nullable
+    private ItemStack memberAt(double mx, double my) {
+        int x = left() + LIST_X, y = top() + LIST_Y + CELL;
+        if (opened == null || mx < x || my < y || mx >= x + LIST_COLS * CELL || my >= y + (LIST_ROWS - 1) * CELL) {
+            return null;
+        }
+        int index = ((int) (my - y) / CELL + openScroll) * LIST_COLS + (int) (mx - x) / CELL;
+        List<ItemStack> items = openedItems();
+        return index < items.size() ? items.get(index) : null;
     }
 
     /** The browser block under the mouse, or null. */
@@ -494,8 +782,12 @@ public class BannedBlocksScreen extends HoloScreen {
         if (b != null) {
             return b;
         }
+        ItemStack m = memberAt(mx, my);
+        if (m != null) {
+            return m;
+        }
         String e = entryAt(mx, my);
-        return e == null ? null : icon(e);
+        return e == null || isGroup(e) ? null : icon(e); // a tag's line names itself; no item tooltip over it
     }
 
     private boolean overList(double mx, double my) {
@@ -567,7 +859,11 @@ public class BannedBlocksScreen extends HoloScreen {
     @Override
     protected boolean onScroll(double mx, double my, double delta) {
         if (overList(mx, my)) {
-            listScroll -= (int) Math.signum(delta);
+            if (opened != null) {
+                openScroll -= (int) Math.signum(delta) * 3; // a tag can hold thousands of items
+            } else {
+                listScroll -= (int) Math.signum(delta);
+            }
             return true;
         }
         if (overBrowser(mx, my)) {
@@ -583,12 +879,23 @@ public class BannedBlocksScreen extends HoloScreen {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (keyCode == 256 && opened != null) { // Esc: out of an opened tag first
+            closeOpened();
+            return true;
+        }
         if (keyCode == 256) { // Esc: back to the region screen
             onClose();
             return true;
         }
         if (search.isFocused()) {
             return search.keyPressed(keyCode, scanCode, modifiers) || search.canConsumeInput() || super.keyPressed(keyCode, scanCode, modifiers);
+        }
+        if (tagBox.isFocused()) {
+            if (keyCode == 257 || keyCode == 335) { // Enter: add the tag
+                addTag(tagBox.getValue());
+                return true;
+            }
+            return tagBox.keyPressed(keyCode, scanCode, modifiers) || tagBox.canConsumeInput() || super.keyPressed(keyCode, scanCode, modifiers);
         }
         return super.keyPressed(keyCode, scanCode, modifiers);
     }
@@ -609,6 +916,19 @@ public class BannedBlocksScreen extends HoloScreen {
     private static void inset(GuiGraphics g, int x, int y, int w, int h) {
         g.fill(x, y, x + w, y + h, INSET);
         frame(g, x, y, w, h, LINE);
+    }
+
+    /** A slot whose frame is dashed: an item banned as part of a tag or whole mod. */
+    private static void dashedSlot(GuiGraphics g, int x, int y, int colour) {
+        g.fill(x, y, x + 16, y + 16, SLOT);
+        for (int i = 0; i < 18; i += 3) {
+            int a = x - 1 + i, b = Math.min(a + 2, x + 17);
+            g.fill(a, y - 1, b, y, colour);
+            g.fill(a, y + 16, b, y + 17, colour);
+            int c = y - 1 + i, d = Math.min(c + 2, y + 17);
+            g.fill(x - 1, c, x, d, colour);
+            g.fill(x + 16, c, x + 17, d, colour);
+        }
     }
 
     private static void slot(GuiGraphics g, int x, int y, int border, boolean picked) {

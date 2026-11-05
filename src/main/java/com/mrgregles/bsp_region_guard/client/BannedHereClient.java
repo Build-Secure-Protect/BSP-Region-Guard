@@ -8,9 +8,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.screens.ChatScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 import net.minecraftforge.fml.ModList;
 import net.minecraftforge.registries.ForgeRegistries;
 import org.jetbrains.annotations.Nullable;
@@ -111,12 +109,13 @@ public final class BannedHereClient {
         Map<String, String> modNames = new HashMap<>();
         List<Banned> out = new ArrayList<>();
         if (msg.any()) {
-            for (Item item : ForgeRegistries.ITEMS) {
-                ResourceLocation id = ForgeRegistries.ITEMS.getKey(item);
-                if (item == Items.AIR || id == null) {
+            Map<String, String> every = new LinkedHashMap<>();
+            entries.values().forEach(every::putAll);
+            for (ItemStack stack : BannedBlocks.itemsMatching(every)) { // the same opening of tags and mods as the admin tab
+                ResourceLocation id = ForgeRegistries.ITEMS.getKey(stack.getItem());
+                if (id == null) {
                     continue;
                 }
-                ItemStack stack = new ItemStack(item);
                 EnumSet<BannedBlocks.Rule> rules = EnumSet.noneOf(BannedBlocks.Rule.class);
                 for (var e : entries.entrySet()) {
                     if (BannedBlocks.match(e.getValue(), stack) != null) {
