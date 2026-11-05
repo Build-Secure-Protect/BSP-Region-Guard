@@ -5,8 +5,8 @@
 **World protection, banned blocks, land claims with eye-catching plot markers, a map that draws and edits every region, automated mines and linked servers for Minecraft 1.20.1, all run from in-game screens.**
 
 BSP Region Guard looks after the world on a Build Secure Protect server:
-- Admins draw regions and decide what may happen inside them, down to which blocks and items may be placed, used, broken or even carried in.
-- Players buy land and run their own plots. Plots for sale stand out in the world with a marker and their name until someone buys them.
+- Admins draw regions and decide what may happen inside them, down to which blocks and items may be placed, used, broken or even carried in. Players can always look up what's banned where they stand.
+- Players buy land and run their own plots. Plots for sale stand out in the world with a marker and their name until someone buys them, and each Land Office can sell its own chosen plots.
 - Admins draw, reshape, copy, move and back up regions, plots and mines on one full-window map.
 - Mines refill themselves on a timer, from blocks picked in a creative-style browser.
 - Several servers share regions, and players can walk from one server's world into the next.
@@ -88,7 +88,7 @@ When regions overlap, the one with the **higher priority** decides. A region lef
 
 ![How a rule is decided](https://raw.githubusercontent.com/Build-Secure-Protect/BSP-Region-Guard/main/docs/curseforge/images/flags_diagram.png)
 
-### The 114 flags
+### The 115 flags
 
 | Group | Flags |
 |---|---|
@@ -97,7 +97,7 @@ When regions overlap, the one with the **higher priority** decides. A region lef
 | **Explosions and mobs** | `tnt`, `creeper-explosion`, `ghast-fireball`, `wither-damage`, `enderdragon-block-damage`, `other-explosion`, `enderman-grief`, `ravager-grief`, `snowman-trails`, `mob-spawning`, `deny-spawn`, `entity-painting-destroy`, `entity-item-frame-destroy` |
 | **Fire and nature** | `fire-spread`, `fire-burn`, `lava-fire`, `lightning`, `water-flow`, `lava-flow`, `snow-fall`, `snow-melt`, `ice-form`, `ice-melt`, `frosted-ice-form`, `frosted-ice-melt`, `crop-growth`, `grass-growth`, `mycelium-spread`, `vine-growth`, `mushroom-growth`, `leaf-decay`, `rock-growth`, `sculk-growth`, `soil-dry`, `coral-fade`, `copper-fade`, `dispenser-use`, `falling-blocks` |
 | **Coming and going** | `entry`, `exit`, `exit-via-teleport`, `exit-override`, `entry-deny-message`, `exit-deny-message`, `greeting`, `farewell`, `greeting-title`, `farewell-title`, `notify-enter`, `notify-leave`, `enderpearl`, `chorus-fruit-teleport`, `teleport`, `spawn`, `teleport-message`, `allowed-ranks` |
-| **Map making** | `item-pickup`, `item-drop`, `exp-drops`, `deny-message`, `game-mode`, `time-lock`, `weather-lock`, `natural-health-regen`, `natural-hunger-drain`, `heal-delay`, `heal-amount`, `heal-min-health`, `heal-max-health`, `feed-delay`, `feed-amount`, `feed-min-hunger`, `feed-max-hunger`, `blocked-cmds`, `allowed-cmds`, `send-chat`, `receive-chat` |
+| **Map making** | `item-pickup`, `item-drop`, `exp-drops`, `deny-message`, `game-mode`, `time-lock`, `weather-lock`, `natural-health-regen`, `natural-hunger-drain`, `heal-delay`, `heal-amount`, `heal-min-health`, `heal-max-health`, `feed-delay`, `feed-amount`, `feed-min-hunger`, `feed-max-hunger`, `blocked-cmds`, `allowed-cmds`, `send-chat`, `receive-chat`, `sale-group` |
 | **BSP** | `border-warning`, `border-message`, `teleport-in`, `teleport-out`, `set-home`, `totem-place`, `totem-drop`, `mine-only-break` |
 | **Banned blocks** (section 6) | `deny-place`, `deny-use`, `deny-break`, `deny-carry` |
 
@@ -131,7 +131,15 @@ The BORDER tab also has a **PLOTS HERE** card that decides land for players in t
 - **Rank-gated mines** unlock better ores at higher ranks.
 - **Claim limits** rise with rank: 3 claims per world by default, more for higher groups (`claims.limitsByRank`).
 
-Without RankUp, give groups by hand in LuckPerms and everything works the same.
+**Players are told the rank they need.** A player turned back at a ranked region sees why in the middle of the screen, the way `/title` shows text:
+- A rank on a BSP-RankUp ladder is named with where they stand: "You need Knight to enter", and under it "You are Squire: 200 more points." or "You are Peasant, 2 ranks to go.".
+- A rank on no ladder: "You need to be VIP to enter".
+- **Higher ranks get in too:** list only the lowest rank that may enter, and every rank above it on the ladder passes, even when the LuckPerms groups don't inherit from each other.
+- A region's own `entry-deny-message` still wins; `{rank}` in it becomes the rank needed.
+
+![The rank needed, shown at a ranked mine's edge](https://raw.githubusercontent.com/Build-Secure-Protect/BSP-Region-Guard/main/docs/curseforge/images/rank_title.png)
+
+Without RankUp, give groups by hand in LuckPerms and everything works the same; the refusal then names the LuckPerms groups.
 
 ## 6. Banned blocks: keep chosen blocks and items out
 
@@ -177,6 +185,20 @@ Every change saves at once.
 - **Where:** bans add up. A block banned by a region, its parent or the world default is banned everywhere beneath, so banning TNT on the world default bans it in the whole world, and a smaller region can't lift it.
 - **By command:** `/rg flag spawn deny-carry minecraft:tnt,@create`. Entries are ids, whole mods (`@create` or `create:*`) or tags (`#minecraft:beds`).
 
+**Players can see what's banned.** Nobody has to find out by trying to place something:
+- **The BANNED button.** While you stand where anything is banned, a BANNED button shows in the top left of your inventory, beside BSP-Core's TEAM and KITS buttons. Point at it to see which region's list it is; click it to open BANNED HERE. Players who don't want it can turn it off with `ui.bannedButton = false` in `config/bsp_region_guard-client.toml`.
+
+![The BANNED button in the inventory](https://raw.githubusercontent.com/Build-Secure-Protect/BSP-Region-Guard/main/docs/curseforge/images/banned_button.png)
+
+- **BANNED HERE** shows every banned item in one grid, grouped by mod. Tags and whole mods are opened up into their items, matched just as the server checks them.
+  - **Search** works as in JEI (`@mekanism`).
+  - **Chips** show one rule at a time, with counts: PLACE, USE, BREAK, BRING IN.
+  - **Point at an item** and the card underneath shows which rules stop it.
+- **Before and after buying:** the Land Office's plot card says how many things are banned on a plot and has a BANNED key, and the "you bought it" window says it again with a BANNED HERE button (section 7).
+- **By command:** `/claim banned` for where you stand, `/claim banned <plot>` for a plot.
+
+![The BANNED HERE list](https://raw.githubusercontent.com/Build-Secure-Protect/BSP-Region-Guard/main/docs/curseforge/images/banned_here.png)
+
 ## 7. Land for players: claims
 
 Admins sell land in two ways:
@@ -189,11 +211,19 @@ Admins sell land in two ways:
 1. A player takes the plot tool (`/claim tool`) and clicks two corners.
 2. BSP-Core's **Land Office** opens with that ground drawn on a map, priced, and with nearby claims shown.
 3. The player buys it there.
-4. A window asks whether to **TELEPORT** to the middle of the new plot (or to its teleport point), or **STAY**.
+4. A window asks whether to **TELEPORT** to the middle of the new plot (or to its teleport point), or **STAY**. If anything is banned there, it says how many blocks and items, with a **BANNED HERE** button.
 
-Plots for sale are bought at the Land Office block too, with the same offer to teleport.
+Plots for sale are bought at the Land Office block too, with the same offer to teleport. Its plot card shows "N BANNED" under the price and a **BANNED** key, so players know a plot's bans before they pay.
 
-![The offer to teleport after buying](https://raw.githubusercontent.com/Build-Secure-Protect/BSP-Region-Guard/main/docs/curseforge/images/plot_bought.png)
+![The window after buying, with the plot's banned count](https://raw.githubusercontent.com/Build-Secure-Protect/BSP-Region-Guard/main/docs/curseforge/images/plot_bought.png)
+
+**Which plots each Land Office sells.** By default a Land Office lists every plot for sale and open area in its world. Admins can give each office its own list in the **OFFICE PLOTS** window: sneak and right-click the Land Office with the Region Wand, or press the **ADMIN** key on the Land Office screen (only admins and operators see it).
+- **EVERY PLOT** or **CHOSEN:** a CHOSEN office lists the plots ticked there and every plot in the sale groups ticked there. Tick a plot in the list or click it on the map.
+- **Sale groups:** put plots in a group ("market", "spawn") on the PLOTS tab or with `/rg flag <plot> sale-group market`, then tick the group on the GROUPS tab. Several offices can list the same group.
+- **Copies and renames:** a copy of a ticked plot made on the region map is ticked at the same offices and keeps its group; a renamed plot stays ticked. A broken Land Office forgets its list.
+- An office sells only what it lists, even if a player's game asks for another plot.
+
+![The OFFICE PLOTS window](https://raw.githubusercontent.com/Build-Secure-Protect/BSP-Region-Guard/main/docs/curseforge/images/office_plots.png)
 
 **Plots for sale stand out.** Every plot for sale and open area shows to every player in its own colour, with a marker over its middle carrying its name, until it's bought; then it disappears so it's never in the new owner's way:
 - **ARROW** (the default): a big arrow pointing down at the ground, 20% see-through, with the name above it.
@@ -317,7 +347,7 @@ On a network of servers, turn on the optional **shared storage**:
 - **MySQL:** every server keeps its own regions and can see everyone else's.
 - **Redis:** carries messages (mine resets, triggers, travellers) between servers in milliseconds, with MySQL as a safety net.
 
-A single server needs neither. Region Guard bundles no database or Redis library, so nothing clashes with Mohist or other mods.
+A single server needs neither. Region Guard bundles no database or Redis library, so nothing clashes with Mohist or other mods. The connection details and passwords live in their own file, `config/bsp_region_guard-network.toml`, which is never sent to players.
 
 ![One network, many servers](https://raw.githubusercontent.com/Build-Secure-Protect/BSP-Region-Guard/main/docs/curseforge/images/network.png)
 
@@ -341,7 +371,7 @@ When a player reaches a linked edge, a window asks whether to travel:
 
 ### BSP-Core (required)
 - **Money:** claims are paid from the **BSP-Core bank** in Shatter Pieces, or in **Shatter Coins** from the inventory if you choose. Refunds go back the same way.
-- **The Land Office:** BSP-Core's land shop. Outline ground with the plot tool and it opens with the price, in pieces or coins; buy, enlarge or give up there. It also shows plots for sale and your neighbours' claims.
+- **The Land Office:** BSP-Core's land shop. Outline ground with the plot tool and it opens with the price, in pieces or coins; buy, enlarge or give up there. It also shows plots for sale and your neighbours' claims, each plot's banned count with a BANNED key, and for admins an ADMIN key that chooses which plots that office sells.
 - **Admins:** BSP-Core's admin list decides who runs Region Guard.
 - **Shatter Totems:** regions never stop a steal near another player's placed totem. BSP-Core's Anti Totem zones and Region Guard regions work together for totem placing, teleports and homes.
 
@@ -352,6 +382,7 @@ When a player reaches a linked edge, a window asks whether to travel:
 
 ### BSP-RankUp (optional)
 - **Ranks open land:** RankUp's ranks are LuckPerms groups, the same ones Region Guard's rank gates read. Ranking up lets players into new regions and mines and raises how many claims they may own.
+- **The rank needed:** a player turned back is told the rank they need on the ladder and how far they have to go.
 - **Server name:** on a network, RankUp picks up Region Guard's server name.
 
 ### LuckPerms (optional)
@@ -381,6 +412,7 @@ When a player reaches a linked edge, a window asks whether to travel:
 | `/rg border set <width> [x z]`, `/rg border off`, `/rg border link ...` | the world border and edge links |
 | `/rg mine ...` | fill table, interval, spawn, shell, reset |
 | `/rg sale ...`, `/rg plotflags ...` | plots for sale and open areas |
+| `/rg flag <plot> sale-group <name>` | put a plot in a sale group for the Land Offices (`clear` takes it out) |
 | `/rg look <id> <part> <value>` | a plot for sale's marker: the part is `marker`, `colour`, `size`, `namesize` or `height`; `/rg look <id>` shows its look |
 | `/rg cointier <id> <tier>` | the coin tier a plot or open area is priced in (with `claims.currency = "coins"`) |
 | `/rg plotlimit <id> <number>` | how many plots one player may own inside a region (`none` removes the limit; `__global__`: in the world) |
@@ -391,13 +423,15 @@ When a player reaches a linked edge, a window asks whether to travel:
 | `/rg storage`, `/rg servers` | shared storage status |
 | `/claim gui`, `/claim tool`, `/claim list`, `/claim quote` | your claims, the plot tool, prices |
 | `/claim add`, `/claim remove`, `/claim flag`, `/claim abandon` | members, rules, giving a claim up |
+| `/claim banned [plot]` | what's banned where you stand, or on a plot |
 
 ## For developers
 
-Other mods can use Region Guard through its public API (`com.mrgregles.bsp_region_guard.api`, version 6):
+Other mods can use Region Guard through its public API (`com.mrgregles.bsp_region_guard.api`, version 8):
 - **Questions:** ask whether a flag allows something at a spot; read flag values, region bounds and the world border.
 - **Extending it:** register your own flags and exemptions.
-- **Claims and mines:** work with claims (listings, quotes, purchases, prices in pieces or coins) and mines.
+- **Claims and mines:** work with claims (listings, per Land Office too, quotes, purchases, prices in pieces or coins) and mines.
+- **Player screens:** open BANNED HERE or OFFICE PLOTS from your own screens (`api.client`).
 - **Messages:** send messages to the other servers.
 - **Events:** players entering and leaving regions, triggers, claims bought and abandoned, and mine resets.
 

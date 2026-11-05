@@ -1,0 +1,68 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="size" content="452x268"><link rel="stylesheet" href="holo.css">
+<style>
+/* Laid out from client/OfficePlotsScreen.java (420 x 236): the list at (8, 66) 194 wide in rows of 12, the map at (208, 52) 204 x 160. */
+.box { position: absolute; width: 8px; height: 8px; background: var(--inset); border: 1px solid var(--line); }
+.box.on { border-color: var(--tq); background: rgba(25, 211, 176, .2); }
+.box.on::after { content: ""; position: absolute; left: 1px; top: 1px; width: 4px; height: 4px; background: var(--tq); }
+.p { position: absolute; border: 1px solid; }
+</style></head>
+<body>
+<div class="world"></div>
+<div class="screen" style="left:16px;top:16px;width:420px;height:236px" id="s">
+    <div class="abs t1 tq" style="left:8px;top:8px">OFFICE PLOTS</div>
+    <div class="abs t6 muted" style="left:90px;top:10px">Land Office at 128, 70, -42 - sanctuary</div>
+    <div class="chip" style="left:368px;top:6px;width:44px;height:12px;font-size:8px;color:var(--text)">DONE</div>
+    <div class="abs t6 muted" style="left:8px;top:26px">LISTS</div>
+    <div class="chip" style="left:40px;top:23px;width:62px;height:12px">EVERY PLOT</div>
+    <div class="chip on" style="left:104px;top:23px;width:62px;height:12px">CHOSEN</div>
+    <div class="abs t6 text" style="left:172px;top:26px">7 of 12 plots listed here</div>
+    <div class="chip" style="left:8px;top:38px;width:60px;height:11px;color:var(--text);border-color:var(--text);background:rgba(230,234,242,.1)">PLOTS</div>
+    <div class="chip" style="left:70px;top:38px;width:60px;height:11px">GROUPS</div>
+    <div class="inset" style="left:8px;top:52px;width:194px;height:14px"><span class="abs t6 hint" style="left:4px;top:4px">Search plots or groups</span></div>
+    <div class="inset" style="left:8px;top:66px;width:194px;height:62px"></div>
+    <div class="inset" style="left:208px;top:52px;width:204px;height:160px"></div>
+    <div class="abs t5 hint" style="left:208px;top:215px">Click a plot to tick it. Teal: ticked. Gold: in a ticked group.</div>
+    <div class="abs t6 hint" style="left:8px;top:224px">Lists the ticked plots and every plot in the ticked groups. Copies of a ticked plot are ticked too.</div>
+</div>
+<script>
+const s = document.getElementById('s');
+const add = h => s.insertAdjacentHTML('beforeend', h);
+// [id, group, ticked, x, z] on a 16-block grid; the office sits in the middle of the market street
+const plots = [
+  ['sanctuary_plot_1', '', true, 0, 0], ['sanctuary_plot_2', '', true, 1, 0], ['sanctuary_plot_3', '', true, 2, 0],
+  ['sanctuary_plot_4', '', false, 3, 0], ['sanctuary_plot_5', '', false, 4, 0],
+  ['market_stall_1', 'market', false, 0, 1], ['market_stall_2', 'market', false, 1, 1], ['market_stall_3', 'market', false, 2, 1],
+  ['market_stall_4', 'market', false, 3, 1], ['spawn_shop_1', 'spawn', false, 0, 2], ['spawn_shop_2', 'spawn', false, 1, 2], ['spawn_shop_3', 'spawn', false, 2, 2],
+];
+const listed = p => p[2] || p[1] === 'market';
+// the list: 9 rows less 4 when a plot is picked (sanctuary_plot_3 is picked)
+plots.slice(0, 5).forEach((p, i) => {
+  const y = 67 + i * 12;
+  if (p[0] === 'sanctuary_plot_3') add(`<div class="abs" style="left:9px;top:${y}px;width:192px;height:12px;background:rgba(25,211,176,.13)"></div>`);
+  add(`<div class="box${p[2] ? ' on' : ''}" style="left:11px;top:${y + 2}px"></div>`);
+  add(`<div class="abs t6 ${listed(p) ? 'text' : 'muted'}" style="left:24px;top:${y + 3}px">${p[0]}</div>`);
+  add(`<div class="abs t5 ${p[1] === 'market' ? 'gold' : 'hint'}" style="right:${420 - 197}px;top:${y + 4}px">${p[1] ? p[1] + '&nbsp;&nbsp;' : ''}16x16</div>`);
+});
+add('<div class="chip" style="left:8px;top:134px;width:70px;height:11px;font-size:5.8px;color:var(--tq)">TICK ALL SHOWN</div>');
+add('<div class="chip" style="left:80px;top:134px;width:40px;height:11px;font-size:5.8px">CLEAR</div>');
+add('<div class="abs t5 muted" style="left:8px;top:149px">Group of sanctuary_plot_3:</div>');
+[['no group', 40, true], ['market', 32, false], ['spawn', 28, false], ['sanctuary', 40, false]].reduce((x, [g, w, on]) => {
+  add(`<div class="chip${on ? ' gold' : ''}" style="left:${x}px;top:158px;width:${w}px;height:11px;font-size:5.8px">${g}</div>`);
+  return x + w + 2;
+}, 8);
+// the map
+const ox = 222, oz = 66, cell = 34;
+plots.forEach(p => {
+  const c = p[2] ? 'var(--tq)' : p[1] === 'market' ? 'var(--gold)' : 'var(--dim)';
+  const bg = p[2] ? 'rgba(25,211,176,.27)' : p[1] === 'market' ? 'rgba(255,210,58,.27)' : 'rgba(74,80,96,.27)';
+  const sel = p[0] === 'sanctuary_plot_3' ? ';border-color:#fff' : '';
+  add(`<div class="p" style="left:${ox + p[3] * cell}px;top:${oz + p[4] * 46}px;width:${cell - 4}px;height:${cell - 4}px;border-color:${c};background:${bg}${sel}"></div>`);
+});
+add(`<div class="abs" style="left:${ox + 4 * cell + 2}px;top:${oz + 46 + 12}px;width:5px;height:5px;background:#ffb84d"></div>`);
+add(`<div class="abs t5" style="left:${ox + 4 * cell - 6}px;top:${oz + 46 + 20}px;color:#ffb84d">Land Office</div>`);
+// a tooltip over a market stall
+add(`<div class="abs" style="left:${ox + 1 * cell + 18}px;top:${oz + 46 + 18}px;background:rgba(16,0,16,.94);border:1px solid #2b0e5a;padding:3px 4px;white-space:nowrap;line-height:1.25">
+  <div class="t6 text">market_stall_2</div><div class="t6 muted">group market</div><div class="t6 tq">listed at this office</div></div>`);
+</script>
+</body></html>

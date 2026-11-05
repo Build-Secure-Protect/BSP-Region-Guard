@@ -1,0 +1,31 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="size" content="340x190"><link rel="stylesheet" href="holo.css">
+<style>
+/* The inventory's top left (client/BannedInventoryButton.java): BSP-Core's TEAM and KITS, then BANNED, each 40 x 14 with a gap of 2. */
+.corner { position: absolute; width: 40px; height: 14px; background: #10151c; border: 1px solid #2a2f3a; color: var(--muted);
+    font-size: 8px; display: flex; align-items: center; justify-content: center; }
+.corner.hot { border-color: var(--tq); color: var(--tq); }
+.inv { position: absolute; background: #c6c6c6; border: 2px solid; border-color: #fff #555 #555 #fff; box-shadow: 0 0 0 1px #000; }
+.s { position: absolute; width: 18px; height: 18px; background: #8b8b8b; border: 1px solid; border-color: #373737 #fff #fff #373737; box-sizing: border-box; }
+.tip { position: absolute; background: rgba(16, 0, 16, 0.94); border: 1px solid #2b0e5a; padding: 3px 4px; font-size: 8px; color: #fff; white-space: nowrap; box-shadow: inset 0 0 0 1px #25034d; }
+</style></head>
+<body>
+<div class="world"></div>
+<div class="corner" style="left:2px;top:2px">TEAM</div>
+<div class="corner" style="left:44px;top:2px">KITS</div>
+<div class="corner hot" style="left:86px;top:2px">BANNED</div>
+<svg class="abs" style="left:112px;top:10px;width:9px;height:12px" viewBox="0 0 9 12"><polygon points="0,0 0,10 3,7.5 5,11.5 6.6,10.8 4.7,7 8.5,7" fill="#fff" stroke="#000" stroke-width=".7"/></svg>
+<div class="tip" style="left:122px;top:20px">Blocks and items banned in Sanctuary Plot 3. Click to see them.</div>
+<!-- the survival inventory, 176 x 166, in the middle -->
+<div class="inv" id="inv" style="left:82px;top:40px;width:176px;height:146px"></div>
+<script>
+const inv = document.getElementById('inv');
+const add = h => inv.insertAdjacentHTML('beforeend', h);
+add('<div class="abs" style="left:24px;top:6px;width:50px;height:70px;background:#000"></div>');
+for (let i = 0; i < 4; i++) add(`<div class="s" style="left:6px;top:${6 + i * 18}px"></div>`);
+add('<div class="abs" style="left:96px;top:14px;font-size:8px;color:#404040">Crafting</div>');
+for (let r = 0; r < 2; r++) for (let c = 0; c < 2; c++) add(`<div class="s" style="left:${96 + c * 18}px;top:${24 + r * 18}px"></div>`);
+add('<div class="s" style="left:152px;top:34px"></div>');
+for (let r = 0; r < 3; r++) for (let c = 0; c < 9; c++) add(`<div class="s" style="left:${6 + c * 18}px;top:${82 + r * 18}px"></div>`);
+</script>
+</body></html>

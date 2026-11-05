@@ -1,0 +1,22 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="size" content="340x170"><link rel="stylesheet" href="holo.css">
+<style>
+/* An entry refusal shown as /title shows text (protection/Protection.tellTitle): the title large, the subtitle under it, both white with a shadow. */
+.mc { position: absolute; left: 0; width: 340px; text-align: center; color: #fff; text-shadow: 1.2px 1.2px 0 #3f3f3f; white-space: nowrap; }
+.gate { position: absolute; border: 1px solid var(--gold); background: rgba(255, 210, 58, 0.10); }
+.hotbar { position: absolute; left: 79px; top: 148px; width: 182px; height: 22px; background: rgba(0,0,0,.45); border: 1px solid #555; }
+.hotbar i { position: absolute; top: 1px; width: 18px; height: 18px; border: 1px solid #8b8b8b; box-sizing: border-box; }
+</style></head>
+<body>
+<div class="world"></div>
+<!-- the ranked mine's edge in front of the player -->
+<div class="gate" style="left:96px;top:78px;width:148px;height:58px;transform:perspective(120px) rotateX(18deg)"></div>
+<div class="abs t6 gold" style="left:0;width:340px;top:128px;text-align:center">diamond_mine</div>
+<div class="mc" style="top:42px;font-size:20px">You need Knight to enter</div>
+<div class="mc" style="top:66px;font-size:10.5px">You are Squire: 200 more points.</div>
+<div class="hotbar" id="hb"></div>
+<script>
+const hb = document.getElementById('hb');
+for (let i = 0; i < 9; i++) hb.insertAdjacentHTML('beforeend', `<i style="left:${1 + i * 20}px;${i === 0 ? 'border-color:#fff' : ''}"></i>`);
+</script>
+</body></html>
