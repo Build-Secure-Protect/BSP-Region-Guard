@@ -40,6 +40,8 @@ public final class Region {
      * and an older Region Guard reading it never takes it for the world default (which has no box at all).
      */
     public static final Cuboid NO_CORNERS = new Cuboid(0, -30000, 0, 0, -30000, 0);
+    /** Saved on every region since plot owner flags; a region without it gets its build denies kept for owners (D166). */
+    public static final String OWNER_FLAGS_FORMAT = "ownerFlagsFormat";
 
     private final String id;
     private final ResourceKey<Level> dimension;
@@ -59,6 +61,8 @@ public final class Region {
     private CompoundTag typeData = new CompoundTag();
     private long updatedAt;
     private int version;
+    /** Read from a save made before plot owner flags (D166); {@link com.mrgregles.bsp_region_guard.claim.OwnerFlags#migrate} clears it. */
+    private boolean beforeOwnerFlags;
 
     public Region(String id, ResourceKey<Level> dimension, @Nullable Cuboid bounds, RegionType type) {
         this.id = validateId(id);
@@ -272,6 +276,15 @@ public final class Region {
         return version;
     }
 
+    /** True for a region saved before plot owner flags existed, until its build denies have been looked at (D166). */
+    public boolean beforeOwnerFlags() {
+        return beforeOwnerFlags;
+    }
+
+    public void ownerFlagsChecked() {
+        beforeOwnerFlags = false;
+    }
+
     /** Called by the store whenever the region is saved after a change. */
     void bumpVersion() {
         version++;
@@ -305,6 +318,7 @@ public final class Region {
         }
         tag.putLong("updatedAt", updatedAt);
         tag.putInt("version", version);
+        tag.putInt(OWNER_FLAGS_FORMAT, 1);
         return tag;
     }
 
@@ -341,6 +355,7 @@ public final class Region {
         }
         r.updatedAt = tag.getLong("updatedAt");
         r.version = tag.getInt("version");
+        r.beforeOwnerFlags = !tag.contains(OWNER_FLAGS_FORMAT);
         return r;
     }
 

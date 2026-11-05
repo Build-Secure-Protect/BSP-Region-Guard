@@ -120,6 +120,9 @@ public final class RegionStore extends SavedData {
         } else {
             index.add(region);
         }
+        if (com.mrgregles.bsp_region_guard.claim.OwnerFlags.migrate(this, region)) { // from shared storage or a wipe backup (D166)
+            BSPRegionGuard.LOGGER.info("Plot owner flags: kept the build denies of {} for its owners too (D166)", region.id());
+        }
         region.bumpVersion();
         changed();
     }
@@ -302,6 +305,21 @@ public final class RegionStore extends SavedData {
             }
         }
         store.reindex();
+        int changed = 0;
+        boolean old = false;
+        for (Region r : store.regions.values()) {
+            old |= r.beforeOwnerFlags();
+            if (com.mrgregles.bsp_region_guard.claim.OwnerFlags.migrate(store, r)) {
+                r.bumpVersion(); // newer than the shared storage's copy, so the next reconcile pushes it
+                changed++;
+            }
+        }
+        if (changed > 0) {
+            BSPRegionGuard.LOGGER.info("Plot owner flags: kept the build denies of {} plot(s) in {} for their owners too (D166)", changed, dimension.location());
+        }
+        if (old) {
+            store.setDirty();
+        }
         return store;
     }
 }

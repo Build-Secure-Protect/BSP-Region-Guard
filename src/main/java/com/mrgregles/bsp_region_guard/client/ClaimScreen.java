@@ -36,6 +36,8 @@ public class ClaimScreen extends HoloScreen {
     /** Flag name to the language key of its plain sentence on this screen. */
     private static final Map<String, String> SENTENCES = new LinkedHashMap<>();
     private static final Map<String, String> MESSAGES = new LinkedHashMap<>();
+    /** The member flags shown on the card (D162), flag name to the language key of its sentence; the rest by command. */
+    private static final Map<String, String> MEMBER_SENTENCES = new LinkedHashMap<>();
 
     static {
         SENTENCES.put("entry", "strangers_may_enter");
@@ -54,6 +56,18 @@ public class ClaimScreen extends HoloScreen {
         SENTENCES.put("item-pickup", "items_may_be_picked_up");
         SENTENCES.put("fire-spread", "fire_spreads");
         SENTENCES.put("tnt", "tnt_explodes");
+        MEMBER_SENTENCES.put("build", "members_may_build");
+        MEMBER_SENTENCES.put("block-break", "members_may_break_blocks");
+        MEMBER_SENTENCES.put("block-place", "members_may_place_blocks");
+        MEMBER_SENTENCES.put("chest-access", "members_may_open_chests");
+        MEMBER_SENTENCES.put("use", "members_may_use_doors_and_switches");
+        MEMBER_SENTENCES.put("interact", "members_may_use_machines_and_animals");
+        MEMBER_SENTENCES.put("ride", "members_may_ride");
+        MEMBER_SENTENCES.put("sleep", "members_may_sleep_here");
+        MEMBER_SENTENCES.put("lighter", "members_may_use_lighters");
+        MEMBER_SENTENCES.put("damage-animals", "members_may_hurt_animals");
+        MEMBER_SENTENCES.put("item-drop", "members_may_drop_items");
+        MEMBER_SENTENCES.put("item-pickup", "members_may_pick_up_items");
         MESSAGES.put("greeting", "on_entering");
         MESSAGES.put("farewell", "on_leaving");
         MESSAGES.put("entry-deny-message", "when_refused");
@@ -74,6 +88,8 @@ public class ClaimScreen extends HoloScreen {
     private List<String> allowed;
     private int limit;
     private boolean confirmGiveUp;
+    /** D162: the RULES group shows what members may do instead of what strangers may. */
+    private boolean memberRules;
     private boolean zoomedByHand;
     private EditBox input;
     private Input inputMode = Input.NONE;
@@ -248,6 +264,10 @@ public class ClaimScreen extends HoloScreen {
 
     /** An on / off / grey switch. {@code value} is "allow", "deny" or null (follow the area). */
     private void toggle(GuiGraphics g, int x, int y, String sentence, @Nullable String value, String flagName) {
+        toggle(g, x, y, sentence, value, flagName, ClaimActionPacket.FLAG);
+    }
+
+    private void toggle(GuiGraphics g, int x, int y, String sentence, @Nullable String value, String flagName, String action) {
         int colour = "allow".equals(value) ? TQ : "deny".equals(value) ? BAD : LINE;
         g.fill(x, y, x + 14, y + 7, INSET);
         frame(g, x, y, 14, 7, colour);
@@ -255,7 +275,7 @@ public class ClaimScreen extends HoloScreen {
         g.fill(knob, y + 1, knob + 5, y + 6, "allow".equals(value) ? TQ : "deny".equals(value) ? BAD : MUTED);
         text(g, sentence, x + 18, y, value == null ? MUTED : TEXT, 0.75f);
         String next = value == null ? "allow" : "allow".equals(value) ? "deny" : "";
-        hits.add(new Hit(x, y - 1, 100, 9, () -> act(ClaimActionPacket.FLAG, flagName, next)));
+        hits.add(new Hit(x, y - 1, 100, 9, () -> act(action, flagName, next)));
     }
 
     @Override
@@ -336,9 +356,24 @@ public class ClaimScreen extends HoloScreen {
         chip(g, cx, cy, 28, 10, Tr.t("add_member"), inputMode == Input.PLAYER, TQ, 0.6f, () -> openInput(Input.PLAYER, "", Tr.t("player_name_enter_to_add")));
 
         int fy = cy + 18;
-        text(g, Tr.t("rules"), rx, fy, TQ, 0.6f);
-        text(g, Tr.t("grey_follow_the_area_s_rule"), rx + 40, fy, HINT, 0.5f);
+        boolean lists = d != null && d.data().containsKey("lists.flags");
+        if (lists) {
+            // D162: VISITORS (what strangers may do) or MEMBERS (what the owner lets members do)
+            chip(g, rx, fy - 2, 40, 10, Tr.t("list.visitors"), !memberRules, TEXT, 0.5f, () -> memberRules = false);
+            chip(g, rx + 42, fy - 2, 40, 10, Tr.t("list.members"), memberRules, VIO, 0.5f, () -> memberRules = true);
+            text(g, Tr.t("grey_follow_the_area_s_rule"), rx + 88, fy, HINT, 0.5f);
+        } else {
+            memberRules = false;
+            text(g, Tr.t("rules"), rx, fy, TQ, 0.6f);
+            text(g, Tr.t("grey_follow_the_area_s_rule"), rx + 40, fy, HINT, 0.5f);
+        }
         fy += 9;
+        if (memberRules) {
+            drawMemberRules(g, rx, fy, d);
+            drawFooter(g, x, y, rx, d);
+            super.draw(g, mouseX, mouseY, partial);
+            return;
+        }
         List<String> switches = new ArrayList<>(), messages = new ArrayList<>(), others = new ArrayList<>();
         for (String name : allowed) {
             Flag<?> f = FlagRegistry.get(name);
@@ -395,6 +430,44 @@ public class ClaimScreen extends HoloScreen {
             fy += 15;
         }
 
+        drawFooter(g, x, y, rx, d);
+        super.draw(g, mouseX, mouseY, partial);
+    }
+
+    /**
+     * What members may do (D162): the owner's choice, grey for the plot's starting value. A flag the plot denies
+     * for owners is shown faded with "set by the plot" and can't be changed.
+     */
+    private void drawMemberRules(GuiGraphics g, int rx, int fy, @Nullable RegionDetailPacket d) {
+        Map<String, String> set = RegionScreen.listValues(d, "lists.memberSet");
+        java.util.Set<String> locked = RegionScreen.listNames(d, "lists.locked");
+        int col = 0;
+        for (Map.Entry<String, String> e : MEMBER_SENTENCES.entrySet()) {
+            String name = e.getKey();
+            String sentence = font.plainSubstrByWidth(Tr.t(e.getValue()), 120);
+            int tx = rx + col * 112;
+            if (locked.contains(name)) {
+                g.fill(tx, fy, tx + 14, fy + 7, INSET);
+                frame(g, tx, fy, 14, 7, LINE);
+                text(g, sentence, tx + 18, fy, HINT, 0.75f);
+            } else {
+                toggle(g, tx, fy, sentence, set.get(name), name, ClaimActionPacket.MEMBER_FLAG);
+            }
+            if (++col == 2) {
+                col = 0;
+                fy += 11;
+            }
+        }
+        if (col == 1) {
+            fy += 11;
+        }
+        if (!locked.isEmpty()) {
+            text(g, Tr.t("members_set_by_plot"), rx, fy + 2, HINT, 0.5f);
+        }
+    }
+
+    /** The message input, the refund line, GIVE UP and the closing hint. */
+    private void drawFooter(GuiGraphics g, int x, int y, int rx, @Nullable RegionDetailPacket d) {
         if (inputMode != Input.NONE) {
             int ix = rx, iy = y + H - 48;
             g.fill(ix, iy, ix + RIGHT_W, iy + 16, BG);
@@ -420,7 +493,6 @@ public class ClaimScreen extends HoloScreen {
             }
         });
         text(g, Tr.t("changes_save_at_once_esc_closes"), x + 10, y + H - 14, MUTED, 0.6f);
-        super.draw(g, mouseX, mouseY, partial);
     }
 
     /** With no claim selected: the plots for sale and open areas the server lists for this player. */

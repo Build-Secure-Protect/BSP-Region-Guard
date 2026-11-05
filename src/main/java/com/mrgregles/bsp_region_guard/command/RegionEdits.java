@@ -5,11 +5,13 @@ import com.mrgregles.bsp_region_guard.api.Cuboid;
 import com.mrgregles.bsp_region_guard.api.event.RegionTriggerEvent;
 import com.mrgregles.bsp_region_guard.claim.ClaimData;
 import com.mrgregles.bsp_region_guard.claim.ClaimFlags;
+import com.mrgregles.bsp_region_guard.claim.OwnerFlags;
 import com.mrgregles.bsp_region_guard.compat.BspCore;
 import com.mrgregles.bsp_region_guard.flag.Flag;
 import com.mrgregles.bsp_region_guard.flag.FlagContext;
 import com.mrgregles.bsp_region_guard.flag.FlagLocation;
 import com.mrgregles.bsp_region_guard.flag.Flags;
+import com.mrgregles.bsp_region_guard.flag.State;
 import com.mrgregles.bsp_region_guard.mine.MineData;
 import com.mrgregles.bsp_region_guard.mine.Mines;
 import com.mrgregles.bsp_region_guard.protection.TotemRule;
@@ -206,6 +208,9 @@ public final class RegionEdits {
         if (type == RegionType.MINE) {
             Mines.makeMine(store, r); // the same as MAKE THIS A MINE: a mine has to let people dig (B19)
         } else {
+            if (type == RegionType.PLOT_FOR_SALE && r.type() != RegionType.PLOT_FOR_SALE) {
+                OwnerFlags.resetMembers(r); // D168: back on sale, the next buyer starts from the admin's member values
+            }
             r.setType(type);
             store.touch(r);
         }
@@ -293,6 +298,53 @@ public final class RegionEdits {
         } catch (IllegalArgumentException e) {
             return Result.fail(flag.name() + ": " + e.getMessage());
         }
+    }
+
+    /**
+     * A value in a plot's OWNERS or MEMBERS list (D159 to D167): {@code allow}, {@code deny}, or blank to clear.
+     * The MEMBERS list set here is the admin's starting values; owners change theirs on the claim card.
+     */
+    public static Result listFlag(RegionStore store, Region r, String list, Flag<?> flag, @Nullable String value, FlagContext context) {
+        if (list.equals(OwnerFlags.VISITORS)) {
+            return flag(store, r, flag, value, context);
+        }
+        if (!OwnerFlags.hasLists(r)) {
+            return Result.fail("Only plots for sale, claims and open areas have owners and members lists.");
+        }
+        if (!OwnerFlags.isPlayerFlag(flag) || !(flag instanceof com.mrgregles.bsp_region_guard.flag.StateFlag sf)) {
+            return Result.fail(flag.name() + " has one value for everyone. Set it without a list.");
+        }
+        State state = parseState(value);
+        if (value != null && !value.isBlank() && state == null) {
+            return Result.fail("Use allow, deny or clear.");
+        }
+        OwnerFlags.set(r, list, sf, state);
+        store.touch(r);
+        return Result.ok(r.id() + " " + flag.name() + " for " + list + (state == null ? " cleared." : " set to " + state.key() + "."));
+    }
+
+    /** A typed state as {@link State#parse} reads it (allow, deny, yes, no, on, off...); blank, clear or anything else as null. */
+    @Nullable
+    public static State parseState(@Nullable String value) {
+        return value == null || value.isBlank() ? null : State.parse(value.trim());
+    }
+
+    /**
+     * The BUYER chip (D163): adds or removes one flag from the flags a plot's buyer may set. The first change copies
+     * the list the plot used until then (its area's or the config's), so the other flags stay as they were.
+     */
+    public static Result buyerFlag(RegionStore store, Region r, Flag<?> flag) {
+        if (!OwnerFlags.hasLists(r)) {
+            return Result.fail("Only plots for sale, claims and open areas have a buyer.");
+        }
+        List<String> now = new java.util.ArrayList<>(ClaimFlags.allowedFor(store, r));
+        boolean on = !now.remove(flag.name());
+        if (on) {
+            now.add(flag.name());
+        }
+        r.typeData().putString(ClaimData.PLAYER_FLAGS, now.isEmpty() ? ClaimFlags.NONE : String.join(",", now));
+        store.touch(r);
+        return Result.ok("Buyers of " + r.id() + (on ? " may now set " : " may no longer set ") + flag.name() + ".");
     }
 
     private static <T> void setParsed(Region r, Flag<T> flag, String value, FlagContext context) {

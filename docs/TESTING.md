@@ -644,3 +644,20 @@ Untested in a game client. Needs the `bsp_bans` datapack (or any item tag) loade
 - [ ] Type `bsp:sanctuary_bans` in the tag field and press Enter on a fresh region: it is banned with the bar's rule. `#nope:nothing`: refused, "No tag #nope:nothing is loaded".
 - [ ] Right-click a tag's line steps its rule; dragging the line to the browser frees it.
 - [ ] Audit fixes: pointing at an opened tag's item shows the whole two-line hint; Esc in an opened tag goes back to the entries (a second Esc closes); the wheel moves 3 rows; typing in the search box narrows the opened tag ("12 of 1,473 items"); dropping a block on the left while a tag is opened goes back to the entries, where the new block shows; a one-item tag reads "1 item"; a long refused tag name is cut at the screen's edge.
+
+## 2026-11-05: plot owner flags (D159 to D168)
+
+Built and tested headless (124 GameTests, after the audit fixes). Untested in a game client. Network protocol 13: server and players update together.
+
+Set up: the world default with `build` deny (`/rg flag __global__ build deny`), a plot for sale `p1`, and three players: the buyer, a friend, a stranger.
+- [ ] Admin screen, `p1`, FLAGS: VISITORS / OWNERS / MEMBERS buttons above the list. VISITORS looks like before, with a gold BUYER chip on each row. OWNERS and MEMBERS list only the player flags; inherit rows read "inherit: owners may (plot rule)", "inherit: same as visitors" or "inherit: same as owners".
+- [ ] Click BUYER on `chest-access` and `use`: the SALE tab's BUYER MAY SET line shows them. Click both off: it reads "nothing".
+- [ ] The buyer buys `p1` and adds the friend (`/claim add p1 <friend>`). The buyer breaks and places blocks inside; so does the friend. The stranger can't. Outside the plot nobody can.
+- [ ] OWNERS, `lighter` DENY: neither the buyer nor the friend can use flint and steel inside. On MEMBERS that row is red: "denied for owners, so members too".
+- [ ] The buyer opens the claim card (`/claim gui`), presses MEMBERS: "members may open chests" etc. The lighter row is faded. Switching "members may open chests" off stops the friend opening chests; the buyer still can.
+- [ ] VISITORS, `chest-access` ALLOW: the stranger opens chests; the friend still can't (the owner's choice).
+- [ ] `/rg flag p1 item-drop deny`: the buyer can't drop items (owners follow visitors for item-drop). `/rg flag p1 item-drop allow owners`: the buyer and friend can; the stranger can't.
+- [ ] Copy `p1` on the region map: the copy's OWNERS and MEMBERS values match; the owner's member choices are not there.
+- [ ] The buyer gives `p1` up: it is for sale again and MEMBERS shows the admin's starting values.
+- [ ] An older world with a plot that had `block-break deny`: after the update its OWNERS list shows `block-break` DENY (the log says how many plots were kept this way).
+- [ ] Audit fixes: on the admin MEMBERS tab, a flag the owner changed shows a gold "the owner set ... for members; that wins". A protected region at the plot's priority with `build deny` stops the owner inside it. `/rg type <claim> plot_for_sale` clears the owner's member choices. `/claim flag <claim> build no members` works. On VISITORS the BUYER chip of a greeting row doesn't cover its hint.

@@ -227,6 +227,7 @@ public final class PlotMap {
                 : data.contains(ClaimData.ORIGINAL_PRICE) ? data.getLong(ClaimData.ORIGINAL_PRICE) : ClaimData.boughtFor(src);
         SALE_ONLY.forEach(data::remove);
         copy.typeData().merge(data);
+        OwnerFlags.resetMembers(copy); // D165: a copy has no owner, so members start from the admin's values
         if (price > 0) {
             copy.typeData().putLong(ClaimData.PRICE, price);
         }

@@ -90,6 +90,8 @@ public class RegionScreen extends HoloScreen {
     private String selected;
     private int tab, filter, listScroll, flagScroll, rankScroll;
     private boolean onlySet;
+    /** D159: which list the FLAGS tab shows on a plot, claim or open area: visitors, owners or members. */
+    private String flagList = "visitors";
     private boolean confirmDelete;
     private long lastMapClick;
     @Nullable
@@ -445,6 +447,20 @@ public class RegionScreen extends HoloScreen {
     }
 
     /** The inherit / allow / deny switch of a state flag. */
+    /** INH / ALLOW / DENY for the OWNERS or MEMBERS list in view (D159). */
+    private void listSwitch(GuiGraphics g, int x, int y, @Nullable String value, String flagName) {
+        String[] labels = {"inh", "allow", "deny"};
+        String[] values = {"", "allow", "deny"};
+        int[] colours = {TEXT, TQ, BAD};
+        String list = flagList;
+        for (int i = 0; i < 3; i++) {
+            boolean on = i == 0 ? value == null : values[i].equals(value);
+            String v = values[i];
+            chip(g, x + i * 24, y, 23, 11, Tr.t("state." + labels[i]), on, colours[i], 0.6f,
+                    () -> send(new RegionActionPacket(RegionActionPacket.LIST_FLAG, selected == null ? "" : selected, flagName, (list + " " + v).trim())));
+        }
+    }
+
     private void stateSwitch(GuiGraphics g, int x, int y, @Nullable String value, String flagName) {
         String[] labels = {"inh", "allow", "deny"};
         String[] values = {"", "allow", "deny"};
@@ -845,11 +861,57 @@ public class RegionScreen extends HoloScreen {
         }
     }
 
+    /** True when the selected region has VISITORS / OWNERS / MEMBERS lists (D160). */
+    private static boolean hasLists(@Nullable RegionDetailPacket d) {
+        return d != null && d.data().containsKey("lists.flags");
+    }
+
+    /** "flag=allow,flag=deny" from the detail's data as a map. */
+    static java.util.Map<String, String> listValues(@Nullable RegionDetailPacket d, String key) {
+        java.util.Map<String, String> out = new java.util.LinkedHashMap<>();
+        if (d != null) {
+            for (String pair : d.data().getOrDefault(key, "").split(",")) {
+                int eq = pair.indexOf('=');
+                if (eq > 0) {
+                    out.put(pair.substring(0, eq), pair.substring(eq + 1));
+                }
+            }
+        }
+        return out;
+    }
+
+    /** A comma list from the detail's data, without empty entries. */
+    static java.util.Set<String> listNames(@Nullable RegionDetailPacket d, String key) {
+        java.util.Set<String> out = new java.util.LinkedHashSet<>();
+        if (d != null) {
+            for (String n : d.data().getOrDefault(key, "").split(",")) {
+                if (!n.isEmpty()) {
+                    out.add(n);
+                }
+            }
+        }
+        return out;
+    }
+
+    /** The values shown for the list in view: the region's own flags on VISITORS, else that list's own values. */
+    private java.util.Map<String, String> shownValues(@Nullable RegionDetailPacket d) {
+        if (!hasLists(d) || flagList.equals("visitors")) {
+            return d == null ? java.util.Map.of() : d.flags();
+        }
+        return listValues(d, "lists." + flagList);
+    }
+
     private List<Object> flagRows(@Nullable RegionDetailPacket d) {
         List<Object> rows = new ArrayList<>();
         String category = null;
+        boolean lists = hasLists(d) && !flagList.equals("visitors");
+        java.util.Set<String> playerFlags = listNames(d, "lists.flags");
+        java.util.Map<String, String> shown = shownValues(d);
         for (Flag<?> f : FlagRegistry.all()) {
-            String value = d == null ? null : d.flags().get(f.name());
+            if (lists && !playerFlags.contains(f.name())) {
+                continue; // D164: only player flags have owner and member values
+            }
+            String value = shown.get(f.name());
             if (onlySet && value == null) {
                 continue;
             }
@@ -864,13 +926,44 @@ public class RegionScreen extends HoloScreen {
 
     private void drawFlags(GuiGraphics g, int x, int y, @Nullable RegionDetailPacket d) {
         int px = x + PANE_X, cy = y + CONTENT_Y;
-        chip(g, px + 4, cy + 3, 48, 10, onlySet ? Tr.t("set_only") : Tr.t("all_flags"), onlySet, TQ, 0.5f, () -> {
+        boolean lists = hasLists(d);
+        if (!lists) {
+            flagList = "visitors";
+        }
+        int lx = px + 4;
+        if (lists) {
+            // D159: VISITORS / OWNERS / MEMBERS above the list
+            String[] names = {"visitors", "owners", "members"};
+            int[] colours = {TEXT, TQ, VIO};
+            for (int i = 0; i < 3; i++) {
+                String n = names[i];
+                int w = 40;
+                chip(g, lx, cy + 3, w, 10, Tr.t("list." + n), flagList.equals(n), colours[i], 0.5f, () -> {
+                    flagList = n;
+                    flagScroll = 0;
+                    editingFlag = null;
+                });
+                lx += w + 2;
+            }
+            lx += 4;
+        }
+        chip(g, lx, cy + 3, 48, 10, onlySet ? Tr.t("set_only") : Tr.t("all_flags"), onlySet, TQ, 0.5f, () -> {
             onlySet = !onlySet;
             flagScroll = 0;
         });
-        int set = d == null ? 0 : d.flags().size();
-        text(g, Tr.t("flags_summary", set, FlagRegistry.all().size() - set) + (d != null && !d.inherited().isEmpty() ? Tr.t("flags_from_parent", d.inherited().size()) : ""),
-                px + 58, cy + 5, MUTED, 0.6f);
+        java.util.Map<String, String> shownMap = shownValues(d);
+        boolean visitors = flagList.equals("visitors");
+        if (visitors) {
+            int set = d == null ? 0 : d.flags().size();
+            text(g, Tr.t("flags_summary", set, FlagRegistry.all().size() - set) + (d != null && !d.inherited().isEmpty() ? Tr.t("flags_from_parent", d.inherited().size()) : ""),
+                    lx + 54, cy + 5, MUTED, 0.6f);
+        } else {
+            text(g, fit(Tr.t("list_hint." + flagList), paneW - (lx - px) - 60, 0.6f), lx + 54, cy + 5, MUTED, 0.6f);
+        }
+        java.util.Set<String> buyer = listNames(d, "buyerFlags");
+        java.util.Set<String> locked = listNames(d, "lists.locked");
+        java.util.Map<String, String> ownerSet = flagList.equals("members") ? listValues(d, "lists.memberSet") : java.util.Map.of();
+        java.util.Map<String, String> listUp = lists && !visitors ? listValues(d, "lists." + flagList + ".inherited") : java.util.Map.of();
         List<Object> rows = flagRows(d);
         boolean hints = width >= 440;
         int rowH = hints ? 16 : 12;
@@ -886,18 +979,48 @@ public class RegionScreen extends HoloScreen {
                 continue;
             }
             Flag<?> f = (Flag<?>) row;
-            String value = d == null ? null : d.flags().get(f.name());
-            String inherited = d == null ? null : d.inherited().get(f.name());
+            String value = shownMap.get(f.name());
+            String inherited = !visitors ? listUp.get(f.name()) : d == null ? null : d.inherited().get(f.name());
             boolean editing = f.name().equals(editingFlag);
             if (editing) {
                 g.fill(px + 1, ry, px + paneW - 1, ry + rowH, 0x2219D3B0);
             }
             text(g, f.name(), px + 6, ry + 2, value != null ? TEXT : MUTED, 0.75f);
+            boolean lockedRow = flagList.equals("members") && locked.contains(f.name());
             if (hints) {
-                String hint = inherited != null && value == null ? Tr.t("inherits", inherited) : f.hint();
-                text(g, font.plainSubstrByWidth(hint, 320), px + 6, ry + 9, inherited != null && value == null ? VIO : 0xFF6F7788, 0.5f);
+                String hint;
+                int colour;
+                if (lockedRow) {
+                    hint = Tr.t("list_locked");
+                    colour = BAD;
+                } else if (ownerSet.containsKey(f.name())) {
+                    // the owner's own choice wins over the starting value shown here
+                    hint = Tr.t("list_owner_set", Tr.t("state." + ("allow".equals(ownerSet.get(f.name())) ? "allow" : "deny")));
+                    colour = GOLD;
+                } else if (value == null && !visitors) {
+                    // D161, D162: what inherit gives on OWNERS and MEMBERS
+                    hint = inherited != null ? Tr.t("inherits", inherited)
+                            : flagList.equals("owners") ? (f instanceof StateFlag sf && sf.memberBypass() ? Tr.t("list_inherit.owners_may") : Tr.t("list_inherit.as_visitors"))
+                            : Tr.t("list_inherit.as_owners");
+                    colour = VIO;
+                } else {
+                    hint = inherited != null && value == null ? Tr.t("inherits", inherited) : f.hint();
+                    colour = inherited != null && value == null ? VIO : 0xFF6F7788;
+                }
+                // leave room for the switch, and on VISITORS for the BUYER chip (further left on rows without a switch)
+                int room = lists ? Math.min(320, (paneW - (f instanceof StateFlag ? 130 : 168)) * 2) : 320;
+                text(g, font.plainSubstrByWidth(hint, room), px + 6, ry + 9, colour, 0.5f);
             }
-            if (remote()) {
+            if (lists && visitors && !remote()) {
+                // D163: the BUYER chip marks the flags the plot's buyer may set
+                boolean on = buyer.contains(f.name());
+                int bx = f instanceof StateFlag ? px + paneW - 112 : px + paneW - 150;
+                chip(g, bx, ry + 1, 30, 11, Tr.t("buyer_chip"), on, GOLD, 0.5f,
+                        () -> send(new RegionActionPacket(RegionActionPacket.BUYER_FLAG, selected == null ? "" : selected, f.name(), "")));
+            }
+            if (!visitors && !remote()) {
+                listSwitch(g, px + paneW - 78, ry + 1, value, f.name());
+            } else if (remote()) {
                 String shown = value != null ? value : inherited != null ? inherited : Tr.t("not_set");
                 String clipped = font.plainSubstrByWidth(shown, 110);
                 text(g, clipped, px + paneW - 6 - (int) (font.width(clipped) * 0.6f), ry + 3, value != null ? TEXT : MUTED, 0.6f);
@@ -906,7 +1029,7 @@ public class RegionScreen extends HoloScreen {
             } else {
                 String shown = value != null ? value : inherited != null ? inherited : f.defaultValue() != null ? format(f) : Tr.t("not_set");
                 int colour = value != null ? TEXT : MUTED;
-                String clipped = font.plainSubstrByWidth(shown, 110);
+                String clipped = font.plainSubstrByWidth(shown, lists ? 60 : 110);
                 text(g, clipped, px + paneW - 80 - (int) (font.width(clipped) * 0.6f) + 72 - 40, ry + 3, colour, 0.6f);
                 chip(g, px + paneW - 34, ry + 1, 30, 11, Tr.t("edit"), editing, TQ, 0.6f, () -> {
                     editingFlag = f.name();
@@ -1200,7 +1323,8 @@ public class RegionScreen extends HoloScreen {
             String paid = data.containsKey("boughtCoins") ? Tr.t("worth_copper", data.get("boughtCoins")) : money(data, data.getOrDefault("boughtFor", "?"), "pieces");
             text(g, Tr.t("bought_for_origin", paid, data.getOrDefault("origin", "?")), px + 6, cy + 13, TEXT, 0.75f);
             text(g, Tr.t("the_owner_gives_it_up_with_claim_abandon_an_admi"), px + 6, cy + 24, 0xFF6F7788, 0.5f);
-            text(g, fit(Tr.t("buyer_may_set", data.getOrDefault("playerFlags", Tr.t("the_config_list"))), paneW - 12, 0.6f), px + 6, cy + 36, GOLD, 0.6f);
+            text(g, fit(Tr.t("buyer_may_set", buyerText(data)), paneW - 12, 0.6f), px + 6, cy + 36, GOLD, 0.6f);
+            text(g, Tr.t("buyer_chips_hint"), px + 6, cy + 44, 0xFF6F7788, 0.5f);
             return;
         }
         text(g, Tr.t("plot_for_sale"), px + 6, cy + 5, GOLD, 0.6f);
@@ -1236,12 +1360,22 @@ public class RegionScreen extends HoloScreen {
         button(g, px + 6, cy + 78, 70, 12, Tr.t("set_cost"), GOLD, () -> data("costPerBlock", cost, coins ? Tr.t("coins_per_block_of_ground_0_closes_the_area") : Tr.t("shatter_pieces_per_block_of_ground_0_closes_the")));
         button(g, px + 80, cy + 78, 56, 12, Tr.t("min_size"), MUTED, () -> data("minSize", data.getOrDefault("minSize", ""), Tr.t("smallest_side_in_blocks_empty_uses_the_config")));
         button(g, px + 140, cy + 78, 56, 12, Tr.t("max_size"), MUTED, () -> data("maxSize", data.getOrDefault("maxSize", ""), Tr.t("largest_side_in_blocks_empty_uses_the_config")));
-        text(g, fit(Tr.t("buyer_may_set", data.getOrDefault("playerFlags", Tr.t("the_config_list"))), paneW - 50, 0.6f), px + 6, cy + 96, GOLD, 0.6f);
-        chip(g, px + paneW - 40, cy + 94, 34, 10, Tr.t("edit"), false, GOLD, 0.5f, () -> data("playerFlags", data.getOrDefault("playerFlags", ""), Tr.t("flags_the_buyer_may_set_comma_separated_default")));
-        text(g, Tr.t("buying_happens_in_bsp_core_s_shop_screen_or_with"), px + 6, cy + 108, 0xFF6F7788, 0.5f);
+        // D163: chosen with the BUYER chips on FLAGS > VISITORS
+        text(g, fit(Tr.t("buyer_may_set", buyerText(data)), paneW - 12, 0.6f), px + 6, cy + 96, GOLD, 0.6f);
+        text(g, Tr.t("buyer_chips_hint"), px + 6, cy + 103, 0xFF6F7788, 0.5f);
+        text(g, Tr.t("buying_happens_in_bsp_core_s_shop_screen_or_with"), px + 6, cy + 110, 0xFF6F7788, 0.5f);
         String limit = data.get("plotLimit");
         text(g, limit == null ? Tr.t("plot_limit_none") : Tr.t("plot_limit_is", limit), px + 6, cy + 120, limit == null ? MUTED : TEXT, 0.6f);
         chip(g, px + paneW - 40, cy + 118, 34, 10, Tr.t("edit"), false, GOLD, 0.5f, () -> data("plotLimit", limit == null ? "" : limit, Tr.t("plot_limit_hint")));
+    }
+
+    /** The BUYER chips as text: the flags, "nothing", or the config's list when the plot has none of its own. */
+    private static String buyerText(java.util.Map<String, String> data) {
+        String list = data.getOrDefault("buyerFlags", "");
+        if (!data.containsKey("playerFlags")) {
+            return list.isEmpty() ? Tr.t("the_config_list") : list.replace(",", ", ");
+        }
+        return list.isEmpty() ? Tr.t("buyer_nothing") : list.replace(",", ", ");
     }
 
     private void drawMine(GuiGraphics g, int x, int y, RegionListPacket.Summary s, @Nullable RegionDetailPacket d) {

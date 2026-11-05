@@ -76,7 +76,7 @@ public final class ClaimCommands {
                 .then(Commands.argument("players", GameProfileArgument.gameProfile()).executes(ctx -> member(ctx, false)))));
         claim.then(Commands.literal("flag").then(Commands.argument("id", StringArgumentType.word()).suggests(MINE)
                 .then(Commands.argument("flag", StringArgumentType.word()).suggests((c, b) -> SharedSuggestionProvider.suggest(
-                                FlagRegistry.names().stream().filter(Claims::playerMaySet).toList(), b))
+                                FlagRegistry.names().stream().filter(n -> Claims.playerMaySet(n) || com.mrgregles.bsp_region_guard.claim.OwnerFlags.isPlayerFlag(FlagRegistry.get(n))).toList(), b))
                         .then(Commands.argument("value", StringArgumentType.greedyString())
                                 .executes(ctx -> flag(ctx.getSource(), id(ctx), StringArgumentType.getString(ctx, "flag"), StringArgumentType.getString(ctx, "value")))))));
         claim.then(Commands.literal("here").executes(ctx -> here(ctx.getSource())));
@@ -220,7 +220,12 @@ public final class ClaimCommands {
     }
 
     private static int flag(CommandSourceStack src, String id, String flagName, String value) throws CommandSyntaxException {
-        return result(src, Claims.INSTANCE.setPlayerFlag(player(src), id, flagName, value.trim().equalsIgnoreCase("clear") ? "" : value));
+        String v = value.trim();
+        if (v.toLowerCase(java.util.Locale.ROOT).endsWith(" members") || v.equalsIgnoreCase("members")) { // D167: /claim flag <claim> <flag> <value> members
+            String rest = v.length() > 7 ? v.substring(0, v.length() - 7).trim() : "";
+            return result(src, Claims.INSTANCE.setMemberFlag(player(src), id, flagName, rest.equalsIgnoreCase("clear") ? "" : rest));
+        }
+        return result(src, Claims.INSTANCE.setPlayerFlag(player(src), id, flagName, v.equalsIgnoreCase("clear") ? "" : value));
     }
 
     /** {@code /claim banned [plot]}: the BANNED HERE screen for where you stand, or for a plot (D139). */

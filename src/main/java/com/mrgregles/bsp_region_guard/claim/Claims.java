@@ -637,6 +637,7 @@ public final class Claims implements ClaimService {
                 claim.removeMember(u);
             }
             claim.setType(RegionType.PLOT_FOR_SALE);
+            OwnerFlags.resetMembers(claim); // D168: the next buyer starts from the admin's member values
             claim.typeData().putLong(ClaimData.PRICE, claim.typeData().getLong(ClaimData.ORIGINAL_PRICE));
             claim.typeData().remove(ClaimData.BOUGHT_FOR);
             claim.typeData().remove(ClaimData.BOUGHT_COINS);
@@ -740,6 +741,32 @@ public final class Claims implements ClaimService {
         } catch (IllegalArgumentException e) {
             return ClaimResult.fail(flag.name() + ": " + e.getMessage());
         }
+    }
+
+    /**
+     * An owner choosing what their members may do (D162): any player flag the plot's OWNERS list doesn't deny.
+     * {@code value} is allow, deny, or blank to follow the plot's starting value.
+     */
+    public ClaimResult setMemberFlag(ServerPlayer player, String claimId, String flagName, String value) {
+        RegionStore store = RegionStore.get(player.serverLevel());
+        Region claim = store.get(claimId);
+        if (claim == null || claim.type() != RegionType.CLAIM || !mayManage(player, claim)) {
+            return ClaimResult.fail("That is not a claim of yours.");
+        }
+        com.mrgregles.bsp_region_guard.flag.Flag<?> flag = com.mrgregles.bsp_region_guard.flag.FlagRegistry.get(flagName);
+        if (!(flag instanceof com.mrgregles.bsp_region_guard.flag.StateFlag sf) || !OwnerFlags.isPlayerFlag(sf)) {
+            return ClaimResult.fail(flagName + " is not something members do. Member flags: build, block-break, chest-access and the like.");
+        }
+        if (!OwnerFlags.ownerMaySetForMembers(store, claim, sf)) {
+            return ClaimResult.fail(flag.name() + " is set by the plot. Owners can't change it for members.");
+        }
+        com.mrgregles.bsp_region_guard.flag.State state = com.mrgregles.bsp_region_guard.command.RegionEdits.parseState(value);
+        if (!value.isBlank() && state == null) {
+            return ClaimResult.fail("Use allow, deny or clear.");
+        }
+        OwnerFlags.set(claim, OwnerFlags.MEMBER_SET, sf, state);
+        store.touch(claim);
+        return ClaimResult.ok(claim.id() + " " + flag.name() + " for members " + (state == null ? "follows the plot." : "set to " + state.key() + "."), claim.id(), 0);
     }
 
     private static <T> T parse(com.mrgregles.bsp_region_guard.flag.Flag<T> flag, String value, com.mrgregles.bsp_region_guard.flag.FlagContext ctx) {

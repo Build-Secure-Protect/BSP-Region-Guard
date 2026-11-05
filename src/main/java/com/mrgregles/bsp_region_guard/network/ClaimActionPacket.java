@@ -9,7 +9,8 @@ import java.util.function.Supplier;
 /** Client to server: what a player does on their claim screen. Checked against ownership on the server. */
 public record ClaimActionPacket(String action, String claimId, String a, String b) {
     public static final String SELECT = "select", FLAG = "flag", ADD_MEMBER = "add-member", REMOVE_MEMBER = "remove-member",
-            ABANDON = "abandon", ENLARGE = "enlarge", TELEPORT = "teleport", TOOL = "tool";
+            ABANDON = "abandon", ENLARGE = "enlarge", TELEPORT = "teleport", TOOL = "tool",
+            MEMBER_FLAG = "member-flag"; // D162: a = flag, b = allow, deny or blank
 
     public static ClaimActionPacket of(String action, String claimId) {
         return new ClaimActionPacket(action, claimId, "", "");

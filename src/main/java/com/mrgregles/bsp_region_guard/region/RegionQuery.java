@@ -1,6 +1,7 @@
 package com.mrgregles.bsp_region_guard.region;
 
 import com.mrgregles.bsp_region_guard.api.Exemption;
+import com.mrgregles.bsp_region_guard.claim.OwnerFlags;
 import com.mrgregles.bsp_region_guard.compat.BspCore;
 import com.mrgregles.bsp_region_guard.flag.Flag;
 import com.mrgregles.bsp_region_guard.flag.Flags;
@@ -34,6 +35,10 @@ import java.util.Optional;
  * </ol>
  * Regions with {@code passthrough} set to allow never count as protecting, so they can carry flags without claiming
  * the ground.
+ *
+ * <p>Plots for sale, claims and open areas also carry OWNERS and MEMBERS lists for the player flags
+ * ({@link OwnerFlags}): an owner or member of the plot at the top protecting priority is judged by those lists, and
+ * the rules above apply to everyone else (the VISITORS list).
  */
 public final class RegionQuery {
     private RegionQuery() {
@@ -156,6 +161,54 @@ public final class RegionQuery {
     }
 
     static State resolve(RegionStore store, List<Region> applicable, StateFlag flag, @Nullable Player player) {
+        OwnerFlags.Home home = OwnerFlags.home(applicable, flag, player);
+        if (home == null) {
+            return visitors(store, applicable, flag, player);
+        }
+        // another region at the plot's priority that denies the flag still stops owners and members, as before
+        if (deniedAlongside(store, applicable, home.region(), flag)) {
+            return State.DENY;
+        }
+        // plot owner flags (D161, D162): owners read the OWNERS list, members the MEMBERS list capped by the owners'
+        State owners = OwnerFlags.ownersValue(store, home.region(), flag);
+        if (home.owner()) {
+            return owners != null ? owners : visitors(store, applicable, flag, player);
+        }
+        if (owners == State.DENY) {
+            return State.DENY;
+        }
+        State asOwners = owners != null ? owners : visitors(store, applicable, flag, player);
+        State members = OwnerFlags.membersValue(store, home.region(), flag);
+        return members == null || asOwners == State.DENY ? asOwners : members;
+    }
+
+    /** True when a region other than the plot, at the plot's priority, denies the flag (its own value, a parent's, or a fallback's). */
+    private static boolean deniedAlongside(RegionStore store, List<Region> applicable, Region plot, StateFlag flag) {
+        for (Region r : applicable) {
+            if (r.priority() != plot.priority()) {
+                if (r.priority() < plot.priority()) {
+                    break; // highest priority first: the plot's level is over
+                }
+                continue;
+            }
+            if (r == plot || r.isGlobal()) {
+                continue;
+            }
+            for (StateFlag f = flag; f != null; f = f.fallback()) {
+                State v = effective(store, r, f);
+                if (v != null) {
+                    if (v == State.DENY) {
+                        return true;
+                    }
+                    break;
+                }
+            }
+        }
+        return false;
+    }
+
+    /** The rules for everyone who is not an owner or member of a plot here (rules 1 to 5 above). */
+    private static State visitors(RegionStore store, List<Region> applicable, StateFlag flag, @Nullable Player player) {
         StateFlag f = flag;
         for (int i = 0; i < 8 && f != null; i++) {
             Optional<State> v = explicit(store, applicable, f);

@@ -363,8 +363,10 @@ public final class RegionMirror {
         RegionStore store = RegionStore.get(level);
         int replaced = 0, removed = 0, added = 0;
         Set<String> seen = new HashSet<>();
+        java.util.Map<String, Integer> rowVersions = new java.util.HashMap<>();
         for (MirrorBackend.RegionRow row : rows) {
             seen.add(row.id());
+            rowVersions.put(row.id(), row.version());
             Region local = store.get(row.id());
             if (row.deleted()) {
                 // a tombstone written after the local region last changed wins
@@ -393,7 +395,9 @@ public final class RegionMirror {
         remember(store);
         List<MirrorBackend.RegionRow> push = new ArrayList<>();
         for (Region r : store.all()) {
-            if (!seen.contains(r.id())) {
+            // not in storage yet, or newer here than storage's copy (a region changed while loading, D166)
+            Integer stored = rowVersions.get(r.id());
+            if (!seen.contains(r.id()) || stored != null && r.version() > stored) {
                 try {
                     push.add(new MirrorBackend.RegionRow(serverId, level.dimension().location().toString(), r.id(), r.version(), r.updatedAt(), serialize(r), false));
                 } catch (IOException e) {

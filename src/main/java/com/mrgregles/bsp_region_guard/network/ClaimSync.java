@@ -87,6 +87,7 @@ public final class ClaimSync {
         ClaimResult result;
         switch (msg.action()) {
             case ClaimActionPacket.FLAG -> result = Claims.INSTANCE.setPlayerFlag(player, claim.id(), msg.a(), msg.b());
+            case ClaimActionPacket.MEMBER_FLAG -> result = Claims.INSTANCE.setMemberFlag(player, claim.id(), msg.a(), msg.b());
             case ClaimActionPacket.ADD_MEMBER, ClaimActionPacket.REMOVE_MEMBER -> {
                 UUID who = RegionSync.resolvePlayer(player, msg.a().trim());
                 if (who == null) {

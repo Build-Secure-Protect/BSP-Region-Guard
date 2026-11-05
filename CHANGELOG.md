@@ -4,7 +4,17 @@ All notable changes to BSP Region Guard. Format follows Keep a Changelog; versio
 
 ## [Unreleased]
 
-**Network protocol 12:** servers and players need this version together. **API version 8.**
+**Network protocol 13:** servers and players need this version together. **API version 8.**
+
+### Added (2026-11-05, plot owner flags: VISITORS, OWNERS and MEMBERS; D159 to D168)
+- **Plots have separate flags for visitors, owners and members.** Before, a world default that denied building also stopped a plot's owner when the plot was left on inherit, and allowing it on the plot opened it to everyone. Now plots for sale, claims and open areas have three lists. VISITORS is the plot's ordinary flags and still inherits the world default. OWNERS is for the plot's owners: inherit there means owners may build. MEMBERS is for the members: the admin sets starting values and the owner changes them, except where the OWNERS list denies.
+- **Admin screen:** VISITORS / OWNERS / MEMBERS buttons above the FLAGS tab's list. The hint says what inherit gives on each list. On VISITORS a gold **BUYER** chip per flag marks what the buyer may set; it replaces the typed list on the SALE tab.
+- **Claim card:** the rules have VISITORS and MEMBERS buttons. MEMBERS shows what members may do; a flag the plot denies for owners is faded and can't be changed.
+- **Commands:** `/rg flag <plot> <flag> <value> owners` (or `members`, `visitors`); `/claim flag <claim> <flag> <value> members` for owners.
+- Player flags with three values: the build flags plus item drop and pickup, ender pearls and chorus fruit. PvP, fire, mobs, explosions, weather and messages keep one value.
+- Copying a plot copies all three lists; giving a plot back resets members to the admin's starting values.
+- **Existing plots keep their behaviour:** a build-flag deny on a plot (its own, or from a parent region without lists) is also put in its OWNERS list, except a claim's own deny on a flag its buyer could set. This runs once per region, also for plots arriving from the shared database or a wipe backup, and the result is written back to the database.
+- The owner's choices for members come before the admin's starting values; a region at the plot's priority that denies a flag still stops owners; setting a claim back to a plot for sale resets the member choices; list values take yes/no/on/off like other flags.
 
 ### Fixed (2026-11-05, B24: tags on the admin BANNED tab; D158)
 - **A banned tag or whole mod now shows what it covers on the admin BANNED tab.** A datapack tag such as `#bsp:sanctuary_bans` took a single slot marked "#", so its items were nowhere on the screen, and the block browser left them unmarked. Each tag and whole mod now has a wide line at the top of the grid with its name, how many items it covers, and **OPEN**, which shows those items in the grid (read-only) under **< BACK**. The card names the tag an item belongs to. Its rules and REMOVE still apply to the whole tag.

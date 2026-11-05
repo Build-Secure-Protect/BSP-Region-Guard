@@ -19,7 +19,8 @@ public record RegionActionPacket(String action, String regionId, String a, Strin
             TRIGGER_ADD = "trigger-add", TRIGGER_REMOVE = "trigger-remove", LIST_REMOTE = "list-remote",
             BORDER_SET = "border-set", BORDER_OFF = "border-off", EDGE_LINK = "edge-link", EDGE_UNLINK = "edge-unlink", EDGE_REFRESH = "edge-refresh",
             VIEW_SERVER = "view-server", WIPE_REQUEST = "wipe-request", WIPE_CONFIRM = "wipe-confirm", WIPE_RESTORE = "wipe-restore",
-            RESIZE = "resize", VFILL = "vfill", CORNERS = "corners", PLOTS_PVP = "plots-pvp", MINE_FILL = "mine-fill";
+            RESIZE = "resize", VFILL = "vfill", CORNERS = "corners", PLOTS_PVP = "plots-pvp", MINE_FILL = "mine-fill",
+            LIST_FLAG = "list-flag", BUYER_FLAG = "buyer-flag"; // D159, D163: a = flag; LIST_FLAG b = "owners allow", "members deny", "owners" (clear)
 
     public static RegionActionPacket of(String action, String regionId) {
         return new RegionActionPacket(action, regionId, "", "");

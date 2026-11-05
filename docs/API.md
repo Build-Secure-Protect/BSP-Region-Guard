@@ -62,6 +62,8 @@ For a shop screen or any mod that sells land. Region Guard keeps the rules and t
 
 `Claims.INSTANCE.setPlayerFlag(player, claimId, flag, value)` is what the claim screen and `/claim flag` use: it checks the plot's allowed-flag list (the plot's own, its area's, or the config's) and the Shatter Totem rule (no rule that could stop a steal while a totem stands inside).
 
+`Claims.INSTANCE.setMemberFlag(player, claimId, flag, value)` sets what the claim's members may do (plot owner flags, D162): any player flag the plot's OWNERS list doesn't deny. `RegionQuery.allows(level, pos, flag, player)` already answers with the plot's OWNERS or MEMBERS list for its owners and members; the lists themselves are in `claim.OwnerFlags` (not part of the stable API).
+
 Every answer is a `ClaimResult(ok, message, claimId, price)`; `message` is a plain sentence for the player. Events on the Forge bus: `ClaimPurchasedEvent(player, claimId, dimension, price, enlarged, bounds)` and `ClaimAbandonedEvent(player, claimId, dimension, refund, bounds)`, both after the fact and not cancellable (`bounds()`: the claim's box, the new one after an enlargement). Plots for sale and open areas are already sent to every client and drawn in gold in the world, so a shop screen can highlight the one being bought without extra packets.
 
 ## Banned lists for players (`api.client.BannedListView`, client only)

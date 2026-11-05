@@ -79,6 +79,9 @@ public class PlotMapGameTests {
             src.typeData().putLong(ClaimData.BOUGHT_FOR, 48000);
             src.typeData().putString(ClaimData.PLAYER_FLAGS, "entry,chest-access");
             new com.mrgregles.bsp_region_guard.claim.PlotLook("beacon", 0x5AA9FF, 2f, 1.5f, 6).save(src);
+            com.mrgregles.bsp_region_guard.claim.OwnerFlags.set(src, "owners", Flags.LIGHTER, State.DENY);
+            com.mrgregles.bsp_region_guard.claim.OwnerFlags.set(src, "members", Flags.CHEST_ACCESS, State.DENY);
+            com.mrgregles.bsp_region_guard.claim.OwnerFlags.set(src, com.mrgregles.bsp_region_guard.claim.OwnerFlags.MEMBER_SET, Flags.BUILD, State.DENY);
             store(h).touch(src);
 
             Cuboid there = box(h, 10, 1, 4, 3);
@@ -96,6 +99,10 @@ public class PlotMapGameTests {
             h.assertTrue(PlotMap.locked(copy), "and it starts locked");
             h.assertTrue(com.mrgregles.bsp_region_guard.claim.PlotLook.of(copy).equals(new com.mrgregles.bsp_region_guard.claim.PlotLook("beacon", 0x5AA9FF, 2f, 1.5f, 6)),
                     "the look comes with it (D112)");
+            h.assertTrue(com.mrgregles.bsp_region_guard.claim.OwnerFlags.own(copy, "owners", Flags.LIGHTER) == State.DENY
+                            && com.mrgregles.bsp_region_guard.claim.OwnerFlags.own(copy, "members", Flags.CHEST_ACCESS) == State.DENY
+                            && com.mrgregles.bsp_region_guard.claim.OwnerFlags.values(copy, com.mrgregles.bsp_region_guard.claim.OwnerFlags.MEMBER_SET).isEmpty(),
+                    "owners and members lists copied, the owner's member choices not (D165)");
 
             h.assertFalse(PlotMap.paste(admin, "pm_src", "pm_copy", "", box(h, 16, 1, 4, 3), 3).ok(), "a name in use is refused");
             h.assertFalse(PlotMap.paste(admin, "pm_src", "pm_big", "", box(h, 16, 1, 5, 3), 3).ok(), "so is another size");

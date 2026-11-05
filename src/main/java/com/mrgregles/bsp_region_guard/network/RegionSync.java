@@ -209,6 +209,10 @@ public final class RegionSync {
                 data.put(key, dataText(r.typeData().get(key)));
             }
         }
+        data.remove(com.mrgregles.bsp_region_guard.claim.OwnerFlags.KEY);
+        if (com.mrgregles.bsp_region_guard.claim.OwnerFlags.hasLists(r)) {
+            ownerFlagData(store, r, data, view == null);
+        }
         var triggers = com.mrgregles.bsp_region_guard.trigger.Trigger.of(r.typeData());
         for (int i = 0; i < triggers.size() && i < 20; i++) {
             data.put("trigger." + (i + 1), triggers.get(i).describe());
@@ -233,6 +237,52 @@ public final class RegionSync {
         RegionNetwork.sendTo(player, new RegionDetailPacket(r.id(), r.name(), r.type().key(), r.priority(), r.parentId(), r.bounds(),
                 people(player, r.owners()), people(player, r.members()), new ArrayList<>(r.ranks()),
                 flags, inherited, LuckPermsBridge.groupNames(), r.version(), r.updatedAt(), data));
+    }
+
+    /**
+     * Plot owner flags for the FLAGS tab and the claim card (D159 to D163), as "flag=allow,flag=deny" lists:
+     * {@code lists.owners}, {@code lists.members} (the admin's starting values) and {@code lists.memberSet} (the
+     * owner's own), the same lists from the parents ({@code lists.*.inherited}), the flags that have three values
+     * ({@code lists.flags}), the flags owners can't change for members ({@code lists.locked}) and the BUYER chips
+     * ({@code buyerFlags}).
+     */
+    static void ownerFlagData(RegionStore store, Region r, Map<String, String> data, boolean local) {
+        List<String> names = new ArrayList<>();
+        List<String> locked = new ArrayList<>();
+        Map<String, String> ownersUp = new LinkedHashMap<>(), membersUp = new LinkedHashMap<>();
+        Region parent = local ? store.parentOf(r) : null;
+        for (com.mrgregles.bsp_region_guard.flag.StateFlag f : com.mrgregles.bsp_region_guard.claim.OwnerFlags.playerFlags()) {
+            names.add(f.name());
+            if (local && !com.mrgregles.bsp_region_guard.claim.OwnerFlags.ownerMaySetForMembers(store, r, f)) {
+                locked.add(f.name());
+            }
+            if (parent != null) {
+                var o = com.mrgregles.bsp_region_guard.claim.OwnerFlags.inherited(store, parent, com.mrgregles.bsp_region_guard.claim.OwnerFlags.OWNERS, f);
+                var m = com.mrgregles.bsp_region_guard.claim.OwnerFlags.inherited(store, parent, com.mrgregles.bsp_region_guard.claim.OwnerFlags.MEMBERS, f);
+                if (o != null) {
+                    ownersUp.put(f.name(), o.name().toLowerCase());
+                }
+                if (m != null) {
+                    membersUp.put(f.name(), m.name().toLowerCase());
+                }
+            }
+        }
+        data.put("lists.flags", String.join(",", names));
+        data.put("lists.locked", String.join(",", locked));
+        data.put("lists.owners", joinValues(com.mrgregles.bsp_region_guard.claim.OwnerFlags.values(r, com.mrgregles.bsp_region_guard.claim.OwnerFlags.OWNERS)));
+        data.put("lists.members", joinValues(com.mrgregles.bsp_region_guard.claim.OwnerFlags.values(r, com.mrgregles.bsp_region_guard.claim.OwnerFlags.MEMBERS)));
+        data.put("lists.memberSet", joinValues(com.mrgregles.bsp_region_guard.claim.OwnerFlags.values(r, com.mrgregles.bsp_region_guard.claim.OwnerFlags.MEMBER_SET)));
+        data.put("lists.owners.inherited", joinValues(ownersUp));
+        data.put("lists.members.inherited", joinValues(membersUp));
+        if (local) {
+            data.put("buyerFlags", String.join(",", com.mrgregles.bsp_region_guard.claim.ClaimFlags.allowedFor(store, r)));
+        }
+    }
+
+    private static String joinValues(Map<String, String> values) {
+        StringBuilder out = new StringBuilder();
+        values.forEach((k, v) -> out.append(out.length() == 0 ? "" : ",").append(k).append('=').append(v));
+        return out.toString();
     }
 
     /**
@@ -461,7 +511,8 @@ public final class RegionSync {
             RegionActionPacket.ADD_MEMBER, RegionActionPacket.REMOVE_MEMBER, RegionActionPacket.ADD_RANK, RegionActionPacket.REMOVE_RANK,
             RegionActionPacket.PRIORITY, RegionActionPacket.PARENT, RegionActionPacket.TYPE, RegionActionPacket.RENAME, RegionActionPacket.MINE_ADD,
             RegionActionPacket.MINE_INTERVAL, RegionActionPacket.TRIGGER_REMOVE, RegionActionPacket.SET_DATA, RegionActionPacket.EDGE_REFRESH,
-            RegionActionPacket.RESIZE, RegionActionPacket.VFILL, RegionActionPacket.CORNERS, RegionActionPacket.PLOTS_PVP);
+            RegionActionPacket.RESIZE, RegionActionPacket.VFILL, RegionActionPacket.CORNERS, RegionActionPacket.PLOTS_PVP,
+            RegionActionPacket.LIST_FLAG, RegionActionPacket.BUYER_FLAG);
 
     /** One edit from the screen, through the same {@link RegionEdits} the commands use. */
     @Nullable
@@ -510,6 +561,17 @@ public final class RegionSync {
             case RegionActionPacket.TRIGGER_ADD -> RegionEdits.addTrigger(player, store, r, a, b);
             case RegionActionPacket.TRIGGER_REMOVE -> RegionEdits.removeTrigger(store, r, Integer.parseInt(a));
             case RegionActionPacket.SET_DATA -> setData(level, store, r, a, b);
+            case RegionActionPacket.LIST_FLAG, RegionActionPacket.BUYER_FLAG -> {
+                Flag<?> flag = FlagRegistry.get(a);
+                if (flag == null) {
+                    yield new RegionEdits.Result(false, "No flag named '" + a + "'.");
+                }
+                if (action.equals(RegionActionPacket.BUYER_FLAG)) {
+                    yield RegionEdits.buyerFlag(store, r, flag);
+                }
+                String[] parts = b.trim().split("\\s+", 2);
+                yield RegionEdits.listFlag(store, r, parts[0], flag, parts.length > 1 ? parts[1] : null, new FlagContext(level, player));
+            }
             case RegionActionPacket.PLOTS_PVP -> r.isGlobal() ? RegionEdits.plotsInPvp(level, a) : new RegionEdits.Result(false, "Plots in a PvP world are set on the world default.");
             case RegionActionPacket.BORDER_SET, RegionActionPacket.BORDER_OFF, RegionActionPacket.EDGE_LINK, RegionActionPacket.EDGE_UNLINK,
                  RegionActionPacket.EDGE_REFRESH -> border(player, level, r, action, a, b);

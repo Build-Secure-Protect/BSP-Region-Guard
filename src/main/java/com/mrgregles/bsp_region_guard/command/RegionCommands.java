@@ -70,6 +70,13 @@ public final class RegionCommands {
         Flag<?> flag = FlagRegistry.get(StringArgumentType.getString(ctx, "flag"));
         List<String> out = new ArrayList<>(flag == null ? List.of() : flag.suggestions());
         out.add("clear");
+        if (flag != null && com.mrgregles.bsp_region_guard.claim.OwnerFlags.isPlayerFlag(flag)) {
+            for (String v : List.of("allow", "deny", "clear")) {
+                for (String list : List.of("visitors", "owners", "members")) {
+                    out.add(v + " " + list); // D167
+                }
+            }
+        }
         return SharedSuggestionProvider.suggest(out, b);
     };
     private static final SuggestionProvider<CommandSourceStack> TYPES = (ctx, b) ->
@@ -639,7 +646,8 @@ public final class RegionCommands {
         Object effective = RegionQuery.effective(RegionStore.get(src.getLevel()), r, flag);
         String text = r.id() + " " + flag.name() + ": " + (own == null ? "not set" : formatAny(flag, own))
                 + (own == null && effective != null ? " (inherited: " + formatAny(flag, effective) + ")" : "")
-                + (flag.defaultValue() != null ? " [default " + formatAny(flag, flag.defaultValue()) + "]" : "");
+                + (flag.defaultValue() != null ? " [default " + formatAny(flag, flag.defaultValue()) + "]" : "")
+                + listsText(r, flag);
         src.sendSuccess(() -> Component.literal(text), false);
         return 1;
     }
@@ -652,10 +660,29 @@ public final class RegionCommands {
         }
         String v = value.trim();
         FlagContext context = new FlagContext(src.getLevel(), src.getEntity() instanceof ServerPlayer p ? p : null);
+        // D167: a state flag may end with the list it is for: /rg flag <region> <flag> <value> [visitors|owners|members]
+        int space = v.lastIndexOf(' ');
+        String list = flag instanceof com.mrgregles.bsp_region_guard.flag.StateFlag && space > 0
+                ? com.mrgregles.bsp_region_guard.claim.OwnerFlags.listName(v.substring(space + 1)) : null;
+        if (list != null) {
+            String rest = v.substring(0, space).trim();
+            return answer(src, RegionEdits.listFlag(RegionStore.get(src.getLevel()), r, list, flag, rest.equalsIgnoreCase("clear") || rest.equals("-") ? null : rest, context));
+        }
         return answer(src, RegionEdits.flag(RegionStore.get(src.getLevel()), r, flag, v.equalsIgnoreCase("clear") || v.equals("-") ? null : v, context));
     }
 
 
+
+    /** The plot's OWNERS and MEMBERS values for a player flag (D159), for /rg flag without a value. */
+    private static String listsText(Region r, Flag<?> flag) {
+        if (!com.mrgregles.bsp_region_guard.claim.OwnerFlags.hasLists(r) || !com.mrgregles.bsp_region_guard.claim.OwnerFlags.isPlayerFlag(flag)) {
+            return "";
+        }
+        var sf = (com.mrgregles.bsp_region_guard.flag.StateFlag) flag;
+        var owners = com.mrgregles.bsp_region_guard.claim.OwnerFlags.own(r, com.mrgregles.bsp_region_guard.claim.OwnerFlags.OWNERS, sf);
+        var members = com.mrgregles.bsp_region_guard.claim.OwnerFlags.own(r, com.mrgregles.bsp_region_guard.claim.OwnerFlags.MEMBERS, sf);
+        return "; owners: " + (owners == null ? "inherit" : owners.name().toLowerCase()) + "; members: " + (members == null ? "inherit" : members.name().toLowerCase());
+    }
 
     private static <T> String formatAny(Flag<T> flag, Object value) {
         return RegionEdits.formatAny(flag, value);

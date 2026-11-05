@@ -2,7 +2,7 @@
 
 Every flag BSP Region Guard knows, what it does and how it is enforced. Set them with `/rg flag <region> <flag> <value>`; `clear` removes a value. State flags take `allow` or `deny`. An unset flag inherits from the region's parent, then from the world's `__global__` region, then falls back to the default given here.
 
-How a flag is resolved at a position: take the regions containing it, highest priority first (a child stands in for its parent); at the first priority level where any region sets the flag, that level decides, and `deny` beats `allow` at the same level. **Build-family** flags (marked *build*) have no fixed default: when none sets them, owners and members of the top protecting region may act and nobody else may; they also fall back to the `build` flag's value. BSP Core admins bypass every player-action check unless they turn it off with `/rg bypass`.
+How a flag is resolved at a position: take the regions containing it, highest priority first (a child stands in for its parent); at the first priority level where any region sets the flag, that level decides, and `deny` beats `allow` at the same level. **Build-family** flags (marked *build*) have no fixed default: when none sets them, owners and members of the top protecting region may act and nobody else may; they also fall back to the `build` flag's value. On plots, claims and open areas, owners and members are judged by their own lists instead (see "Plot owner flags" below). BSP Core admins bypass every player-action check unless they turn it off with `/rg bypass`.
 
 Enforcement column: **event** = a Forge event, works now. **mixin** = a small patch into Minecraft's own code, grouped under a config switch (`mixins` in the server config); works now. **tick** = checked every tick as players move, works now.
 
@@ -135,6 +135,24 @@ Each world's global region (the world default, `__global__`) stands for the whol
 In the Overworld, Minecraft's own border is set to match so the wall shows (`border.vanillaWall`, on by default). Minecraft copies the Overworld's border into the other worlds, so while the Overworld has a Region Guard border the other worlds' Minecraft border is lifted and Region Guard's own border (if any) applies there. Use `/rg border` rather than `/worldborder`: Region Guard sets Minecraft's border again on every change and start.
 
 An edge of the border can lead to an edge of a world on another server (edge links; setup in `docs/NETWORK.md`). Within a block of a linked edge the player is asked whether to travel (admins with bypass on too), and a player past it is pushed back without `border-message`.
+
+## Plot owner flags (visitors, owners, members)
+
+Plots for sale, claims and open areas have **three lists** of the player flags. Protected regions and mines keep one list.
+
+| List | Who it is for | What inherit means | Who sets it |
+|---|---|---|---|
+| VISITORS | everyone who is not an owner or member | the parent region, then the world default, as for any region | the admin; the buyer for the flags marked BUYER |
+| OWNERS | the plot's owners | **owners may**, for the build flags, so a world default that denies `build` never reaches owners; for the other player flags, "same as visitors" | the admin |
+| MEMBERS | the plot's members | same as owners | the admin sets starting values; the owner changes them on the claim card or with `/claim flag <claim> <flag> <value> members` |
+
+A flag the OWNERS list denies is denied for members too, and the owner can't change it. Members never get more than owners. The owner's own choices for members come before the admin's starting values, so switching "members may build" off also covers block-break. Another region at the plot's priority that denies a flag still stops owners and members, as before. A claim outlined in an open area takes the area's OWNERS and MEMBERS values where it has none of its own.
+
+Player flags with three values: every *build* flag (build, block-break, block-place, interact, use, chest-access, ride, sleep, respawn-anchors, vehicle-place, vehicle-destroy, lighter, block-trampling, item-frame-rotation, use-anvil, use-dripleaf, damage-animals) plus `item-drop`, `item-pickup`, `enderpearl` and `chorus-fruit-teleport`. Everything else (PvP, fire, mobs, explosions, weather, messages) has one value, in VISITORS. PvP is checked for the spot rather than for one player, so it stays single.
+
+Set them in the admin screen's FLAGS tab (VISITORS / OWNERS / MEMBERS buttons above the list) or with `/rg flag <plot> <flag> <allow|deny|clear> owners` (or `members`, or `visitors`, the same as leaving it out). The gold **BUYER** chip on each VISITORS row marks the flags the buyer may set; it replaces the typed list on the SALE tab (`/rg plotflags` still works).
+
+Copying a plot copies all three lists and the BUYER chips; the owner's own member choices are not copied. Giving a bought plot back puts members back on the admin's starting values. Plots made before this version keep their behaviour: a build-flag deny on them, or inherited from a parent region without lists, is also put in OWNERS, except a claim's own deny on a flag its buyer could set (the buyer meant it for strangers). This happens once per region, whether it comes from the save file, the shared database or a wipe backup. Setting a claim back to a plot for sale with TYPE also resets the owner's member choices.
 
 ## Banned blocks
 

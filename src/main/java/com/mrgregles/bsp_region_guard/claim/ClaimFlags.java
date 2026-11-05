@@ -30,6 +30,9 @@ public final class ClaimFlags {
     static final Set<Flag<?>> HINDER_WHEN_DENIED = Set.of(Flags.ENTRY, Flags.EXIT, Flags.BUILD, Flags.BLOCK_BREAK, Flags.BLOCK_PLACE,
             Flags.INTERACT, Flags.USE, Flags.CHEST_ACCESS, Flags.PVP, Flags.ENDERPEARL, Flags.CHORUS_FRUIT_TELEPORT, Flags.TELEPORT_IN, Flags.TELEPORT_OUT);
 
+    /** Stored as a plot's list when the admin took every BUYER chip off: the buyer may set nothing (not the config's list). */
+    public static final String NONE = "-";
+
     private ClaimFlags() {
     }
 

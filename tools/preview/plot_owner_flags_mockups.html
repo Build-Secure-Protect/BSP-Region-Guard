@@ -1,0 +1,257 @@
+<title>Plot Owner Flags</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=VT323&family=IBM+Plex+Sans:wght@400;600&display=swap">
+<style>
+/* Layout: the problem, who reads which list, three options for the admin FLAGS tab (one 16:9 game window each), the player's claim card, questions. One dark look: these are game screens. */
+:root {
+    color-scheme: dark;
+    --page: #0b0e13; --panel: rgba(16,21,28,.97); --inset: #0c0e12; --line: #2a2f3a;
+    --tq: #19d3b0; --gold: #ffd23a; --vio: #b58cff; --bad: #ff6b5c; --text: #e6eaf2; --muted: #9aa3b5; --hint: #6f7788;
+    --mc: "VT323", ui-monospace, Menlo, monospace; --ui: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+body { background: var(--page); color: var(--text); font-family: var(--ui); }
+.wrap { max-width: 1020px; margin: 0 auto; padding-block: 28px 64px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1 { font-family: var(--mc); font-weight: normal; font-size: 2.6rem; color: var(--tq); margin: 0 0 4px; text-wrap: balance; }
+h2 { font-family: var(--mc); font-weight: normal; font-size: 1.9rem; margin: 44px 0 4px; text-wrap: balance; }
+h2 .tag { color: var(--muted); font-size: 1.2rem; margin-left: 8px; }
+p, li { line-height: 1.55; color: var(--muted); max-width: 72ch; }
+p strong, li strong { color: var(--text); font-weight: 600; }
+.lede { color: var(--text); }
+.scroller { overflow-x: auto; margin-top: 10px; padding-bottom: 6px; }
+.win { position: relative; width: 960px; height: 540px; background: #05070a; font-family: var(--mc); overflow: hidden; user-select: none; }
+.win.short { height: 360px; }
+.terrain { position: absolute; inset: 0; opacity: .35;
+    background: repeating-linear-gradient(90deg, rgba(0,0,0,.07) 0 1px, transparent 1px 16px), repeating-linear-gradient(0deg, rgba(0,0,0,.07) 0 1px, transparent 1px 16px),
+      linear-gradient(135deg, #4c7a35, #5d8b3c 40%, #4a7232 70%, #6f8f45); }
+.dim { position: absolute; inset: 0; background: rgba(0,0,0,.55); }
+.pnl { position: absolute; background: var(--panel); border: 1px solid var(--line); color: var(--text); }
+.pnl.tq { border-color: var(--tq); }
+.abs { position: absolute; }
+.btn { display: inline-flex; align-items: center; justify-content: center; height: 20px; padding: 0 8px; font-family: var(--mc); font-size: 15px;
+    background: var(--inset); border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+.btn.on { color: var(--tq); border-color: var(--tq); background: rgba(25,211,176,.13); }
+.btn.gold { color: var(--gold); border-color: var(--gold); background: rgba(255,210,58,.12); }
+.btn.vio { color: var(--vio); border-color: var(--vio); background: rgba(181,140,255,.12); }
+.lbl { font-size: 14px; color: var(--muted); letter-spacing: .04em; }
+.tiny { font-size: 13px; color: var(--hint); }
+.flex { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.list { position: absolute; border: 1px solid var(--line); background: var(--inset); overflow: hidden; }
+.rrow { font-size: 15px; height: 20px; line-height: 20px; padding: 0 6px; color: var(--muted); border-bottom: 1px solid #141821; white-space: nowrap; overflow: hidden; }
+.rrow.sel { color: var(--tq); background: rgba(25,211,176,.1); }
+.tabs { position: absolute; display: flex; gap: 2px; }
+.tab { font-size: 15px; padding: 0 7px; height: 20px; line-height: 20px; color: var(--muted); border: 1px solid var(--line); border-bottom: none; background: var(--inset); }
+.tab.on { color: var(--tq); border-color: var(--tq); }
+.cat { font-size: 13px; color: var(--tq); letter-spacing: .06em; height: 18px; line-height: 20px; padding: 0 6px; }
+.frow { display: flex; align-items: center; gap: 8px; height: 26px; padding: 0 6px; border-bottom: 1px solid #141821; }
+.frow .nm { width: 128px; flex: none; font-size: 16px; color: var(--muted); }
+.frow .nm.set { color: var(--text); }
+.frow .hint { flex: 1; min-width: 0; font-size: 12px; color: var(--hint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.frow .hint.inh { color: var(--vio); }
+.frow .hint.lock { color: var(--bad); }
+.sw { display: flex; gap: 2px; flex: none; }
+.sw span { width: 36px; height: 15px; line-height: 15px; text-align: center; font-size: 13px; border: 1px solid var(--line); background: var(--inset); color: var(--hint); }
+.sw span.on.i { color: var(--text); border-color: var(--text); }
+.sw span.on.a { color: var(--tq); border-color: var(--tq); background: rgba(25,211,176,.13); }
+.sw span.on.d { color: var(--bad); border-color: var(--bad); background: rgba(255,107,92,.12); }
+.sw.locked span { opacity: .35; }
+.buyer { flex: none; width: 46px; height: 15px; line-height: 15px; text-align: center; font-size: 12px; border: 1px solid var(--line); color: var(--hint); }
+.buyer.on { color: var(--gold); border-color: var(--gold); background: rgba(255,210,58,.12); }
+.buyer.off { visibility: hidden; }
+.mx { display: grid; grid-template-columns: 128px 1fr 76px 76px 76px 46px; align-items: center; height: 24px; padding: 0 6px; border-bottom: 1px solid #141821; column-gap: 8px; }
+.mx .nm { font-size: 16px; color: var(--text); }
+.mx .hint { font-size: 12px; color: var(--hint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.cyc { height: 16px; line-height: 16px; text-align: center; font-size: 13px; border: 1px solid var(--line); background: var(--inset); color: var(--muted); }
+.cyc.a { color: var(--tq); border-color: var(--tq); background: rgba(25,211,176,.13); }
+.cyc.d { color: var(--bad); border-color: var(--bad); background: rgba(255,107,92,.12); }
+.cyc.i { color: var(--vio); border-color: #4b3f68; }
+.cyc.lk { color: var(--bad); opacity: .55; border-style: dashed; }
+.cyc.span3 { grid-column: 3 / span 3; color: var(--hint); }
+.mxh { display: grid; grid-template-columns: 128px 1fr 76px 76px 76px 46px; column-gap: 8px; padding: 0 6px; font-size: 13px; letter-spacing: .05em; }
+.tog { display: flex; align-items: center; gap: 8px; height: 18px; font-size: 15px; color: var(--text); }
+.tog .k { width: 22px; height: 11px; border: 1px solid var(--line); background: var(--inset); position: relative; flex: none; }
+.tog .k::after { content: ""; position: absolute; top: 1px; width: 8px; height: 7px; background: var(--muted); left: 1px; }
+.tog.a .k { border-color: var(--tq); } .tog.a .k::after { background: var(--tq); left: 11px; }
+.tog.d .k { border-color: var(--bad); } .tog.d .k::after { background: var(--bad); }
+.tog.g { color: var(--muted); }
+.tog.lk { color: var(--hint); } .tog.lk .k { border-style: dashed; opacity: .5; }
+.map { position: absolute; background: #0a120c; border: 1px solid var(--line);
+    background-image: repeating-linear-gradient(90deg, rgba(255,255,255,.03) 0 1px, transparent 1px 12px), repeating-linear-gradient(0deg, rgba(255,255,255,.03) 0 1px, transparent 1px 12px); }
+.flow { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; margin-top: 12px; }
+.step { border: 1px solid var(--line); background: var(--panel); padding: 10px 12px; min-width: 0; }
+.step h3 { font: 1.35rem var(--mc); margin: 0 0 4px; }
+.step p { margin: 0; font-size: .92rem; }
+.cmp { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-top: 10px; }
+.cmp div { min-width: 0; }
+.cmp h3 { font: 600 .95rem var(--ui); color: var(--text); margin: 0 0 4px; }
+ol li { margin-bottom: 6px; }
+code { font-family: ui-monospace, Menlo, monospace; font-size: .9em; color: var(--text); }
+</style>
+
+<div class="wrap">
+<h1>PLOT OWNER FLAGS</h1>
+<p class="lede">Plots get two flag lists: one for visitors and one for owners. Owners then choose what their members may do, within what the admin allows owners.</p>
+<p><strong>Why:</strong> when the world default denies <code>build</code>, a plot left on inherit takes that deny for everyone, owner included. Setting the plot to allow opens it to every passer-by. With an owners list, the world default only reaches visitors.</p>
+<p><strong>Example in every window:</strong> <code>market_plot_7</code> in Sanctuary. The world default denies build, break and place. Bought by Steve, with Alex as a member.</p>
+
+<h2>Who reads which list</h2>
+<div class="flow">
+    <div class="step"><h3 style="color:var(--gold)">ADMIN, BYPASS ON</h3><p>Not stopped by any list, as today.</p></div>
+    <div class="step"><h3 style="color:var(--tq)">OWNERS</h3><p>The OWNERS list. Inherit here means <strong>owners may</strong>, so the world default never reaches them.</p></div>
+    <div class="step"><h3 style="color:var(--vio)">MEMBERS</h3><p>The MEMBERS list, which the owner sets. A flag the OWNERS list denies is denied for members too, and the owner can't change it.</p></div>
+    <div class="step"><h3 style="color:var(--text)">VISITORS</h3><p>Everyone else. The VISITORS list, then the parent area, then the world default, as today.</p></div>
+</div>
+<p>Only flags about what a player does get three values. World events (fire, mobs, explosions, weather) have one value and stay in the VISITORS list.</p>
+
+<h2>A. Three tabs in FLAGS <span class="tag">VISITORS / OWNERS / MEMBERS above the flag list</span></h2>
+<p>Today's FLAGS tab with a switch above it. Each tab is the familiar list with INH / ALLOW / DENY. The hint line says what inherit gives for that tab. The gold BUYER chip on VISITORS replaces the typed "buyer may set" list on the SALE tab.</p>
+<div class="scroller"><div class="win" id="winA"></div></div>
+<div class="cmp">
+    <div><h3>For</h3><p>Closest to today's tab. One list at a time, so the rows have room for hints.</p></div>
+    <div><h3>Against</h3><p>To compare visitors with owners for one flag, you switch tabs.</p></div>
+</div>
+
+<h2>B. One table, three columns <span class="tag">every flag shows visitors, owners and members side by side</span></h2>
+<p>One row per flag with a value for each group. Click a value to cycle it: INH, ALLOW, DENY. World events show a single wide value. Members' values are the starting values for a new buyer. Steve changes them later.</p>
+<div class="scroller"><div class="win" id="winB"></div></div>
+<div class="cmp">
+    <div><h3>For</h3><p>The whole plot is readable at once. Locked member values (dashed) sit right beside the owner deny that locks them.</p></div>
+    <div><h3>Against</h3><p>Denser, and the hint text shrinks to fit. Small windows lose the hints first.</p></div>
+</div>
+
+<h2>C. A separate OWNERS tab <span class="tag">FLAGS stays as today for visitors, OWNERS gets its own tab</span></h2>
+<p>FLAGS is unchanged and means visitors. A new OWNERS tab, shown only on plots, claims and open areas, lists the player flags with an owners column and a members column. Settings that are not flags (the buyer list, plot limit) stay on SALE.</p>
+<div class="scroller"><div class="win" id="winC"></div></div>
+<div class="cmp">
+    <div><h3>For</h3><p>Protected regions and mines never show owner settings. The visitors list is exactly what admins know.</p></div>
+    <div><h3>Against</h3><p>One more tab in a long tab row. Owner settings are away from the flags they shadow.</p></div>
+</div>
+
+<h2>What Steve sees <span class="tag">the claim card (D24), same in every option</span></h2>
+<p>The right side gets two groups. VISITORS shows the flags the admin lets the buyer set, as today. MEMBERS shows every player flag the admin hasn't denied for owners. A denied one shows dashed with "set by the plot".</p>
+<div class="scroller"><div class="win short" id="winP"></div></div>
+
+<h2>Questions <span class="tag">default in brackets</span></h2>
+<ol>
+    <li><strong>Which layout?</strong> [A, three tabs in FLAGS.]</li>
+    <li><strong>Which regions get the owners and members lists:</strong> plots for sale, claims and open areas. A claim outlined in an open area starts from the area's lists. Protected regions and mines keep one list. [Yes.]</li>
+    <li><strong>Inherit on the OWNERS list means owners may</strong> for the build flags (build, break, place, chests, doors and the rest). For other player flags it means "same as visitors". [Yes.]</li>
+    <li><strong>MEMBERS:</strong> the admin sets starting values. The owner changes any flag the OWNERS list doesn't deny. Inherit on MEMBERS means "same as owners". Members never get more than owners. [Yes.]</li>
+    <li><strong>VISITORS the buyer may set:</strong> a gold BUYER chip per flag replaces the typed list on the SALE tab. The config list stays the default for plots without one. [Yes.]</li>
+    <li><strong>Which flags get three values:</strong> the build flags plus item drop and pickup, ender pearls, chorus fruit, PvP, sleep, ride and the vehicle flags. Fire, mobs, explosions, weather and entry messages stay single. [Yes.]</li>
+    <li><strong>Copying a plot</strong> (D58) copies all three lists and the BUYER chips. A copy is unowned, so the members list is the admin's starting values. [Yes.]</li>
+    <li><strong>Plots that exist today:</strong> their flags become the VISITORS list. Any build-flag deny set on them is also put in the OWNERS list, so no plot opens up by itself. Admins remove it where it was only meant for visitors. [Yes, keep behaviour.]</li>
+    <li><strong>Commands:</strong> <code>/rg flag &lt;region&gt; &lt;flag&gt; &lt;value&gt; [visitors|owners|members]</code>, visitors when left out. Owners use <code>/claim flag ... members</code>. [Yes.]</li>
+    <li><strong>Selling a claim back or a wipe</strong> clears the MEMBERS list to the admin's starting values. [Yes.]</li>
+</ol>
+</div>
+
+<script>
+(function () {
+    var S = { i: "INH", a: "ALLOW", d: "DENY" };
+    function sw(v, locked) { return '<div class="sw' + (locked ? ' locked' : '') + '">' + ["i", "a", "d"].map(function (k) { return '<span class="' + k + (v === k ? ' on' : '') + '">' + S[k] + '</span>'; }).join("") + '</div>'; }
+    // name, hint, visitors, owners, members, buyer chip (null = world event)
+    var F = [
+        ["PROTECTION"],
+        ["build", "the umbrella for building", "i", "i", "i", false],
+        ["block-break", "breaking blocks", "i", "i", "i", false],
+        ["block-place", "placing blocks", "i", "i", "i", false],
+        ["chest-access", "opening any inventory", "d", "i", "a", true],
+        ["use", "doors, gates, buttons, levers", "a", "i", "i", true],
+        ["interact", "machines, animals, villagers", "i", "i", "d", true],
+        ["lighter", "flint and steel, fire charges", "i", "d", "i", false],
+        ["MISCELLANEOUS"],
+        ["item-drop", "dropping items", "a", "i", "i", false],
+        ["enderpearl", "throwing ender pearls", "d", "a", "i", false],
+        ["MOBS, FIRE AND EXPLOSIONS"],
+        ["fire-spread", "fire catching on new blocks", "d", null],
+        ["creeper-explosion", "creeper blasts", "d", null]
+    ];
+    var WORLD = { build: "deny", "block-break": "deny", "block-place": "deny" };
+    function inhHint(tab, f) {
+        if (tab === "v") return WORLD[f[0]] ? "inherits deny from the world default" : "inherits allow (default)";
+        if (tab === "o") return f[0] === "item-drop" || f[0] === "enderpearl" ? "same as visitors" : "owners may (plot rule)";
+        return "same as owners";
+    }
+    function shell(rightHtml, tabsHtml) {
+        var regions = ["__global__", "spawn_town", "market_plot_6", "market_plot_7", "market_plot_8", "harbour_plot_1", "harbour_plot_2", "hill_open_area", "diamond_mine"];
+        return '<div class="terrain"></div><div class="dim"></div>' +
+            '<div class="pnl tq" style="left:24px;top:20px;width:912px;height:500px">' +
+            '<div class="abs" style="left:10px;top:6px;font-size:22px;color:var(--tq)">REGIONS</div>' +
+            '<div class="abs tiny" style="left:110px;top:11px">sanctuary · 48 regions</div>' +
+            '<div class="abs btn" style="right:8px;top:6px">CLOSE</div>' +
+            '<div class="list" style="left:10px;top:36px;width:190px;height:454px">' + regions.map(function (r) { return '<div class="rrow' + (r === "market_plot_7" ? ' sel' : '') + '">' + r + '</div>'; }).join("") + '</div>' +
+            '<div class="abs" style="left:214px;top:34px;font-size:19px">market_plot_7 <span class="tiny">CLAIM · owner Steve · member Alex · priority 1</span></div>' +
+            '<div class="tabs" style="left:214px;top:58px">' + tabsHtml + '</div>' +
+            '<div class="abs" style="left:214px;top:78px;width:688px;height:412px;border:1px solid var(--line);background:var(--inset)">' + rightHtml + '</div></div>';
+    }
+    function tabs(list, on) { return list.map(function (t) { return '<div class="tab' + (t === on ? ' on' : '') + '">' + t + '</div>'; }).join(""); }
+    var STD = ["MAP", "FLAGS", "ACCESS", "RANKS", "SALE", "TELEPORT", "INFO", "BANNED"];
+
+    // ---------- A
+    var a = '<div class="abs flex" style="left:6px;top:6px"><span class="btn">VISITORS</span><span class="btn on">OWNERS</span><span class="btn vio">MEMBERS</span>' +
+        '<span class="tiny" style="margin-left:8px">Steve (owner). Inherit: owners may build here.</span></div>' +
+        '<div class="abs flex" style="right:6px;top:6px"><span class="btn">SET ONLY</span></div>' +
+        '<div class="abs" style="left:0;top:34px;right:0">';
+    F.forEach(function (f) {
+        if (f.length === 1) { if (f[0] !== "MOBS, FIRE AND EXPLOSIONS") a += '<div class="cat">' + f[0] + '</div>'; return; }
+        if (f[3] === null) return; // world events live on VISITORS only
+        var v = f[3];
+        a += '<div class="frow"><span class="nm' + (v !== "i" ? ' set' : '') + '">' + f[0] + '</span><span class="hint' + (v === "i" ? ' inh' : '') + '">' + (v === "i" ? inhHint("o", f) : f[1]) + '</span>' + sw(v) + '</div>';
+    });
+    a += '</div>';
+    // small inset showing the VISITORS tab
+    a += '<div class="pnl" style="right:8px;bottom:6px;width:300px;height:92px;border-color:var(--gold)">' +
+        '<div class="abs tiny" style="left:8px;top:4px;color:var(--gold)">THE VISITORS TAB, SAME ROWS</div>' +
+        '<div class="abs" style="left:0;right:0;top:20px">' +
+        '<div class="frow"><span class="nm" style="width:96px">block-break</span><span class="hint inh">world: deny</span>' + sw("i") + '</div>' +
+        '<div class="frow"><span class="nm set" style="width:96px">chest-access</span><span class="buyer on">BUYER</span>' + sw("d") + '</div>' +
+        '<div class="frow"><span class="nm set" style="width:96px">use</span><span class="buyer on">BUYER</span>' + sw("a") + '</div></div></div>';
+    document.getElementById("winA").innerHTML = shell(a, tabs(STD, "FLAGS"));
+
+    // ---------- B
+    function cyc(v, locked) {
+        if (locked) return '<div class="cyc lk">DENY</div>';
+        return '<div class="cyc ' + v + '">' + S[v] + '</div>';
+    }
+    var b = '<div class="abs flex" style="left:6px;top:6px"><span class="btn">SET ONLY</span><span class="tiny" style="margin-left:6px">Click a value to cycle it. Violet INH: follows the next list down.</span></div>' +
+        '<div class="abs" style="left:0;top:32px;right:0"><div class="mxh"><span class="lbl">FLAG</span><span></span><span style="color:var(--text);text-align:center">VISITORS</span><span style="color:var(--tq);text-align:center">OWNERS</span><span style="color:var(--vio);text-align:center">MEMBERS</span><span style="color:var(--gold);text-align:center">BUYER</span></div>';
+    F.forEach(function (f) {
+        if (f.length === 1) { b += '<div class="cat">' + f[0] + '</div>'; return; }
+        if (f[3] === null) { b += '<div class="mx"><span class="nm">' + f[0] + '</span><span class="hint">' + f[1] + '</span><div class="cyc span3 ' + f[2] + '">' + S[f[2]] + ' FOR EVERYONE</div><span></span></div>'; return; }
+        var hint = f[2] === "i" && WORLD[f[0]] ? "visitors: world default denies" : f[1];
+        b += '<div class="mx"><span class="nm">' + f[0] + '</span><span class="hint">' + hint + '</span>' + cyc(f[2]) + cyc(f[3]) + cyc(f[4], f[3] === "d") + '<span class="buyer' + (f[5] ? ' on' : '') + '">BUYER</span></div>';
+    });
+    b += '</div><div class="abs tiny" style="left:8px;bottom:6px">Dashed: denied for owners, so locked for members. Members\' values are starting values for each new buyer.</div>';
+    document.getElementById("winB").innerHTML = shell(b, tabs(STD, "FLAGS"));
+
+    // ---------- C
+    var c = '<div class="abs tiny" style="left:8px;top:8px">Who the plot belongs to. Visitors are on the FLAGS tab. Inherit for owners: owners may. Inherit for members: same as owners.</div>' +
+        '<div class="abs" style="left:0;top:30px;right:0"><div class="frow" style="height:20px"><span class="nm lbl">FLAG</span><span class="hint"></span><span class="lbl" style="width:112px;text-align:center;color:var(--tq)">OWNERS</span><span class="lbl" style="width:112px;text-align:center;color:var(--vio)">MEMBERS</span></div>';
+    F.forEach(function (f) {
+        if (f.length === 1) { if (f[0] !== "MOBS, FIRE AND EXPLOSIONS") c += '<div class="cat">' + f[0] + '</div>'; return; }
+        if (f[3] === null) return;
+        var locked = f[3] === "d";
+        c += '<div class="frow"><span class="nm' + (f[3] !== "i" || f[4] !== "i" ? ' set' : '') + '">' + f[0] + '</span><span class="hint' + (locked ? ' lock' : '') + '">' + (locked ? "denied for owners, members locked" : f[1]) + '</span>' + sw(f[3]) + sw(locked ? "d" : f[4], locked) + '</div>';
+    });
+    c += '</div><div class="abs tiny" style="left:8px;bottom:6px">Owner-set member values show in white. These are the admin\'s starting values; Steve changed chest-access to ALLOW.</div>';
+    document.getElementById("winC").innerHTML = shell(c, tabs(["MAP", "FLAGS", "OWNERS", "ACCESS", "RANKS", "SALE", "TELEPORT", "INFO", "BANNED"], "OWNERS"));
+
+    // ---------- Player claim card
+    function tog(cls, text) { return '<div class="tog ' + cls + '"><span class="k"></span>' + text + '</div>'; }
+    var p = '<div class="terrain"></div><div class="dim"></div>' +
+        '<div class="pnl tq" style="left:120px;top:20px;width:720px;height:320px">' +
+        '<div class="abs" style="left:10px;top:6px;font-size:22px;color:var(--tq)">MY CLAIM</div><div class="abs tiny" style="left:120px;top:11px">market_plot_7 · sanctuary</div><div class="abs btn" style="right:8px;top:6px">CLOSE</div>' +
+        '<div class="map" style="left:10px;top:36px;width:250px;height:230px"><div class="abs" style="left:70px;top:60px;width:110px;height:110px;border:1px solid var(--tq);background:rgba(25,211,176,.15)"></div></div>' +
+        '<div class="abs flex" style="left:10px;top:276px"><span class="btn">TELEPORT HOME</span><span class="btn" style="color:var(--bad)">GIVE UP</span></div>' +
+        '<div class="abs lbl" style="left:280px;top:38px">MEMBERS <span class="tiny">Alex</span> <span class="btn" style="height:16px;font-size:13px">+ ADD</span></div>' +
+        '<div class="abs" style="left:280px;top:66px;width:200px"><div class="lbl" style="color:var(--text)">VISITORS</div>' +
+        tog("d", "strangers may open chests") + tog("a", "strangers may use doors") + tog("g", "strangers may use machines") + '</div>' +
+        '<div class="abs" style="left:500px;top:66px;width:210px"><div class="lbl" style="color:var(--vio)">MEMBERS</div>' +
+        tog("g", "members may build") + tog("g", "members may break blocks") + tog("g", "members may place blocks") + tog("a", "members may open chests") +
+        tog("g", "members may use doors") + tog("d", "members may use machines") + tog("lk", "members may use lighters") + '<div class="tiny" style="margin-left:30px">set by the plot</div>' +
+        tog("g", "members may drop items") + '</div>' +
+        '<div class="abs tiny" style="left:280px;top:290px">Grey: follows the plot\'s rule. Click to switch on, off, back to grey.</div></div>';
+    document.getElementById("winP").innerHTML = p;
+})();
+</script>
