@@ -32,6 +32,11 @@ import java.util.function.Consumer;
  * list, Anti Totem zones). A rename there breaks this file and nothing else.
  */
 public final class BspCore {
+    /** BSP-Core's Land Office block id (Region Guard does not compile against BSP-Core's blocks; D144, D148). */
+    public static final net.minecraft.resources.ResourceLocation LAND_OFFICE_BLOCK = net.minecraft.resources.ResourceLocation.fromNamespaceAndPath("bsp_core", "land_office");
+    /** BSP-Core's TEAM and KITS inventory buttons (client/TeamInventoryButton), found by class name; BSP-Core gives no api for them (D136). */
+    public static final String TEAM_BUTTON_CLASS = "com.mrgregles.bsp_core.client.TeamInventoryButton$Corner";
+
     private BspCore() {
     }
 

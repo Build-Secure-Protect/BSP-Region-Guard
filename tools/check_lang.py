@@ -43,6 +43,7 @@ def main():
         "cause.": ["enter", "exit", "timer", "shutdown"],
         "type.": ["protected", "plot_for_sale", "open_for_buying", "claim", "mine", "global", "remote"],
         "rule.": ["place", "use", "break", "carry"],
+        "player_rule.": ["place", "use", "break", "carry"],
         "mode.": ["region", "plot", "mine"],
         "tool.": ["pick", "draw", "reshape"],
         "pm_new.": ["region", "plot", "mine"],

@@ -10,7 +10,7 @@ import net.minecraftforge.network.simple.SimpleChannel;
 
 /** The mod's channel: {@code bsp_region_guard:main}. The server decides, the client displays. */
 public final class RegionNetwork {
-    private static final String PROTOCOL = "10"; // 2: edge-link travel pop-up; 3: server switcher; 4: claim wipe in the screen; 5: banned items pop-up; 6: plot map tiles and screen; 7: corners on the plot map; 8: plot looks and the bought-plot pop-up; 9: action answers in the screen; 10: longer values in the region detail and actions
+    private static final String PROTOCOL = "12"; // 2: edge-link travel pop-up; 3: server switcher; 4: claim wipe in the screen; 5: banned items pop-up; 6: plot map tiles and screen; 7: corners on the plot map; 8: plot looks and the bought-plot pop-up; 9: action answers in the screen; 10: longer values in the region detail and actions; 11: banned lists for players (BANNED HERE); 12: Land Office plot lists (OFFICE PLOTS)
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             ResourceLocation.fromNamespaceAndPath(BSPRegionGuard.MODID, "main"), () -> PROTOCOL, PROTOCOL::equals, PROTOCOL::equals);
 
@@ -67,6 +67,18 @@ public final class RegionNetwork {
         CHANNEL.messageBuilder(ActionAnswerPacket.class, id++, NetworkDirection.PLAY_TO_CLIENT)
                 .encoder(ActionAnswerPacket::encode).decoder(ActionAnswerPacket::decode)
                 .consumerMainThread(ActionAnswerPacket::handle).add();
+        CHANNEL.messageBuilder(BannedListRequestPacket.class, id++, NetworkDirection.PLAY_TO_SERVER)
+                .encoder(BannedListRequestPacket::encode).decoder(BannedListRequestPacket::decode)
+                .consumerMainThread(BannedListRequestPacket::handle).add();
+        CHANNEL.messageBuilder(BannedListPacket.class, id++, NetworkDirection.PLAY_TO_CLIENT)
+                .encoder(BannedListPacket::encode).decoder(BannedListPacket::decode)
+                .consumerMainThread(BannedListPacket::handle).add();
+        CHANNEL.messageBuilder(OfficeEditPacket.class, id++, NetworkDirection.PLAY_TO_SERVER)
+                .encoder(OfficeEditPacket::encode).decoder(OfficeEditPacket::decode)
+                .consumerMainThread(OfficeEditPacket::handle).add();
+        CHANNEL.messageBuilder(OfficeStatePacket.class, id++, NetworkDirection.PLAY_TO_CLIENT)
+                .encoder(OfficeStatePacket::encode).decoder(OfficeStatePacket::decode)
+                .consumerMainThread(OfficeStatePacket::handle).add();
     }
 
     public static void sendTo(ServerPlayer player, Object packet) {

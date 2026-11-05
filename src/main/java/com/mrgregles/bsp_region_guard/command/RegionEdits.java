@@ -244,6 +244,12 @@ public final class RegionEdits {
             }
             String dim = now.dimension().location().toString();
             com.mrgregles.bsp_region_guard.claim.PlotMap.renameInHistory(dim, oldId, newId);
+            if (now.dimension() != null && net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer() != null) {
+                var lvl = net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer().getLevel(now.dimension());
+                if (lvl != null) {
+                    com.mrgregles.bsp_region_guard.claim.OfficeLists.get(lvl).renamed(oldId, newId); // D146: offices keep a renamed plot
+                }
+            }
             com.mrgregles.bsp_region_guard.claim.PlotMap.renameInHistory(dim, oldId + "_shell", newId + "_shell");
             var server = net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer();
             if (server != null) {

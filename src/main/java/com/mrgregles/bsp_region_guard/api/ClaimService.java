@@ -47,6 +47,22 @@ public interface ClaimService {
     /** Open areas in a world where players may outline their own plot. */
     List<Listing> openAreas(ServerLevel level);
 
+    /**
+     * Plots for sale that the Land Office at {@code office} lists (API 8, D140 to D148). An office an admin set to
+     * CHOSEN lists the plots ticked for it and the plots in the sale groups ticked for it; any other office lists every
+     * plot for sale in the world, as {@link #plotsForSale(ServerLevel)}.
+     */
+    List<Listing> plotsForSale(ServerLevel level, net.minecraft.core.BlockPos office);
+
+    /** Open areas the Land Office at {@code office} lists, chosen as {@link #plotsForSale(ServerLevel, net.minecraft.core.BlockPos)} (API 8). */
+    List<Listing> openAreas(ServerLevel level, net.minecraft.core.BlockPos office);
+
+    /**
+     * Whether the Land Office at {@code office} lists this plot or open area (API 8). A Land Office checks it before
+     * quoting or selling, so a plot that office does not list can't be bought there (D145).
+     */
+    boolean listedAt(ServerLevel level, net.minecraft.core.BlockPos office, String regionId);
+
     /** The ids of the claims a player owns in a world. */
     List<String> claimsOf(ServerLevel level, UUID player);
 

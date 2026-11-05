@@ -179,9 +179,13 @@ public final class MovementTracker {
             Set<String> left = new HashSet<>(t.regions);
             left.removeAll(nowIds);
 
-            String refusal = refusal(player, level, store, here, blockPos, t, entered, left, teleport);
+            Refusal refusal = refusal(player, level, store, here, blockPos, t, entered, left, teleport);
             if (refusal != null && putBack(player, t, here)) {
-                Protection.tell(player, level, blockPos, refusal);
+                if (refusal.title()) {
+                    Protection.tellTitle(player, refusal.text());
+                } else {
+                    Protection.tell(player, level, blockPos, refusal.text());
+                }
                 return; // position restored; the sets stay as they were
             }
             for (String id : left) {
@@ -237,7 +241,11 @@ public final class MovementTracker {
 
     /** The message to show when the move is refused, or {@code null} when it may go ahead. */
     @Nullable
-    private static String refusal(ServerPlayer player, ServerLevel level, RegionStore store, List<Region> here, BlockPos pos,
+    /** A movement refusal and whether it shows as a title in the middle of the screen (entry and ranks, D157) or on the action bar. */
+    private record Refusal(String text, boolean title) {
+    }
+
+    private static Refusal refusal(ServerPlayer player, ServerLevel level, RegionStore store, List<Region> here, BlockPos pos,
                                   Tracked t, Set<String> entered, Set<String> left, boolean teleport) {
         boolean bypass = RegionQuery.bypasses(player);
         boolean memberHere = isMemberOfAny(player, here);
@@ -248,17 +256,17 @@ public final class MovementTracker {
                 var carried = BannedBlocks.carried(level, pos, player);
                 if (!carried.isEmpty()) {
                     BannedBlocks.tellCarried(player, carried);
-                    return BannedBlocks.carryMessage(carried);
+                    return new Refusal(BannedBlocks.carryMessage(carried), false);
                 }
             }
             String kept = keptOut(level, pos, player, memberHere);
             if (kept != null) {
-                return kept;
+                return new Refusal(kept, true);
             }
             for (String id : entered) {
                 if (MinecraftForge.EVENT_BUS.post(new RegionEnterEvent(player, id, level.dimension(), teleport))) {
                     String m = RegionQuery.value(level, pos, Flags.ENTRY_DENY_MESSAGE);
-                    return m == null ? "You are not allowed in there." : m;
+                    return new Refusal(m == null ? "You are not allowed in there." : m, true);
                 }
             }
         }
@@ -275,12 +283,12 @@ public final class MovementTracker {
                         && !Boolean.TRUE.equals(RegionQuery.value(oldLevel, oldPos, Flags.EXIT_OVERRIDE))
                         && !(teleport && RegionQuery.allows(oldLevel, oldPos, Flags.EXIT_VIA_TELEPORT))) {
                     String m = RegionQuery.value(oldLevel, oldPos, Flags.EXIT_DENY_MESSAGE);
-                    return m == null ? "You are not allowed to leave here." : m;
+                    return new Refusal(m == null ? "You are not allowed to leave here." : m, false);
                 }
                 for (String id : left) {
                     if (MinecraftForge.EVENT_BUS.post(new RegionLeaveEvent(player, id, t.dimension, teleport))) {
                         String m = RegionQuery.value(oldLevel, oldPos, Flags.EXIT_DENY_MESSAGE);
-                        return m == null ? "You are not allowed to leave here." : m;
+                        return new Refusal(m == null ? "You are not allowed to leave here." : m, false);
                     }
                 }
             }
@@ -294,6 +302,12 @@ public final class MovementTracker {
      */
     @Nullable
     private static String keptOut(ServerLevel level, BlockPos pos, Player player, boolean memberHere) {
+        return keptOut(level, pos, player, memberHere, true);
+    }
+
+    /** As above; with {@code message} false a refusal answers "" without building the rank message (yes/no callers). */
+    @Nullable
+    private static String keptOut(ServerLevel level, BlockPos pos, Player player, boolean memberHere, boolean message) {
         if (RegionQuery.bypasses(player) || memberHere || RegionQuery.isExempt(level, pos, Flags.ENTRY, player)) {
             return null;
         }
@@ -303,8 +317,14 @@ public final class MovementTracker {
         }
         Set<String> ranks = RegionQuery.value(level, pos, Flags.ALLOWED_RANKS);
         if (ranks != null && !ranks.isEmpty() && !hasRank(player, ranks)) {
-            String m = RegionQuery.value(level, pos, Flags.ENTRY_DENY_MESSAGE);
-            return m == null ? "Your rank is not allowed in there." : m;
+            // D149 to D157: name the rank needed; only a message the region sets itself replaces it (the flag's
+            // default text would otherwise always win, so the rank was never named before)
+            if (!message) {
+                return "";
+            }
+            String custom = RegionQuery.explicit(level, pos, Flags.ENTRY_DENY_MESSAGE).orElse(null);
+            return player instanceof ServerPlayer sp ? RankMessage.forPlayer(sp, ranks, custom)
+                    : RankMessage.build(ranks, List.of(), l -> new com.mrgregles.bsp_region_guard.compat.RankUp.Standing(null, 0), custom);
         }
         return null;
     }
@@ -317,6 +337,11 @@ public final class MovementTracker {
     @Nullable
     public static String keptOut(ServerLevel level, BlockPos pos, Player player) {
         return keptOut(level, pos, player, isMemberOfAny(player, RegionStore.get(level).at(pos)));
+    }
+
+    /** Whether {@link #keptOut(ServerLevel, BlockPos, Player)} would refuse, without building the message. */
+    public static boolean isKeptOut(ServerLevel level, BlockPos pos, Player player) {
+        return keptOut(level, pos, player, isMemberOfAny(player, RegionStore.get(level).at(pos)), false) != null;
     }
 
     private static boolean isMemberOfAny(Player player, List<Region> regions) {
@@ -343,7 +368,8 @@ public final class MovementTracker {
                 return true;
             }
         }
-        return false;
+        // D152: a player above the needed rung on a BSP-RankUp ladder passes even when the groups do not inherit
+        return player.getServer() != null && com.mrgregles.bsp_region_guard.compat.RankUp.holdsAtLeast(player.getServer(), player.getUUID(), ranks);
     }
 
     /** Puts the player back where they were last tick; if that is unknown, just outside the regions they entered. */

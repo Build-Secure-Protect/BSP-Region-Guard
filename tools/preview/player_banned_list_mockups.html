@@ -1,0 +1,219 @@
+<title>Banned Here Mock-ups</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=VT323&family=IBM+Plex+Sans:wght@400;600&display=swap">
+<style>
+/* Layout: notes, the inventory button, three options for the BANNED HERE list (one 16:9 game window each), the buying screens, then questions. One dark look: these are game screens. */
+:root {
+    color-scheme: dark;
+    --page: #0b0e13; --panel: rgba(16,21,28,.97); --inset: #0c0e12; --line: #2a2f3a; --slot: #1a1f28;
+    --tq: #19d3b0; --gold: #ffd23a; --bad: #ff6b5c; --text: #e6eaf2; --muted: #9aa3b5; --hint: #6f7788;
+    --phos: #58f29a; --phos-dim: #3fb97a; --amber: #ffb84d; --crt: #061008; --bezel: #cfc8b8;
+    --mc: "VT323", ui-monospace, Menlo, monospace; --ui: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+body { background: var(--page); color: var(--text); font-family: var(--ui); }
+.wrap { max-width: 1020px; margin: 0 auto; padding-block: 28px 64px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1 { font-family: var(--mc); font-weight: normal; font-size: 2.6rem; color: var(--tq); margin: 0 0 4px; text-wrap: balance; }
+h2 { font-family: var(--mc); font-weight: normal; font-size: 1.9rem; margin: 44px 0 4px; text-wrap: balance; }
+h2 .tag { color: var(--muted); font-size: 1.2rem; margin-left: 8px; }
+p, li { line-height: 1.55; color: var(--muted); max-width: 72ch; }
+p strong, li strong { color: var(--text); font-weight: 600; }
+.lede { color: var(--text); }
+.scroller { overflow-x: auto; margin-top: 10px; padding-bottom: 6px; }
+.win { position: relative; width: 960px; height: 540px; background: #05070a; font-family: var(--mc); overflow: hidden; user-select: none; }
+.win.short { height: 300px; }
+.terrain { position: absolute; inset: 0; opacity: .35;
+    background: repeating-linear-gradient(90deg, rgba(0,0,0,.07) 0 1px, transparent 1px 16px), repeating-linear-gradient(0deg, rgba(0,0,0,.07) 0 1px, transparent 1px 16px),
+      linear-gradient(135deg, #4c7a35, #5d8b3c 40%, #4a7232 70%, #6f8f45); }
+.dim { position: absolute; inset: 0; background: rgba(0,0,0,.55); }
+.pnl { position: absolute; background: var(--panel); border: 1px solid var(--line); color: var(--text); }
+.pnl.tq { border-color: var(--tq); } .pnl.bad { border-color: var(--bad); }
+.btn { display: inline-flex; align-items: center; justify-content: center; height: 20px; padding: 0 8px; font-family: var(--mc); font-size: 15px;
+    background: var(--inset); border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+.btn.on { color: var(--tq); border-color: var(--tq); background: rgba(25,211,176,.13); }
+.btn.no { color: var(--bad); border-color: var(--bad); background: rgba(255,107,92,.1); }
+.abs { position: absolute; }
+.lbl { font-size: 14px; color: var(--muted); letter-spacing: .04em; }
+.tiny { font-size: 13px; color: var(--hint); }
+.flex { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.field { height: 20px; background: #050608; border: 1px solid var(--line); color: var(--text); font-size: 15px; padding: 0 6px; display: flex; align-items: center; }
+.grid { display: grid; gap: 2px; }
+.slot { width: 22px; height: 22px; background: var(--slot); border: 1px solid #0c0f14; display: grid; place-items: center; position: relative; }
+.slot i { width: 14px; height: 14px; display: block; }
+.slot.hov { outline: 1px solid var(--tq); }
+.slot b { position: absolute; right: -1px; bottom: -3px; font: 11px var(--mc); color: var(--bad); font-weight: normal; }
+.mc-inv { position: absolute; width: 176px; height: 166px; background: #c6c6c6; border: 2px solid #fff; border-right-color: #555; border-bottom-color: #555; }
+.mc-inv .s { position: absolute; width: 16px; height: 16px; background: #8b8b8b; border: 1px solid #373737; border-right-color: #fff; border-bottom-color: #fff; }
+.corner { position: absolute; width: 40px; height: 14px; background: #10151c; border: 1px solid #2a2f3a; color: var(--muted); font-size: 11px; display: grid; place-items: center; letter-spacing: .04em; }
+.corner.hot { border-color: var(--tq); color: var(--tq); }
+.corner.rg { width: 48px; }
+.corner.red { border-color: #5b2a27; color: #ff8f84; }
+.badge { display: inline-block; background: var(--bad); color: #160806; font-size: 10px; line-height: 10px; padding: 0 2px; margin-left: 2px; }
+.callout { position: absolute; font: 13px var(--ui); color: var(--gold); }
+.callout::before { content: ""; position: absolute; border-left: 1px dashed var(--gold); height: 22px; left: 8px; top: -24px; }
+.hover { position: absolute; width: 170px; padding: 6px 8px; background: #0c1016; border: 1px solid var(--tq); font-size: 15px; }
+.rule { display: inline-block; font-size: 12px; padding: 0 4px; border: 1px solid var(--bad); color: var(--bad); margin: 2px 2px 0 0; }
+.rule.ok { border-color: var(--line); color: var(--hint); }
+.modrow { display: flex; justify-content: space-between; font-size: 15px; padding: 2px 6px; border-bottom: 1px solid #141821; color: var(--muted); }
+.modrow.on { background: rgba(25,211,176,.13); color: var(--tq); }
+.rowban { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-bottom: 1px solid #141821; }
+.rowban .h { width: 120px; font-size: 16px; }
+.rowban .more { color: var(--tq); font-size: 14px; margin-left: auto; }
+.crt { position: absolute; background: var(--crt); border: 2px solid #0d3b22; color: var(--phos); font-family: var(--mc); }
+.key { position: absolute; width: 58px; height: 18px; background: #e6dfcf; border: 1px solid #8f877a; color: #222; font-size: 13px; display: grid; place-items: center; }
+.key.new { outline: 2px dashed var(--gold); outline-offset: 1px; }
+.cmp { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-top: 10px; }
+.cmp div { min-width: 0; }
+.cmp h3 { font: 600 .95rem var(--ui); color: var(--text); margin: 0 0 4px; }
+ol li { margin-bottom: 6px; }
+code { font-family: ui-monospace, Menlo, monospace; font-size: .9em; color: var(--text); }
+</style>
+
+<div class="wrap">
+<h1>BANNED HERE</h1>
+<p class="lede">Two ways for players to see a region's banned blocks and items: a <strong>BANNED</strong> button in the inventory while they stand where bans apply, and the list on the buying screens. Three options for the list itself. Everything is read-only for players.</p>
+<p>Example data: a Sanctuary plot with <code>#bsp:sanctuary_bans</code> on deny-place and deny-use (1,473 entries). Tags are opened into their items on the player's side, so they see real items, not a "#" tile. Coloured squares stand in for item pictures.</p>
+
+<h2>The inventory button</h2>
+<p>Placed each frame to the right of BSP-Core's <strong>TEAM</strong> and <strong>KITS</strong> buttons, in the same style, so the three read as one row and never overlap. BSP-Core steps its own buttons past any widget, so there is no tug of war. Shown only while you stand somewhere with bans that apply to you. Also on the creative inventory.</p>
+<div class="scroller"><div class="win short">
+    <div class="terrain"></div><div class="dim"></div>
+    <div class="corner" style="left:2px;top:2px">TEAM</div>
+    <div class="corner" style="left:44px;top:2px">KITS</div>
+    <div class="corner rg hot" style="left:86px;top:2px">BANNED</div>
+    <div class="callout" style="left:96px;top:44px">Option A: same as TEAM, teal on hover</div>
+    <div class="corner" style="left:300px;top:2px">TEAM</div>
+    <div class="corner" style="left:342px;top:2px">KITS</div>
+    <div class="corner rg" style="left:384px;top:2px;width:62px">BANNED<span class="badge">1473</span></div>
+    <div class="callout" style="left:396px;top:44px">Option B: with a count</div>
+    <div class="corner" style="left:620px;top:2px">TEAM</div>
+    <div class="corner" style="left:662px;top:2px">KITS</div>
+    <div class="corner rg red" style="left:704px;top:2px">BANNED</div>
+    <div class="callout" style="left:714px;top:44px">Option C: red edge</div>
+    <div class="mc-inv" style="left:392px;top:110px"></div>
+    <div class="hover" style="left:86px;top:120px;width:230px"><span style="color:var(--tq)">Banned here</span><br><span class="tiny">sanctuary_plot_3: 1,473 blocks and items you can't place or use here. Click to see them.</span></div>
+</div></div>
+
+<h2>A. One grid <span class="tag">search, rule chips, hover card</span></h2>
+<p>Everything in one scrolling grid, sorted by mod. Search works like JEI (<code>@mekanism</code>). Chips filter by rule. Hovering shows the name, the mod and which rules apply.</p>
+<div class="scroller"><div class="win">
+    <div class="terrain"></div><div class="dim"></div>
+    <div class="pnl tq" style="left:150px;top:40px;width:660px;height:460px">
+        <div class="abs" style="left:12px;top:8px;font-size:22px;color:var(--tq)">BANNED HERE</div>
+        <div class="abs tiny" style="left:150px;top:13px">sanctuary_plot_3 · 1,473</div>
+        <div class="abs btn" style="right:10px;top:8px">CLOSE</div>
+        <div class="abs flex" style="left:12px;top:38px">
+            <div class="field" style="width:220px"><span class="tiny">Search (@mod)</span></div>
+            <span class="btn on">ALL</span><span class="btn no">PLACE 1,473</span><span class="btn no">USE 1,473</span><span class="btn">BREAK 0</span><span class="btn">BRING IN 0</span>
+        </div>
+        <div class="abs lbl" style="left:12px;top:68px">Allthemodium</div>
+        <div class="abs grid" id="gA" style="left:12px;top:84px;grid-template-columns:repeat(26,22px)"></div>
+        <div class="abs" style="right:4px;top:84px;width:6px;height:360px;background:#141821"><div style="height:40px;background:var(--tq)"></div></div>
+        <div class="hover" style="left:262px;top:150px"><span style="color:var(--text)">Digital Miner</span><br><span class="tiny">Mekanism</span><br><span class="rule">PLACE</span><span class="rule">USE</span><span class="rule ok">break</span><span class="rule ok">bring in</span></div>
+        <div class="abs tiny" style="left:12px;top:440px">You can still keep these in chests here.</div>
+    </div>
+</div></div>
+<div class="cmp">
+    <div><h3>For</h3><p>Simplest to build: the admin editor's grid and hover card, read-only. Search finds anything fast.</p></div>
+    <div><h3>Against</h3><p>1,473 squares is a wall. Players have to know what to search for.</p></div>
+</div>
+
+<h2>B. Mods on the left <span class="tag">list with counts, grid per mod</span></h2>
+<p>A list of mods with how many of their things are banned. Pick one to see its grid. "All" at the top, search over both. The counts shown are examples.</p>
+<div class="scroller"><div class="win">
+    <div class="terrain"></div><div class="dim"></div>
+    <div class="pnl tq" style="left:130px;top:40px;width:700px;height:460px">
+        <div class="abs" style="left:12px;top:8px;font-size:22px;color:var(--tq)">BANNED HERE</div>
+        <div class="abs tiny" style="left:150px;top:13px">sanctuary_plot_3 · 1,473</div>
+        <div class="abs btn" style="right:10px;top:8px">CLOSE</div>
+        <div class="abs field" style="left:12px;top:38px;width:676px"><span class="tiny">Search items or mods</span></div>
+        <div class="abs" id="mB" style="left:12px;top:66px;width:190px;height:380px;overflow:hidden;border:1px solid var(--line)"></div>
+        <div class="abs lbl" style="left:214px;top:66px">Mekanism · 152 · can't place or use</div>
+        <div class="abs grid" id="gB" style="left:214px;top:84px;grid-template-columns:repeat(20,22px)"></div>
+        <div class="hover" style="left:440px;top:170px"><span style="color:var(--text)">Elite Crushing Factory</span><br><span class="tiny">Mekanism</span><br><span class="rule">PLACE</span><span class="rule">USE</span></div>
+        <div class="abs tiny" style="left:214px;top:430px">You can still keep these in chests here.</div>
+    </div>
+</div></div>
+<div class="cmp">
+    <div><h3>For</h3><p>Answers "can I use my Mekanism stuff?" at a glance. The counts give the size of each mod's ban without scrolling.</p></div>
+    <div><h3>Against</h3><p>A second column to build. Vanilla swords and other mod tags still need search to find.</p></div>
+</div>
+
+<h2>C. Rule rows <span class="tag">small pop-up, opens to a grid</span></h2>
+<p>A small window like the banned items pop-up: one row per rule, the first few items and "+ N more". Clicking a row opens option A's grid on that rule.</p>
+<div class="scroller"><div class="win">
+    <div class="terrain"></div><div class="dim"></div>
+    <div class="pnl tq" style="left:250px;top:120px;width:460px;height:250px">
+        <div class="abs" style="left:12px;top:8px;font-size:22px;color:var(--tq)">BANNED HERE</div>
+        <div class="abs tiny" style="left:150px;top:13px">sanctuary_plot_3</div>
+        <div class="abs" style="left:0;right:0;top:40px">
+            <div class="rowban"><span class="h" style="color:var(--bad)">Can't place</span><span class="flex" id="c1"></span><span class="more">+ 1,465 ›</span></div>
+            <div class="rowban"><span class="h" style="color:var(--bad)">Can't use</span><span class="flex" id="c2"></span><span class="more">+ 1,465 ›</span></div>
+            <div class="rowban"><span class="h" style="color:var(--hint)">Can't break</span><span class="tiny">nothing</span></div>
+            <div class="rowban"><span class="h" style="color:var(--hint)">Can't bring in</span><span class="tiny">nothing</span></div>
+        </div>
+        <div class="abs tiny" style="left:12px;top:206px">You can still keep these in chests here.</div>
+        <div class="abs btn" style="right:10px;top:220px">CLOSE</div>
+    </div>
+</div></div>
+<div class="cmp">
+    <div><h3>For</h3><p>Reads in a second and fits the pop-up players already know. Best when a region bans only a few things.</p></div>
+    <div><h3>Against</h3><p>Two steps to see everything. For Sanctuary every row says "+ 1,465", which tells the player little.</p></div>
+</div>
+
+<h2>When buying</h2>
+<p><strong>Before buying (needs BSP-Core):</strong> the Land Office is BSP-Core's screen. It would get a <strong>BANNED</strong> key under BUY that opens Region Guard's list for the picked plot, then returns to the Land Office. Region Guard adds the method; BSP-Core adds the key (a request in the vault, as before).</p>
+<p><strong>After buying (Region Guard alone):</strong> the "you bought it" pop-up gets a line with the count and a <strong>BANNED HERE</strong> button.</p>
+<div class="scroller"><div class="win">
+    <div class="terrain"></div><div class="dim"></div>
+    <div class="abs" style="left:60px;top:90px;width:360px;height:232px;background:var(--bezel);border:2px solid #8f877a">
+        <div class="crt" style="left:10px;top:10px;width:206px;height:176px"><div style="margin:6px 8px;font-size:15px">LAND OFFICE · SANCTUARY</div><div style="margin:4px 8px;height:140px;background:repeating-linear-gradient(90deg,#0d3b22 0 1px,transparent 1px 12px),repeating-linear-gradient(0deg,#0d3b22 0 1px,transparent 1px 12px)"><div style="margin:50px 0 0 70px;width:30px;height:30px;border:1px solid var(--amber)"></div></div></div>
+        <div class="crt" style="left:222px;top:10px;width:66px;height:176px;font-size:13px;padding:3px"><div>PLOT 3</div><div>16 x 16</div><div style="color:var(--amber)">PRICE 5,000</div><div style="color:var(--bad)">1,473 BANNED</div></div>
+        <div class="key" style="left:292px;top:10px">BUY</div>
+        <div class="key new" style="left:292px;top:31px">BANNED</div>
+        <div class="key" style="left:292px;top:52px">ZOOM</div>
+        <div class="key" style="left:292px;top:73px">EXIT</div>
+    </div>
+    <div class="callout" style="left:350px;top:350px">New key and line (BSP-Core)</div>
+    <div class="pnl tq" style="left:520px;top:160px;width:300px;height:140px">
+        <div class="abs" style="left:10px;top:8px;font-size:18px;color:var(--tq)">You bought sanctuary_plot_3</div>
+        <div class="abs" style="left:10px;top:34px;font-size:15px;color:var(--text)">Teleport there now?</div>
+        <div class="abs" style="left:10px;top:56px;font-size:15px;color:var(--bad)">1,473 blocks and items are banned here.</div>
+        <div class="abs flex" style="left:10px;top:104px"><span class="btn on">TELEPORT</span><span class="btn">STAY</span><span class="btn no">BANNED HERE</span></div>
+    </div>
+    <div class="callout" style="left:700px;top:330px">New line and button (Region Guard)</div>
+</div></div>
+
+<h2>Questions <span class="tag">default in brackets</span></h2>
+<ol>
+    <li><strong>Which list layout, and which button look?</strong> [B for the list, A for the button.]</li>
+    <li><strong>Before buying:</strong> ask BSP-Core for the BANNED key and line on the Land Office? [Yes. Region Guard adds the open-the-list method; the request goes in the vault.]</li>
+    <li><strong>After buying:</strong> add the count line and BANNED HERE button to the bought pop-up? [Yes.]</li>
+    <li><strong>When is the inventory button shown?</strong> [Whenever bans apply where you stand, including the world default. Admins with bypass on see it too, so they can check.]</li>
+    <li><strong>Tags:</strong> open them into their items for players? [Yes. Players see items, not "#".]</li>
+    <li><strong>Client setting to hide the button</strong> (like BSP-Core's <code>teamButton</code>)? [Yes, <code>bannedButton = true</code>.]</li>
+    <li><strong>Also a command</strong>, <code>/claim banned</code>, that opens the list where you stand? [Yes.]</li>
+</ol>
+</div>
+
+<script>
+(function () {
+    var cols = ["#7b5cff","#3fb97a","#ff6b5c","#ffd23a","#19d3b0","#c27a3a","#8a8f9c","#4d8fe0","#d24f9a","#a3d14b","#e08a3c","#5a6270"];
+    function fill(id, n, hov) {
+        var el = document.getElementById(id); if (!el) return;
+        var h = "";
+        for (var i = 0; i < n; i++) {
+            var c = cols[(i * 7 + (i >> 3)) % cols.length];
+            h += '<div class="slot' + (i === hov ? ' hov' : '') + '"><i style="background:' + c + '"></i></div>';
+        }
+        el.innerHTML = h;
+    }
+    fill("gA", 26 * 15, 62);
+    fill("gB", 20 * 8, 47);
+    fill("c1", 8, -1);
+    fill("c2", 8, -1);
+    var mods = [["All", "1,473"], ["Mekanism", "152"], ["Ballistix", "132"], ["Create Big Cannons", "120"], ["Industrial Foregoing", "84"], ["Thermal Series", "78"], ["RFTools Dimensions", "76"], ["Refined Storage", "71"], ["Create Armory", "63"], ["Applied Energistics 2", "58"], ["Extreme Reactors", "58"], ["Electrodynamics", "41"], ["Botania", "39"], ["Minecraft", "23"], ["Waystones", "12"], ["Compact Machines", "9"]];
+    var m = document.getElementById("mB");
+    if (m) m.innerHTML = mods.map(function (x, i) { return '<div class="modrow' + (i === 1 ? ' on' : '') + '"><span>' + x[0] + '</span><span>' + x[1] + '</span></div>'; }).join("");
+})();
+</script>

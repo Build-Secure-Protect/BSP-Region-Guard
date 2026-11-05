@@ -36,7 +36,8 @@ public final class Protection {
         if (RegionQuery.bypasses(player)) {
             return true;
         }
-        return RegionQuery.allows(level, pos, flag, player) && keptOut(level, pos, flag, player) == null;
+        return RegionQuery.allows(level, pos, flag, player) && !((flag == Flags.BUILD || flag.fallback() == Flags.BUILD)
+                && MovementTracker.isKeptOut(level, pos, player)); // a yes/no: the rank message is not built
     }
 
     /**
@@ -64,7 +65,7 @@ public final class Protection {
         }
         String kept = keptOut(level, pos, flag, player);
         if (kept != null) {
-            tellOnce(player, kept);
+            tellTitle(player, kept); // D155, D157: the same message as walking in, in the middle of the screen
             return false;
         }
         return true;
@@ -106,6 +107,35 @@ public final class Protection {
 
     public static void forget(UUID player) {
         LAST_MESSAGE.remove(player);
+        LAST_TITLE.remove(player);
+        LAST_TITLE_TEXT.remove(player);
+    }
+
+    private static final long TITLE_GAP_MS = 2500;
+    private static final Map<UUID, Long> LAST_TITLE = new HashMap<>();
+    private static final Map<UUID, String> LAST_TITLE_TEXT = new HashMap<>();
+
+    /**
+     * Shows an entry refusal in the middle of the screen, as {@code /title} does (owner decision D157): the text up to a
+     * newline as the title, the rest as the subtitle. The same text is shown again at most every 2.5 seconds per player,
+     * so a player pushed back every tick sees it once rather than flickering.
+     */
+    public static void tellTitle(Player player, String message) {
+        if (!(player instanceof ServerPlayer sp)) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        Long last = LAST_TITLE.get(sp.getUUID());
+        if (last != null && now - last < TITLE_GAP_MS && message.equals(LAST_TITLE_TEXT.get(sp.getUUID()))) {
+            return;
+        }
+        LAST_TITLE.put(sp.getUUID(), now);
+        LAST_TITLE_TEXT.put(sp.getUUID(), message);
+        int nl = message.indexOf('\n');
+        String title = nl < 0 ? message : message.substring(0, nl), subtitle = nl < 0 ? "" : message.substring(nl + 1);
+        sp.connection.send(new net.minecraft.network.protocol.game.ClientboundSetTitlesAnimationPacket(5, 50, 15));
+        sp.connection.send(new net.minecraft.network.protocol.game.ClientboundSetSubtitleTextPacket(Component.literal(subtitle)));
+        sp.connection.send(new net.minecraft.network.protocol.game.ClientboundSetTitleTextPacket(Component.literal(title)));
     }
 
     /** The player behind an entity: the entity itself, or the owner of a projectile or pet; else {@code null}. */

@@ -6,12 +6,15 @@ import net.minecraftforge.common.ForgeConfigSpec;
 public final class RegionGuardClientConfig {
     public static final ForgeConfigSpec SPEC;
     public static final ForgeConfigSpec.DoubleValue UI_SCALE;
+    public static final ForgeConfigSpec.BooleanValue BANNED_BUTTON;
 
     static {
         ForgeConfigSpec.Builder b = new ForgeConfigSpec.Builder();
         b.push("ui");
         UI_SCALE = b.comment("How big Region Guard's screens are drawn: 1 is the original size, 2 twice as big. A screen that would not fit the window",
                 "is drawn as large as fits.").defineInRange("scale", 2.0, 1.0, 4.0);
+        BANNED_BUTTON = b.comment("Show the BANNED button in the top left of the inventory while you stand where blocks or items are banned (D137).")
+                .define("bannedButton", true);
         b.pop();
         SPEC = b.build();
     }

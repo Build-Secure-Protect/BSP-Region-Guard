@@ -80,6 +80,8 @@ public final class ClaimCommands {
                         .then(Commands.argument("value", StringArgumentType.greedyString())
                                 .executes(ctx -> flag(ctx.getSource(), id(ctx), StringArgumentType.getString(ctx, "flag"), StringArgumentType.getString(ctx, "value")))))));
         claim.then(Commands.literal("here").executes(ctx -> here(ctx.getSource())));
+        claim.then(Commands.literal("banned").executes(ctx -> banned(ctx.getSource(), ""))
+                .then(Commands.argument("id", StringArgumentType.word()).suggests(FOR_SALE).executes(ctx -> banned(ctx.getSource(), id(ctx)))));
         claim.then(Commands.literal("gui").executes(ctx -> {
             com.mrgregles.bsp_region_guard.network.ClaimSync.open(player(ctx.getSource()));
             return 1;
@@ -219,6 +221,24 @@ public final class ClaimCommands {
 
     private static int flag(CommandSourceStack src, String id, String flagName, String value) throws CommandSyntaxException {
         return result(src, Claims.INSTANCE.setPlayerFlag(player(src), id, flagName, value.trim().equalsIgnoreCase("clear") ? "" : value));
+    }
+
+    /** {@code /claim banned [plot]}: the BANNED HERE screen for where you stand, or for a plot (D139). */
+    private static int banned(CommandSourceStack src, String id) throws CommandSyntaxException {
+        ServerPlayer p = player(src);
+        int open = com.mrgregles.bsp_region_guard.network.BannedListPacket.OPEN;
+        var list = id.isEmpty() ? com.mrgregles.bsp_region_guard.protection.BannedList.here(p, open)
+                : com.mrgregles.bsp_region_guard.protection.BannedList.region(p, id, open);
+        if (list == null) {
+            src.sendFailure(Component.literal("No region called " + id + "."));
+            return 0;
+        }
+        if (!list.any()) {
+            src.sendSuccess(() -> Component.literal(id.isEmpty() ? "Nothing is banned here." : "Nothing is banned in " + list.regionName() + "."), false);
+            return 1;
+        }
+        com.mrgregles.bsp_region_guard.network.RegionNetwork.sendTo(p, list);
+        return 1;
     }
 
     private static int here(CommandSourceStack src) throws CommandSyntaxException {

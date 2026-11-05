@@ -1,0 +1,198 @@
+<title>Office Plot Lists</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=VT323&family=IBM+Plex+Sans:wght@400;600&display=swap">
+<style>
+/* Layout: notes, how admins open it, three options for the OFFICE PLOTS screen (one 16:9 game window each), what players then see, questions. One dark look: these are game screens. */
+:root {
+    color-scheme: dark;
+    --page: #0b0e13; --panel: rgba(16,21,28,.97); --inset: #0c0e12; --line: #2a2f3a; --slot: #1a1f28;
+    --tq: #19d3b0; --gold: #ffd23a; --vio: #b58cff; --bad: #ff6b5c; --text: #e6eaf2; --muted: #9aa3b5; --hint: #6f7788;
+    --phos: #58f29a; --amber: #ffb84d; --crt: #061008; --bezel: #cfc8b8;
+    --mc: "VT323", ui-monospace, Menlo, monospace; --ui: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+body { background: var(--page); color: var(--text); font-family: var(--ui); }
+.wrap { max-width: 1020px; margin: 0 auto; padding-block: 28px 64px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1 { font-family: var(--mc); font-weight: normal; font-size: 2.6rem; color: var(--tq); margin: 0 0 4px; text-wrap: balance; }
+h2 { font-family: var(--mc); font-weight: normal; font-size: 1.9rem; margin: 44px 0 4px; text-wrap: balance; }
+h2 .tag { color: var(--muted); font-size: 1.2rem; margin-left: 8px; }
+p, li { line-height: 1.55; color: var(--muted); max-width: 72ch; }
+p strong, li strong { color: var(--text); font-weight: 600; }
+.lede { color: var(--text); }
+.scroller { overflow-x: auto; margin-top: 10px; padding-bottom: 6px; }
+.win { position: relative; width: 960px; height: 540px; background: #05070a; font-family: var(--mc); overflow: hidden; user-select: none; }
+.win.short { height: 300px; }
+.terrain { position: absolute; inset: 0; opacity: .35;
+    background: repeating-linear-gradient(90deg, rgba(0,0,0,.07) 0 1px, transparent 1px 16px), repeating-linear-gradient(0deg, rgba(0,0,0,.07) 0 1px, transparent 1px 16px),
+      linear-gradient(135deg, #4c7a35, #5d8b3c 40%, #4a7232 70%, #6f8f45); }
+.dim { position: absolute; inset: 0; background: rgba(0,0,0,.55); }
+.pnl { position: absolute; background: var(--panel); border: 1px solid var(--line); color: var(--text); }
+.pnl.tq { border-color: var(--tq); }
+.btn { display: inline-flex; align-items: center; justify-content: center; height: 20px; padding: 0 8px; font-family: var(--mc); font-size: 15px;
+    background: var(--inset); border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+.btn.on { color: var(--tq); border-color: var(--tq); background: rgba(25,211,176,.13); }
+.btn.gold { color: var(--gold); border-color: var(--gold); background: rgba(255,210,58,.12); }
+.btn.vio { color: var(--vio); border-color: var(--vio); background: rgba(181,140,255,.12); }
+.abs { position: absolute; }
+.lbl { font-size: 14px; color: var(--muted); letter-spacing: .04em; }
+.tiny { font-size: 13px; color: var(--hint); }
+.flex { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.field { height: 20px; background: #050608; border: 1px solid var(--line); color: var(--text); font-size: 15px; padding: 0 6px; display: flex; align-items: center; }
+.list { position: absolute; border: 1px solid var(--line); background: var(--inset); overflow: hidden; }
+.row { display: flex; align-items: center; gap: 6px; font-size: 15px; height: 22px; padding: 0 6px; border-bottom: 1px solid #141821; color: var(--muted); }
+.row .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row.on { color: var(--text); }
+.box { width: 12px; height: 12px; border: 1px solid var(--line); flex: none; display: grid; place-items: center; font-size: 12px; line-height: 1; }
+.row.on .box { border-color: var(--tq); color: var(--tq); background: rgba(25,211,176,.13); }
+.chip { display: inline-block; font-size: 12px; padding: 0 4px; border: 1px solid var(--line); color: var(--hint); }
+.map { position: absolute; background: #0a120c; border: 1px solid var(--line); overflow: hidden;
+    background-image: repeating-linear-gradient(90deg, rgba(255,255,255,.03) 0 1px, transparent 1px 16px), repeating-linear-gradient(0deg, rgba(255,255,255,.03) 0 1px, transparent 1px 16px); }
+.plot { position: absolute; border: 1px solid #4a5060; background: rgba(74,80,96,.18); font-size: 11px; color: var(--hint); padding: 1px 2px; }
+.plot.on { border-color: var(--tq); background: rgba(25,211,176,.18); color: var(--tq); }
+.plot.g1 { border-color: var(--gold); background: rgba(255,210,58,.16); color: var(--gold); }
+.plot.g2 { border-color: var(--vio); background: rgba(181,140,255,.16); color: var(--vio); }
+.area { position: absolute; border: 1px dashed var(--tq); }
+.office { position: absolute; width: 10px; height: 10px; background: var(--amber); border: 1px solid #000; }
+.callout { position: absolute; font: 13px var(--ui); color: var(--gold); }
+.crt { position: absolute; background: var(--crt); border: 2px solid #0d3b22; color: var(--phos); font-family: var(--mc); }
+.key { position: absolute; width: 58px; height: 18px; background: #e6dfcf; border: 1px solid #8f877a; color: #222; font-size: 13px; display: grid; place-items: center; }
+.cmp { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-top: 10px; }
+.cmp div { min-width: 0; }
+.cmp h3 { font: 600 .95rem var(--ui); color: var(--text); margin: 0 0 4px; }
+ol li { margin-bottom: 6px; }
+code { font-family: ui-monospace, Menlo, monospace; font-size: .9em; color: var(--text); }
+</style>
+
+<div class="wrap">
+<h1>OFFICE PLOTS</h1>
+<p class="lede">Admins choose which plots a Land Office lists. An office with no choice lists every plot for sale in its world, as today.</p>
+<p><strong>Opening it:</strong> sneak and right-click a Land Office with the Region Wand. Region Guard opens <strong>OFFICE PLOTS</strong> for that office. Players still open the office as before. Example world: a Sanctuary map with three plot rows and two offices (amber squares on the maps).</p>
+
+<h2>A. Tick plots <span class="tag">a list of every plot, a map beside it</span></h2>
+<p>Every plot for sale and open area in the world, with a tick box. Ticked plots light up on the map. Click a plot on the map to tick it too. The mode switch at the top picks between "every plot" and "only ticked".</p>
+<div class="scroller"><div class="win">
+    <div class="terrain"></div><div class="dim"></div>
+    <div class="pnl tq" style="left:80px;top:40px;width:800px;height:460px">
+        <div class="abs" style="left:12px;top:8px;font-size:22px;color:var(--tq)">OFFICE PLOTS</div>
+        <div class="abs tiny" style="left:160px;top:13px">Land Office at 120, 64, -40 · sanctuary</div>
+        <div class="abs btn" style="right:10px;top:8px">DONE</div>
+        <div class="abs flex" style="left:12px;top:38px"><span class="lbl">LISTS</span><span class="btn">EVERY PLOT</span><span class="btn on">ONLY TICKED</span><span class="tiny" style="margin-left:10px">18 of 46 ticked</span></div>
+        <div class="abs field" style="left:12px;top:66px;width:300px"><span class="tiny">Search plots</span></div>
+        <div class="list" id="la" style="left:12px;top:92px;width:300px;height:310px"></div>
+        <div class="abs flex" style="left:12px;top:410px"><span class="btn">TICK ALL SHOWN</span><span class="btn">CLEAR</span></div>
+        <div class="map" id="ma" style="left:326px;top:66px;width:462px;height:370px"></div>
+        <div class="abs tiny" style="left:326px;top:442px">Click a plot to tick or untick it. Copies of a ticked plot are ticked too.</div>
+    </div>
+</div></div>
+<div class="cmp">
+    <div><h3>For</h3><p>Exactly what was asked: any mix of plots, one by one. Easy to see what an office lists.</p></div>
+    <div><h3>Against</h3><p>Plots added later by hand (not copied) must be ticked at each office.</p></div>
+</div>
+
+<h2>B. By area <span class="tag">an office lists the plots inside chosen regions</span></h2>
+<p>Pick one or more regions (an area, a district). The office lists every plot for sale inside them, including plots made there later. A short list below adds single plots outside those areas.</p>
+<div class="scroller"><div class="win">
+    <div class="terrain"></div><div class="dim"></div>
+    <div class="pnl tq" style="left:80px;top:40px;width:800px;height:460px">
+        <div class="abs" style="left:12px;top:8px;font-size:22px;color:var(--tq)">OFFICE PLOTS</div>
+        <div class="abs tiny" style="left:160px;top:13px">Land Office at 120, 64, -40 · sanctuary</div>
+        <div class="abs btn" style="right:10px;top:8px">DONE</div>
+        <div class="abs flex" style="left:12px;top:38px"><span class="lbl">LISTS</span><span class="btn">EVERY PLOT</span><span class="btn on">CHOSEN AREAS</span></div>
+        <div class="abs lbl" style="left:12px;top:68px">AREAS WITH PLOTS</div>
+        <div class="list" id="lb" style="left:12px;top:86px;width:300px;height:180px"></div>
+        <div class="abs lbl" style="left:12px;top:276px">ALSO THESE PLOTS</div>
+        <div class="list" style="left:12px;top:294px;width:300px;height:90px">
+            <div class="row on"><span class="box">✓</span><span class="nm">harbour_plot_1</span><span class="tiny">16 x 16</span></div>
+            <div class="row"><span class="nm" style="color:var(--tq)">+ ADD A PLOT</span></div>
+        </div>
+        <div class="map" id="mb" style="left:326px;top:66px;width:462px;height:370px"></div>
+        <div class="abs tiny" style="left:326px;top:442px">Dashed: chosen areas. New plots inside them are listed by themselves.</div>
+    </div>
+</div></div>
+<div class="cmp">
+    <div><h3>For</h3><p>Set once per district. Plots made or copied into an area later appear without touching the office.</p></div>
+    <div><h3>Against</h3><p>Needs a region drawn around each district. Picking single plots is the second step.</p></div>
+</div>
+
+<h2>C. Sale groups <span class="tag">plots get a group name, offices list groups</span></h2>
+<p>Each plot gets a group on its SALE tab or map card (for example "market", "harbour", "vip"). An office lists the groups ticked here. One plot can be in one group.</p>
+<div class="scroller"><div class="win">
+    <div class="terrain"></div><div class="dim"></div>
+    <div class="pnl tq" style="left:80px;top:40px;width:800px;height:460px">
+        <div class="abs" style="left:12px;top:8px;font-size:22px;color:var(--tq)">OFFICE PLOTS</div>
+        <div class="abs tiny" style="left:160px;top:13px">Land Office at 120, 64, -40 · sanctuary</div>
+        <div class="abs btn" style="right:10px;top:8px">DONE</div>
+        <div class="abs flex" style="left:12px;top:38px"><span class="lbl">LISTS</span><span class="btn">EVERY PLOT</span><span class="btn on">TICKED GROUPS</span></div>
+        <div class="abs lbl" style="left:12px;top:68px">GROUPS</div>
+        <div class="list" style="left:12px;top:86px;width:300px;height:132px">
+            <div class="row on"><span class="box">✓</span><span class="nm" style="color:var(--gold)">market</span><span class="tiny">14 plots</span></div>
+            <div class="row on"><span class="box">✓</span><span class="nm" style="color:var(--vio)">harbour</span><span class="tiny">6 plots</span></div>
+            <div class="row"><span class="box"></span><span class="nm">vip</span><span class="tiny">4 plots</span></div>
+            <div class="row"><span class="box"></span><span class="nm">no group</span><span class="tiny">22 plots</span></div>
+            <div class="row"><span class="nm" style="color:var(--tq)">+ NEW GROUP</span></div>
+        </div>
+        <div class="abs lbl" style="left:12px;top:230px">PLOT CARD (REGION MAP)</div>
+        <div class="pnl" style="left:12px;top:248px;width:300px;height:90px">
+            <div class="abs" style="left:8px;top:6px;font-size:16px">market_plot_7</div>
+            <div class="abs tiny" style="left:8px;top:26px">16 x 16 · 5,000 pieces</div>
+            <div class="abs flex" style="left:8px;top:52px"><span class="lbl">GROUP</span><span class="btn gold">market</span><span class="btn">harbour</span><span class="btn">vip</span><span class="btn">none</span></div>
+        </div>
+        <div class="map" id="mc" style="left:326px;top:66px;width:462px;height:370px"></div>
+        <div class="abs tiny" style="left:326px;top:442px">Plots coloured by group. Copies keep their group.</div>
+    </div>
+</div></div>
+<div class="cmp">
+    <div><h3>For</h3><p>Several offices can share a group. Moving a plot to another office is one click on its card.</p></div>
+    <div><h3>Against</h3><p>A new idea to learn (groups), set in two places: the plot and the office.</p></div>
+</div>
+
+<h2>What players see</h2>
+<p>The Land Office looks the same. Its map and list hold only the chosen plots. A player's own claims (to enlarge or give up) and the claims next to an outline still show. A plot that is not listed here can't be bought at this office.</p>
+<div class="scroller"><div class="win short">
+    <div class="terrain"></div><div class="dim"></div>
+    <div class="abs" style="left:300px;top:30px;width:360px;height:232px;background:var(--bezel);border:2px solid #8f877a">
+        <div class="crt" style="left:10px;top:10px;width:206px;height:176px"><div style="margin:6px 8px;font-size:15px">LAND OFFICE · MARKET</div>
+            <div class="map" id="md" style="left:8px;top:28px;width:186px;height:136px;background-color:#061008"></div></div>
+        <div class="crt" style="left:222px;top:10px;width:66px;height:176px;font-size:13px;padding:3px"><div>18 PLOTS</div><div style="color:var(--amber)">FROM 3,000</div></div>
+        <div class="key" style="left:292px;top:10px">BUY</div>
+        <div class="key" style="left:292px;top:31px">ZOOM</div>
+        <div class="key" style="left:292px;top:52px">EXIT</div>
+    </div>
+</div></div>
+
+<h2>Questions <span class="tag">default in brackets</span></h2>
+<ol>
+    <li><strong>Which layout?</strong> [A, tick plots.]</li>
+    <li><strong>Where the choice is kept:</strong> Region Guard keeps it per office (world and position) and gives the Land Office a filtered list; BSP-Core passes the office's position to that call (a small request, as before). [Yes.]</li>
+    <li><strong>How admins open it:</strong> sneak and right-click the office with the Region Wand. [Yes. Also a list of offices on the region map? Default no, later if wanted.]</li>
+    <li><strong>Open areas</strong> (outline your own plot) can be chosen like plots. [Yes.]</li>
+    <li><strong>Still shown at every office:</strong> the player's own claims and claims near an outline. [Yes.]</li>
+    <li><strong>Buying a plot that is not listed</strong> at that office (for example with an old command) is refused there; <code>/claim buy</code> elsewhere is unchanged. [Yes.]</li>
+    <li><strong>Copies:</strong> a plot copied on the region map joins the original's offices. A renamed plot (new id) stays chosen. [Yes.]</li>
+    <li><strong>A Land Office opened by the wand outline</strong> (no office block): lists every plot, as today. [Yes.]</li>
+    <li><strong>A broken office</strong> forgets its choice. [Yes.]</li>
+</ol>
+</div>
+
+<script>
+(function () {
+    var plots = [];
+    for (var r = 0; r < 3; r++) for (var c = 0; c < 8; c++) plots.push({ n: ["market", "harbour", "hill"][r] + "_plot_" + (c + 1), x: 30 + c * 52, y: 40 + r * 110, row: r, c: c });
+    var tickedA = function (p) { return p.row === 0 || (p.row === 1 && p.c < 3); };
+    function draw(id, cls, extra) {
+        var m = document.getElementById(id); if (!m) return;
+        var scale = m.clientWidth / 462;
+        var h = (extra || "");
+        plots.forEach(function (p) { h += '<div class="plot ' + cls(p) + '" style="left:' + p.x * scale + 'px;top:' + p.y * scale + 'px;width:' + 42 * scale + 'px;height:' + 42 * scale + 'px">' + (scale > .8 ? (p.c + 1) : "") + '</div>'; });
+        m.innerHTML = h;
+    }
+    draw("ma", function (p) { return tickedA(p) ? "on" : ""; }, '<div class="office" style="left:220px;top:20px"></div><div class="office" style="left:220px;top:350px"></div>');
+    draw("mb", function (p) { return p.row === 0 || (p.row === 1 && p.c === 0) ? "on" : ""; }, '<div class="area" style="left:22px;top:32px;width:426px;height:60px"></div><div class="office" style="left:220px;top:20px"></div>');
+    draw("mc", function (p) { return p.row === 0 ? "g1" : p.row === 1 ? "g2" : ""; }, '<div class="office" style="left:220px;top:20px"></div>');
+    draw("md", function (p) { return tickedA(p) ? "on" : "" + ' " style="display:none'; });
+    var la = document.getElementById("la");
+    if (la) la.innerHTML = plots.slice(0, 14).map(function (p) { var on = tickedA(p); return '<div class="row' + (on ? ' on' : '') + '"><span class="box">' + (on ? '✓' : '') + '</span><span class="nm">' + p.n + '</span><span class="tiny">16 x 16</span><span class="chip">' + (p.row === 2 ? 'OPEN' : 'PLOT') + '</span></div>'; }).join("");
+    var lb = document.getElementById("lb");
+    if (lb) lb.innerHTML = [["sanctuary_market", "8 plots", true], ["sanctuary_harbour", "8 plots", false], ["sanctuary_hill", "8 plots", false], ["spawn_town", "12 plots", false]].map(function (a) { return '<div class="row' + (a[2] ? ' on' : '') + '"><span class="box">' + (a[2] ? '✓' : '') + '</span><span class="nm">' + a[0] + '</span><span class="tiny">' + a[1] + '</span></div>'; }).join("");
+})();
+</script>

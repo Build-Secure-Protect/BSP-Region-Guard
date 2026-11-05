@@ -11,12 +11,15 @@ import net.minecraft.network.chat.Component;
  * sends the claim screen's teleport (the middle of the plot on the ground, or its teleport point); STAY or Esc closes.
  */
 public final class PlotBoughtScreen extends HoloScreen {
-    private static final int W = 220, H = 96, BTN_W = 70, BTN_H = 16;
+    private static final int W = 260, H = 108, BTN_W = 72, BTN_H = 16;
     private final PlotBoughtPacket bought;
+    /** How many items are banned in the plot, once the server answers (D135); -1 before. */
+    private int bannedCount = -1;
 
     public PlotBoughtScreen(PlotBoughtPacket bought) {
         super(Component.literal(Tr.t("bought.title", bought.name())), W, H);
         this.bought = bought;
+        BannedHereClient.count(bought.claimId(), n -> bannedCount = n);
     }
 
     private int left() {
@@ -44,8 +47,14 @@ public final class PlotBoughtScreen extends HoloScreen {
             g.drawString(font, line, x + 10, qy, RegionScreen.TEXT, false);
             qy += 10;
         }
+        if (bannedCount > 0) {
+            g.drawString(font, Tr.n("bought.banned", bannedCount), x + 10, qy + 4, RegionScreen.BAD, false);
+        }
         button(g, x + 10, y + H - BTN_H - 12, Tr.t("bought.teleport"), RegionScreen.TQ, mouseX, mouseY);
         button(g, x + 10 + BTN_W + 8, y + H - BTN_H - 12, Tr.t("stay"), RegionScreen.MUTED, mouseX, mouseY);
+        if (bannedCount > 0) {
+            button(g, x + 10 + 2 * (BTN_W + 8), y + H - BTN_H - 12, Tr.t("banned_here"), RegionScreen.BAD, mouseX, mouseY);
+        }
         RegionScreen.text(g, font, Tr.t("esc_stay"), x + W - 10 - (int) (font.width(Tr.t("esc_stay")) * 0.7f), y + H - 18, RegionScreen.MUTED, 0.7f);
         super.draw(g, mouseX, mouseY, partial);
     }
@@ -75,6 +84,10 @@ public final class PlotBoughtScreen extends HoloScreen {
             }
             if (mx >= bx + BTN_W + 8 && mx < bx + 2 * BTN_W + 8) {
                 onClose();
+                return true;
+            }
+            if (bannedCount > 0 && mx >= bx + 2 * (BTN_W + 8) && mx < bx + 3 * BTN_W + 16) {
+                BannedHereClient.openRegion(bought.claimId(), this); // Esc there comes back to this pop-up
                 return true;
             }
         }

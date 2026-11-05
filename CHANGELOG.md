@@ -4,7 +4,25 @@ All notable changes to BSP Region Guard. Format follows Keep a Changelog; versio
 
 ## [Unreleased]
 
-**Network protocol 10:** servers and players need this version together.
+**Network protocol 12:** servers and players need this version together. **API version 8.**
+
+### Added (2026-11-05, the rank needed on entry refusal; D149 to D157)
+- **A player kept out by a region's ranks is told which rank they need,** in the middle of the screen like `/title`. A rank on a BSP-RankUp ladder is named with where they stand: "You need Knight to enter" over "You are Squire: 200 more points." or "You are Peasant, 2 ranks to go.". With several ladders the ladder is named. Ranks on no ladder: "You need to be VIP to enter". Without BSP-RankUp the LuckPerms group names are used.
+- **A player above a listed rank on a ladder now gets in** even when the LuckPerms groups don't inherit, so a region only needs its lowest rank listed.
+- A region's own `entry-deny-message` still wins; `{rank}` in it is replaced by the rank needed. Entry refusals (entry deny, ranks, and acting on a kept-out region from outside) all show as a title now; exit refusals stay on the action bar.
+- Fixed: rank refusals always showed the general "You are not allowed in there." because the flag's default text counted as the region's own message (B23). Server side only; no protocol change.
+
+### Added (2026-11-05, OFFICE PLOTS: choose which plots a Land Office lists; D140 to D148)
+- **Admins can choose which plots each Land Office lists.** Sneak and right-click a Land Office with the Region Wand (or use the Land Office's ADMIN key once BSP Core adds it) to open **OFFICE PLOTS**. EVERY PLOT lists every plot for sale in the world, as before; CHOSEN lists the plots ticked there and every plot in the sale groups ticked there. The first tick switches an office to CHOSEN.
+- **Sale groups.** Put a plot in a group (for example "market") on the PLOTS tab, or with `/rg flag <plot> sale-group market`; tick groups on the GROUPS tab. Several offices can list the same group.
+- A copy of a ticked plot made on the region map is ticked at the same offices and keeps its group; a renamed plot stays ticked. A broken Land Office forgets its list. Open areas are chosen like plots.
+- **API 8:** `claims().plotsForSale(level, office)`, `claims().openAreas(level, office)`, `claims().listedAt(level, office, id)` and `api.client.OfficePlotsView.open(office)`. Until BSP Core uses them (request RG-C15), every Land Office still lists every plot.
+
+### Added (2026-11-05, BANNED HERE: players can see what is banned; D133 to D139)
+- **A BANNED button in the inventory.** While you stand where blocks or items are banned, a BANNED button shows in the top left of the survival and creative inventory, beside BSP Core's TEAM and KITS buttons and in their look. It opens **BANNED HERE**: every banned item in one grid grouped by mod, a search like JEI's (`@mekanism`), chips that show one rule at a time with counts (PLACE, USE, BREAK, BRING IN), and a card with the rules for the item under the mouse. Tags and whole mods are shown as their items. Players can turn the button off with `ui.bannedButton = false` in `config/bsp_region_guard-client.toml`.
+- **After buying a plot,** the "you bought it" pop-up says how many blocks and items are banned there and has a BANNED HERE button.
+- **`/claim banned`** opens the list for where you stand; `/claim banned <plot>` for a plot.
+- **API 7: `api.client.BannedListView`** (`open`, `count`), so BSP Core's Land Office can show a plot's bans before buying (request RG-C12).
 
 ### Fixed (2026-11-02, B21 and B22: acting on a region from outside)
 - **A player kept out of a region can no longer act on it from outside.** Entry and rank rules were only checked when a player walked in, so a player held at a ranked mine's edge could still dig it from the rim, from above, or from the shell around it, and place blocks, open chests and use doors the same way. Every building action now follows the same rule as walking in: breaking, placing, chests, doors and buttons, beds, riding, lighters, boats and minecarts, trampling, item frames, anvils, dripleaf and hurting animals. Entry deny or a missing rank refuses them with the entry message; members and admins with bypass still act. This applies to every region, not only mines. Server side only.

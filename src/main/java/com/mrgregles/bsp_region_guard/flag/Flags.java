@@ -102,6 +102,7 @@ public final class Flags {
     public static final StateFlag CHORUS_FRUIT_TELEPORT = plain("chorus-fruit-teleport", State.ALLOW, MOVEMENT, "chorus fruit from or into the region");
     public static final LocationFlag TELEPORT = FlagRegistry.register(new LocationFlag("teleport")).describe(MOVEMENT, "where /rg teleport goes; 'here' for your position");
     public static final LocationFlag SPAWN = FlagRegistry.register(new LocationFlag("spawn")).describe(MOVEMENT, "where players who die inside respawn");
+    public static final StringFlag SALE_GROUP = string("sale-group", null, MAP_MAKING, "a plot's sale group: Land Offices set to CHOSEN list the groups ticked for them (D143)");
     public static final StringFlag TELEPORT_MESSAGE = string("teleport-message", null, MOVEMENT, "shown after /rg teleport");
     public static final StringFlag BORDER_WARNING = string("border-warning", null, MOVEMENT, "world default: shown near the world border (border.warnDistance blocks before it)");
     public static final StringFlag BORDER_MESSAGE = string("border-message", null, MOVEMENT, "world default: shown when a player is pushed back at the world border");

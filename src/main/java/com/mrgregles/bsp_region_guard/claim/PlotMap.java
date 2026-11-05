@@ -231,6 +231,7 @@ public final class PlotMap {
             copy.typeData().putLong(ClaimData.PRICE, price);
         }
         store.add(copy);
+        OfficeLists.get(level).copied(src.id(), id); // D146: the copy is listed wherever the original is
         PlotBlocks.Job job = blocks ? PlotBlocks.transfer(admin, id, src.bounds(), box, rotation, false, null) : null;
         record(admin, new Step(level.dimension().location().toString(), id, null, copy.save(), src.id(), rotation, job));
         return Result.ok(id + " is pasted: a copy of " + src.id() + ", for sale" + (price > 0 ? " at " + price + " pieces" : "")
@@ -586,6 +587,9 @@ public final class PlotMap {
                     return Result.fail("Can't paste it back: " + overlap);
                 }
                 store.add(back);
+                if (s.source() != null) {
+                    OfficeLists.get(level).copied(s.source(), s.id()); // D146 again: a redone paste is listed where its original is
+                }
                 done = "Redone: the paste of " + s.id() + ".";
                 Region source = s.source() == null ? null : store.get(s.source());
                 if (s.blocks() != null && source != null && source.bounds() != null) {

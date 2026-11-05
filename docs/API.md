@@ -10,7 +10,7 @@ RegionGuardApi api = RegionGuardApi.get();
 
 Available from `FMLCommonSetupEvent` on; call the services on the server thread. A mod that treats Region Guard as optional checks `ModList.get().isLoaded("bsp_region_guard")` and keeps every call in one class.
 
-`RegionGuardApi.API_VERSION` is raised whenever a method is added or changed. **Version 2** (2026-10-14): claims are paid from the BSP Core bank in Shatter Pieces and `purchasePlot`, `purchaseOpen`, `enlarge` answer through a callback; `Cuboid` (from `region`), `Exemption` (from `region.RegionQuery.Exemption`) and the new `Border` are in `api`; `regions().bounds` and `regions().border` are new. **Version 3** (2026-10-15): `RegionTriggerEvent.Cause.EDGE`, fired when a player chooses to travel across a world edge linked to another server (region `__global__`, a cross-server destination 16 blocks inside the other world's edge). A listener that handles every cross-server `RegionTriggerEvent` (as BSP Teleport's does) needs no change. **Version 4** (2026-10-15): `claims().selection(player)`, `claims().claimsNear(level, area)` and `bounds()` on `ClaimPurchasedEvent` / `ClaimAbandonedEvent`, for BSP Core's Land Office. **Version 5** (2026-10-15): `serverId()`. **Version 6** (2026-10-23): plots can be priced in Shatter Coins; `claims().paysInCoins()` and `claims().priceText(level, regionId, amount)`.
+`RegionGuardApi.API_VERSION` is raised whenever a method is added or changed. **Version 2** (2026-10-14): claims are paid from the BSP Core bank in Shatter Pieces and `purchasePlot`, `purchaseOpen`, `enlarge` answer through a callback; `Cuboid` (from `region`), `Exemption` (from `region.RegionQuery.Exemption`) and the new `Border` are in `api`; `regions().bounds` and `regions().border` are new. **Version 3** (2026-10-15): `RegionTriggerEvent.Cause.EDGE`, fired when a player chooses to travel across a world edge linked to another server (region `__global__`, a cross-server destination 16 blocks inside the other world's edge). A listener that handles every cross-server `RegionTriggerEvent` (as BSP Teleport's does) needs no change. **Version 4** (2026-10-15): `claims().selection(player)`, `claims().claimsNear(level, area)` and `bounds()` on `ClaimPurchasedEvent` / `ClaimAbandonedEvent`, for BSP Core's Land Office. **Version 5** (2026-10-15): `serverId()`. **Version 6** (2026-10-23): plots can be priced in Shatter Coins; `claims().paysInCoins()` and `claims().priceText(level, regionId, amount)`. **Version 7** (2026-11-05): `api.client.BannedListView` (client only): `open(regionId)` and `count(regionId, answer)` show a region's banned blocks and items to the player, for the Land Office. **Version 8** (2026-11-05): plot lists per Land Office: `claims().plotsForSale(level, office)`, `claims().openAreas(level, office)`, `claims().listedAt(level, office, regionId)`, and `api.client.OfficePlotsView.open(office)` (client only) for the Land Office's ADMIN key.
 
 Value types in `api`: `Cuboid` (a box of whole blocks, both corners inclusive: `of`, `contains`, `intersects`, `sizeX/Y/Z`, `area`, `volume`), `Border` (a world border: a square `size` blocks across around `centerX, centerZ`: `contains`, `toEdge`, `minX ... maxZ`), `ClaimResult`.
 
@@ -63,6 +63,30 @@ For a shop screen or any mod that sells land. Region Guard keeps the rules and t
 `Claims.INSTANCE.setPlayerFlag(player, claimId, flag, value)` is what the claim screen and `/claim flag` use: it checks the plot's allowed-flag list (the plot's own, its area's, or the config's) and the Shatter Totem rule (no rule that could stop a steal while a totem stands inside).
 
 Every answer is a `ClaimResult(ok, message, claimId, price)`; `message` is a plain sentence for the player. Events on the Forge bus: `ClaimPurchasedEvent(player, claimId, dimension, price, enlarged, bounds)` and `ClaimAbandonedEvent(player, claimId, dimension, refund, bounds)`, both after the fact and not cancellable (`bounds()`: the claim's box, the new one after an enlargement). Plots for sale and open areas are already sent to every client and drawn in gold in the world, so a shop screen can highlight the one being bought without extra packets.
+
+## Banned lists for players (`api.client.BannedListView`, client only)
+
+Since API 7. For a screen on the player's side, such as BSP Core's Land Office:
+
+| Call | What it does |
+|---|---|
+| `BannedListView.open(regionId)` | Opens Region Guard's BANNED HERE screen for the region: every item banned there, grouped by mod, with the rules that stop each. Esc returns to the screen that was open (a container screen stays open underneath). |
+| `BannedListView.count(regionId, answer)` | Asks the server how many items are banned there; `answer` (an `IntConsumer`) runs on the client thread with the number, 0 for none or an unknown region. |
+
+Both read the lists at the middle of the region's box, so they show what the server enforces there: the region's own lists, its parents', overlapping regions and the world default. Tags and whole mods are opened into items on the player's side with the server's matching. Call them only from client code; a server never loads the class.
+
+## Plot lists per Land Office
+
+Since API 8 (owner decisions D140 to D148). Admins choose which plots each Land Office lists; Region Guard keeps the choice by the office's world and position.
+
+| Call | What it does |
+|---|---|
+| `claims().plotsForSale(level, office)` | The plots for sale that office lists: with no choice, or set to EVERY PLOT, every plot in the world (as `plotsForSale(level)`); set to CHOSEN, the plots ticked for it and the plots in the sale groups ticked for it. |
+| `claims().openAreas(level, office)` | The same for open areas. |
+| `claims().listedAt(level, office, regionId)` | Whether that office lists the plot or open area. Check it before quoting or selling at an office, so a plot it does not list can't be bought there. |
+| `api.client.OfficePlotsView.open(office)` | Client only: opens OFFICE PLOTS for that office. The server checks the player is an admin or operator and that a Land Office stands there. Show the key only to admins and operators. Esc returns to the Land Office. |
+
+A plot's sale group is its `sale-group` flag. A broken Land Office forgets its list.
 
 ## Exemptions
 

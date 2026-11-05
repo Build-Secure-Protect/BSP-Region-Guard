@@ -581,3 +581,54 @@ Built and tested headless (115 GameTests). Untested in game. Server side only.
 - [ ] The same player cannot hurt an animal standing just inside, ride a horse inside, or use an anvil inside.
 - [ ] A member, a player with the rank, and an admin with bypass can do all of these.
 - [ ] Remove the rank and the entry rule: the stranger can open the chest and use the door again (as the flags allow).
+
+## 2026-11-05: BANNED HERE, what players see of banned lists (D133 to D139)
+
+Built and tested headless (117 GameTests). The screens are untested in a client. **Network protocol 11**: server and players update together.
+
+Set up: a plot for sale with `deny-place` and `deny-use` set to `#bsp:sanctuary_bans` (or a few ids), and a player who is not an admin.
+
+- [ ] Stand outside any banned region and open the inventory: no BANNED button. TEAM and KITS are where they always were.
+- [ ] Walk into the plot and open the inventory: BANNED shows right of TEAM and KITS, same size and look, teal under the mouse, not overlapping them. With BSP Core's KITS button turned off, BANNED stands right of TEAM.
+- [ ] Hover it: "Blocks and items banned in <plot>. Click to see them." Click it: BANNED HERE opens. Esc or CLOSE goes back to the inventory.
+- [ ] The creative inventory has the same button in the same place.
+- [ ] BANNED HERE: items grouped under mod names, the count at the top matches ALL. Scroll with the wheel. Type `@mekanism` in the search: only Mekanism items. PLACE / USE / BREAK / BRING IN chips show one rule at a time; a rule with 0 is grey and does nothing.
+- [ ] Point at an item: its tooltip, and the card at the bottom with name, mod, id and the rules lit that stop it. The bottom line says you can still keep these in chests (or, with a `deny-carry` list, that BRING IN items can't come in).
+- [ ] Set `ui.bannedButton = false` in `config/bsp_region_guard-client.toml` and reopen the inventory: no button.
+- [ ] Buy the plot (Land Office or outline): the pop-up says "N blocks and items are banned here." and has a red BANNED HERE button. It opens the list; Esc comes back to the pop-up; TELEPORT still works.
+- [ ] A plot with nothing banned: the pop-up has no count line and no BANNED HERE button, as before.
+- [ ] `/claim banned` inside the plot opens the list; outside any ban it says "Nothing is banned here." `/claim banned <plot>` from anywhere opens that plot's list.
+- [ ] With JEI or EMI showing items on the left, check the BANNED button is not covered (see known limits: their overlays only know BSP Core's buttons until RG-C12 is done).
+- [ ] An admin with bypass on still sees the button and the list.
+
+## 2026-11-05: OFFICE PLOTS, which plots a Land Office lists (D140 to D148)
+
+Built and tested headless (118 GameTests). The screen is untested in a client. **Network protocol 12.** The Land Office itself only uses the choice once BSP Core switches to the new calls (request RG-C15); until then every office lists every plot, and only the screen and the rules below can be tried.
+
+Set up: a world with a few plots for sale, an open area and two Land Offices.
+
+- [ ] As an admin, sneak and right-click a Land Office with the Region Wand: OFFICE PLOTS opens (not the region screen). Sneak-right-click any other block: the region screen opens as before. A player who is not an admin gets their claim screen as before.
+- [ ] The title line shows the office's position and world. EVERY PLOT is lit; the count says every plot is listed; the map shows all plots teal and the office as an amber square.
+- [ ] Tick a plot (its box, or click it on the map): CHOSEN lights up, the line says the office now lists only the chosen plots, the map shows that plot teal and the rest grey.
+- [ ] Click a plot's name: the group chips appear under the list. Make a group on the GROUPS tab ("market", Enter or + ADD GROUP), put two plots in it, tick it: those plots turn gold on the map and the count goes up. `/rg flag <plot> sale-group` shows `market`.
+- [ ] TICK ALL SHOWN after a search ticks only what the search shows. CLEAR unticks everything.
+- [ ] Copy a ticked plot on the region map: the copy is ticked here too and keeps its group. Rename a ticked plot: it stays ticked.
+- [ ] Break the office and place it again: it lists every plot again.
+- [ ] Esc closes the screen. The second office is unaffected by the first one's choice.
+- [ ] Once BSP Core uses the new calls: the Land Office lists only the chosen plots; your own claims and nearby claims still show; the ADMIN key shows only for admins and opens OFFICE PLOTS; Esc returns to the Land Office.
+
+## 2026-11-05: the rank needed on entry refusal (D149 to D157)
+
+Built and tested headless (120 GameTests). Untested in game. Server side only (no protocol change). Needs LuckPerms; BSP-RankUp for the ladder lines.
+
+Set up: a BSP-RankUp ladder (for example Peasant, Squire, Knight, Lord) and a region with `allowed-ranks` set to `knight`.
+
+- [ ] A Squire walks at the region: pushed back, and the middle of the screen shows "You need Knight to enter" with "You are Squire: N more points." under it. It does not flicker while they keep walking into the edge.
+- [ ] A Peasant: "You are Peasant, 2 ranks to go." A player with no rank on the ladder: "You have no rank on this ladder yet."
+- [ ] A Lord walks in, even if the LuckPerms groups do not inherit Knight. A Knight walks in.
+- [ ] With a second ladder set up, the title says "You need Knight (Main ladder) to enter".
+- [ ] `allowed-ranks` set to `vip` (on no ladder): "You need to be vip to enter". Set to `vip,donor`: "You need to be donor or vip to enter".
+- [ ] Set `entry-deny-message` to `Only {rank} and above may enter the Vault.`: the title reads "Only Knight and above may enter the Vault.". Clear it: the rank message is back.
+- [ ] `entry` deny on another region: "You are not allowed in there." as a title. Exit deny still shows on the action bar.
+- [ ] The Squire, standing outside, tries to break a block inside or open a chest inside: refused with the same title.
+- [ ] Without BSP-RankUp installed: "You need to be knight to enter".

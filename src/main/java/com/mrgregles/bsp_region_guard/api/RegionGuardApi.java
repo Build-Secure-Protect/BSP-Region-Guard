@@ -16,9 +16,12 @@ public interface RegionGuardApi {
      * {@code RegionTriggerEvent.Cause.EDGE} for travel across a linked world edge. 4 (2026-10-15): for BSP Core's Land
      * Office, {@code claims().selection}, {@code claims().claimsNear} and {@code bounds()} on the two claim events.
      * 5 (2026-10-15): {@link #serverId()}. 6 (2026-10-23): plots priced in Shatter Coins, {@code claims().paysInCoins}
-     * and {@code claims().priceText}.
+     * and {@code claims().priceText}. 7 (2026-11-05): {@code api.client.BannedListView}, the player-side BANNED HERE
+     * screen and count for a region, for the Land Office. 8 (2026-11-05): plot lists per Land Office,
+     * {@code claims().plotsForSale(level, office)}, {@code openAreas(level, office)}, {@code listedAt}, and
+     * {@code api.client.OfficePlotsView}.
      */
-    int API_VERSION = 6;
+    int API_VERSION = 8;
 
     /** The live API instance. */
     static RegionGuardApi get() {

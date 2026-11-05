@@ -70,13 +70,14 @@ Enforcement column: **event** = a Forge event, works now. **mixin** = a small pa
 | `entry`, `exit` | allow | `deny` keeps non-members out (or in); members and admins always pass; a refused move puts the player back a step | tick |
 | `exit-via-teleport` | allow | leaving by teleport when `exit` is denied | tick |
 | `exit-override` | false | always allow leaving | tick |
-| `entry-deny-message`, `exit-deny-message` | text | messages for refused entry or exit | tick |
+| `entry-deny-message`, `exit-deny-message` | text | messages for refused entry or exit. Entry refusals show in the middle of the screen as a title (a newline starts the subtitle). `{rank}` in `entry-deny-message` is replaced by the rank needed (D154) | tick |
 | `notify-enter`, `notify-leave` | false | tell admins when someone enters or leaves | tick |
 | `greeting`, `farewell` | none | chat message on entering or leaving | tick |
 | `greeting-title`, `farewell-title` | none | title on entering or leaving; a newline separates the subtitle | tick |
 | `enderpearl`, `chorus-fruit-teleport` | allow | those teleports, from or into the region | event |
 | `teleport` | none | the point `/rg teleport <region>` goes to; `here` uses your position | event |
 | `spawn` | none | where players respawn after dying inside | tick |
+| `sale-group` | none | a plot's sale group (lower case); a Land Office set to CHOSEN lists the groups ticked for it (D143) | event |
 | `teleport-message` | none | shown after `/rg teleport` | event |
 | `border-warning` | none ("The edge of the world is N blocks away.") | set on the world default: shown `border.warnDistance` (10) blocks before the world border | tick |
 | `border-message` | none ("You have reached the edge of the world.") | set on the world default: shown when a player is pushed back at the world border | tick |
@@ -108,7 +109,7 @@ Enforcement column: **event** = a Forge event, works now. **mixin** = a small pa
 | `potion-splash` | allow | splash and lingering potions landing | event |
 | `dispenser-use` | allow | dispensers and droppers firing into the region | mixin |
 | `falling-blocks` | allow | sand, gravel and anvils landing in the region from outside | mixin |
-| `allowed-ranks` | none | LuckPerms groups that may enter, on top of `entry` | tick |
+| `allowed-ranks` | none | LuckPerms groups that may enter, on top of `entry`. A player above a listed rank on a BSP-RankUp ladder also gets in. A refused player is told the rank needed: the lowest listed rung on a ladder with where they stand, or the ranks on no ladder (D149 to D157) | tick |
 | `totem-place`, `totem-drop` | allow | For BSP Core to ask about Shatter Totems; also denied inside a BSP Core Anti Totem zone that blocks the same rule (until the two zone systems merge) | API (`regions().allows`) |
 | `deny-place`, `deny-use`, `deny-break`, `deny-carry` | none | banned blocks and items, comma separated: ids (`minecraft:tnt`), whole mods (`@create` or `create:*`), tags (`#minecraft:beds`). See "Banned blocks" below | event, tick, mixin |
 | `mine-only-break` | deny | inside a mine's shell only the mine's own blocks may be broken | later (mines) |
@@ -147,4 +148,6 @@ Four list flags keep chosen blocks and items out of a region's hands. They apply
 | `deny-carry` | having it in the region at all, and counts as the other three. A player carrying one (inventory, armour, off-hand, Curios slots, or packed inside a carried shulker box, bundle or backpack) is put back at the edge, with a window showing what they carry; `teleport-in` refuses them; inside, it cannot be picked up, and no container hands one out, **the ender chest included** (mixin group `containers`). A player found inside holding one (logged in there, given one, or a ban added later) is moved just outside within a second. |
 
 Set them in the admin screen's **BANNED** tab (drag blocks in from the creative tabs; `@mod` in its search shows one mod's blocks) or with `/rg flag spawn deny-carry minecraft:tnt,@create`. Known gaps: hoppers and pipes moving banned items into containers inside; items already in chests inside stay there (they just can't be taken out).
+
+**What players see (D133 to D139).** While a player stands where anything is banned, a BANNED button shows in the top left of their inventory, beside BSP Core's TEAM and KITS. It opens BANNED HERE, a read-only grid of every banned item grouped by mod, with search and the rules for each. The bought-plot pop-up shows the count and a BANNED HERE button, and `/claim banned [plot]` opens the list. Tags and whole mods are shown as their items. The lists are not secret: any player may ask for any region's.
 

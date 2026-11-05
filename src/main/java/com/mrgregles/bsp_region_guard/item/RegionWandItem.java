@@ -35,7 +35,13 @@ public final class RegionWandItem extends Item {
     public InteractionResult useOn(UseOnContext context) {
         if (context.getPlayer() != null && context.getPlayer().isShiftKeyDown()) {
             if (context.getPlayer() instanceof ServerPlayer sp) {
-                openScreen(sp);
+                if (com.mrgregles.bsp_region_guard.network.OfficeSync.isOffice(context.getLevel(), context.getClickedPos())
+                        && com.mrgregles.bsp_region_guard.network.RegionSync.mayEdit(sp)) {
+                    // D144: an admin's sneak + right-click on a Land Office opens OFFICE PLOTS for that office
+                    com.mrgregles.bsp_region_guard.network.OfficeSync.open(sp, context.getClickedPos());
+                } else {
+                    openScreen(sp);
+                }
             }
             return InteractionResult.sidedSuccess(context.getLevel().isClientSide());
         }

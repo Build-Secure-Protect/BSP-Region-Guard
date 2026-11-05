@@ -68,6 +68,37 @@ public final class Claims implements ClaimService {
     }
 
     @Override
+    public List<Listing> plotsForSale(ServerLevel level, net.minecraft.core.BlockPos office) {
+        OfficeLists lists = OfficeLists.get(level);
+        List<Listing> out = new ArrayList<>();
+        for (Region r : RegionStore.get(level).all()) {
+            if (r.type() == RegionType.PLOT_FOR_SALE && r.bounds() != null && lists.lists(office, r)) {
+                out.add(listing(r));
+            }
+        }
+        return out;
+    }
+
+    @Override
+    public List<Listing> openAreas(ServerLevel level, net.minecraft.core.BlockPos office) {
+        OfficeLists lists = OfficeLists.get(level);
+        List<Listing> out = new ArrayList<>();
+        for (Region r : RegionStore.get(level).all()) {
+            if (r.type() == RegionType.OPEN_FOR_BUYING && r.bounds() != null && lists.lists(office, r)) {
+                out.add(listing(r));
+            }
+        }
+        return out;
+    }
+
+    @Override
+    public boolean listedAt(ServerLevel level, net.minecraft.core.BlockPos office, String regionId) {
+        Region r = RegionStore.get(level).get(regionId);
+        return r != null && (r.type() == RegionType.PLOT_FOR_SALE || r.type() == RegionType.OPEN_FOR_BUYING)
+                && OfficeLists.get(level).lists(office, r);
+    }
+
+    @Override
     public List<String> claimsOf(ServerLevel level, UUID player) {
         List<String> out = new ArrayList<>();
         for (Region r : RegionStore.get(level).all()) {
