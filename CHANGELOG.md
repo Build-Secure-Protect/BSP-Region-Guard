@@ -4,7 +4,10 @@ All notable changes to BSP Region Guard. Format follows Keep a Changelog; versio
 
 ## [Unreleased]
 
-**Network protocol 13:** servers and players need this version together. **API version 8.**
+**Network protocol 13:** servers and players need this version together. **API version 9.** The jar is built as 0.7.0 (2026-11-08) so BSP Teleport can compile against API 9; the 0.7.0 release notes are not written yet.
+
+### Added (2026-11-08, edge links on the API: BSP Teleport request TR6)
+- **API 9: `regions().edgeWorlds()`** lists every world on the network that has a border or edge links, this server's own included, as the records `EdgeWorld` (server, world, border, links) and `EdgeTarget` (server, world, side). Sides are the plain words `north`, `east`, `south` and `west`. Each link is listed once, on the world whose admin made it. Other servers' worlds come from the copy Region Guard already keeps for edge travel (read every 5 minutes and when a link or border changes), so the call never waits on the database. It is empty when shared storage is off. Read only. BSP Teleport's MAP tab will use it to draw the worlds as a grid. No protocol change.
 
 ### Added (2026-11-05, plot owner flags: VISITORS, OWNERS and MEMBERS; D159 to D168)
 - **Plots have separate flags for visitors, owners and members.** Before, a world default that denied building also stopped a plot's owner when the plot was left on inherit, and allowing it on the plot opened it to everyone. Now plots for sale, claims and open areas have three lists. VISITORS is the plot's ordinary flags and still inherits the world default. OWNERS is for the plot's owners: inherit there means owners may build. MEMBERS is for the members: the admin sets starting values and the owner changes them, except where the OWNERS list denies.

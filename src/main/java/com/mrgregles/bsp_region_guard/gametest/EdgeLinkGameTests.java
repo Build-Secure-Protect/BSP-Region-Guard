@@ -99,6 +99,58 @@ public class EdgeLinkGameTests {
         h.succeed();
     }
 
+    /** BSP Teleport request TR6 (API 9): the network's worlds, borders and links on the API, each link once, as made. */
+    @GameTest(template = EMPTY, batch = BATCH)
+    public void the_api_lists_the_network_s_edge_worlds(GameTestHelper h) throws java.io.IOException {
+        ServerLevel level = h.getLevel();
+        String dim = level.dimension().location().toString();
+        MemoryBackend backend = new MemoryBackend();
+        RegionMirror alpha = RegionMirror.startWith(level.getServer(), backend, "alpha");
+        RegionMirror.setActive(alpha);
+        var api = com.mrgregles.bsp_region_guard.api.RegionGuardApi.get().regions();
+        try {
+            alpha.drain();
+            WorldBorders.set(level, new Border(100, -50, 2000));
+            // beta's world default as beta stored it: a border, and its west edge linked to our south edge
+            Region beta = Region.global(level.dimension());
+            beta.typeData().putInt(WorldBorders.SIZE, 3000);
+            CompoundTag links = new CompoundTag();
+            links.putString("west", new Place("alpha", dim, Side.SOUTH).serialize());
+            beta.typeData().put(EdgeLinks.KEY, links);
+            backend.upsertRegion(new MirrorBackend.RegionRow("beta", dim, Region.GLOBAL_ID, 1, 1, RegionMirror.serialize(beta), false));
+            // and a beta world with neither border nor links, which is left out
+            backend.upsertRegion(new MirrorBackend.RegionRow("beta", "minecraft:the_nether", Region.GLOBAL_ID, 1, 1,
+                    RegionMirror.serialize(Region.global(net.minecraft.world.level.Level.NETHER)), false));
+            EdgeLinks.refresh();
+            alpha.drain();
+            h.assertTrue(EdgeLinks.link(level, Side.EAST, new Place("beta", dim, Side.NORTH)).ok(), "a link made here");
+            alpha.drain();
+
+            List<com.mrgregles.bsp_region_guard.api.EdgeWorld> worlds = api.edgeWorlds();
+            h.assertTrue(worlds.size() == 2, "this server's world and beta's, nothing else: " + worlds);
+            var mine = worlds.get(0);
+            var theirs = worlds.get(1);
+            h.assertTrue(mine.server().equals("alpha") && mine.dimension().equals(dim), "sorted by server: alpha first: " + worlds);
+            h.assertTrue(mine.border() != null && mine.border().size() == 2000 && mine.border().centerX() == 100 && mine.border().centerZ() == -50,
+                    "our border: " + mine.border());
+            h.assertTrue(mine.links().equals(Map.of("east", new com.mrgregles.bsp_region_guard.api.EdgeTarget("beta", dim, "north"))),
+                    "our link, once, and beta's link to our south edge is not repeated here: " + mine.links());
+            h.assertTrue(theirs.server().equals("beta") && theirs.dimension().equals(dim) && theirs.border() != null && theirs.border().size() == 3000,
+                    "beta's world and border, read from its world default: " + theirs);
+            h.assertTrue(theirs.links().equals(Map.of("west", new com.mrgregles.bsp_region_guard.api.EdgeTarget("alpha", dim, "south"))),
+                    "beta's link as beta made it, and not our east link reversed: " + theirs.links());
+
+            RegionMirror.setActive(null);
+            h.assertTrue(api.edgeWorlds().isEmpty(), "nothing with shared storage off");
+        } finally {
+            RegionMirror.setActive(null);
+            WorldBorders.set(level, null);
+            EdgeLinks.clearAll();
+            com.mrgregles.bsp_region_guard.region.RegionStore.get(level).global().typeData().remove(EdgeLinks.KEY);
+        }
+        h.succeed();
+    }
+
     @GameTest(template = EMPTY, batch = BATCH)
     public void a_linked_edge_asks_once_and_travel_goes_to_bsp_teleport(GameTestHelper h) {
         ServerLevel level = h.getLevel();

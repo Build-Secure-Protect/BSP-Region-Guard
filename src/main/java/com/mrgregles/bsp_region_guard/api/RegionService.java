@@ -42,6 +42,15 @@ public interface RegionService {
     @Nullable
     Border border(ServerLevel level);
 
+    /**
+     * Every world on the network with a border or edge links, this server's worlds included, as last read from the
+     * shared storage (other servers' worlds are read every 5 minutes and when a link or border changes; this server's
+     * are current). Every dimension is listed; worlds with neither a border nor links are left out. Each link appears
+     * once, on the world whose admin made it. Sorted by server, then world. Empty when shared storage is off. Never
+     * waits on the database. API 9.
+     */
+    List<EdgeWorld> edgeWorlds();
+
     /** Registers a flag of another mod; it then appears in the admin screen. Call it before the server starts. Returns the flag. */
     <F extends Flag<?>> F registerFlag(F flag);
 

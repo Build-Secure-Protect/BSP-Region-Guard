@@ -367,6 +367,46 @@ public final class EdgeLinks {
         }
     }
 
+    /**
+     * For the API ({@code regions().edgeWorlds()}, API 9): this server's worlds from their world defaults and the other
+     * servers' worlds from the cache, each with a border or links, sorted by server then world. Each link once, as it
+     * was made. Empty when shared storage is off. Server thread; never touches the database.
+     */
+    public static List<com.mrgregles.bsp_region_guard.api.EdgeWorld> edgeWorlds(@Nullable MinecraftServer server) {
+        String me = thisServer();
+        if (me.isEmpty()) {
+            return List.of();
+        }
+        List<World> worlds = new ArrayList<>();
+        if (server != null) {
+            for (ServerLevel level : server.getAllLevels()) {
+                worlds.add(new World(me, level.dimension().location().toString(), WorldBorders.of(level), own(level)));
+            }
+        }
+        for (World w : NETWORK.values()) {
+            if (!w.server().equals(me)) {
+                worlds.add(w);
+            }
+        }
+        List<com.mrgregles.bsp_region_guard.api.EdgeWorld> out = new ArrayList<>();
+        for (World w : worlds) {
+            if (w.border() == null && w.links().isEmpty()) {
+                continue;
+            }
+            Map<String, com.mrgregles.bsp_region_guard.api.EdgeTarget> links = new java.util.LinkedHashMap<>();
+            for (Side s : Side.values()) {
+                Place p = w.links().get(s);
+                if (p != null) {
+                    links.put(s.key(), new com.mrgregles.bsp_region_guard.api.EdgeTarget(p.server(), p.dimension(), p.side().key()));
+                }
+            }
+            out.add(new com.mrgregles.bsp_region_guard.api.EdgeWorld(w.server(), w.dimension(), w.border(), links));
+        }
+        out.sort(java.util.Comparator.comparing(com.mrgregles.bsp_region_guard.api.EdgeWorld::server)
+                .thenComparing(com.mrgregles.bsp_region_guard.api.EdgeWorld::dimension));
+        return List.copyOf(out);
+    }
+
     /** For tests: replaces the cache. */
     public static void setNetwork(List<World> worlds) {
         NETWORK.clear();

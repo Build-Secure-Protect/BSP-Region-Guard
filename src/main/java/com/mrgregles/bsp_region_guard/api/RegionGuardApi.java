@@ -19,9 +19,10 @@ public interface RegionGuardApi {
      * and {@code claims().priceText}. 7 (2026-11-05): {@code api.client.BannedListView}, the player-side BANNED HERE
      * screen and count for a region, for the Land Office. 8 (2026-11-05): plot lists per Land Office,
      * {@code claims().plotsForSale(level, office)}, {@code openAreas(level, office)}, {@code listedAt}, and
-     * {@code api.client.OfficePlotsView}.
+     * {@code api.client.OfficePlotsView}. 9 (2026-11-08): {@code regions().edgeWorlds()} with {@code EdgeWorld} and
+     * {@code EdgeTarget}, every world on the network with a border or edge links, read only.
      */
-    int API_VERSION = 8;
+    int API_VERSION = 9;
 
     /** The live API instance. */
     static RegionGuardApi get() {

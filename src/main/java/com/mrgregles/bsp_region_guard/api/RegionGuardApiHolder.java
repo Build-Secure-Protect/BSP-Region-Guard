@@ -73,6 +73,11 @@ final class RegionGuardApiHolder {
         }
 
         @Override
+        public java.util.List<EdgeWorld> edgeWorlds() {
+            return com.mrgregles.bsp_region_guard.protection.EdgeLinks.edgeWorlds(net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer());
+        }
+
+        @Override
         public <F extends com.mrgregles.bsp_region_guard.flag.Flag<?>> F registerFlag(F flag) {
             return com.mrgregles.bsp_region_guard.flag.FlagRegistry.register(flag);
         }

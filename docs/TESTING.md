@@ -661,3 +661,8 @@ Set up: the world default with `build` deny (`/rg flag __global__ build deny`), 
 - [ ] The buyer gives `p1` up: it is for sale again and MEMBERS shows the admin's starting values.
 - [ ] An older world with a plot that had `block-break deny`: after the update its OWNERS list shows `block-break` DENY (the log says how many plots were kept this way).
 - [ ] Audit fixes: on the admin MEMBERS tab, a flag the owner changed shows a gold "the owner set ... for members; that wins". A protected region at the plot's priority with `build deny` stops the owner inside it. `/rg type <claim> plot_for_sale` clears the owner's member choices. `/claim flag <claim> build no members` works. On VISITORS the BUYER chip of a greeting row doesn't cover its hint.
+
+## 2026-11-08: edge links on the API (TR6, API 9)
+
+Built and tested headless (125 GameTests). Nothing new to see in Region Guard itself: the call is for BSP Teleport's MAP tab.
+- [ ] Two servers with shared storage, server A's Overworld east edge linked to server B's west edge, each with a border. Once BSP Teleport uses the call, its MAP tab shows A and B side by side, joined at that edge, each with its border size. Within 5 minutes of changing a border on B (or at once, with Redis), A's MAP tab shows the new size.

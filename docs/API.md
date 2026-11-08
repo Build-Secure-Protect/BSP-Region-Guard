@@ -10,7 +10,7 @@ RegionGuardApi api = RegionGuardApi.get();
 
 Available from `FMLCommonSetupEvent` on; call the services on the server thread. A mod that treats Region Guard as optional checks `ModList.get().isLoaded("bsp_region_guard")` and keeps every call in one class.
 
-`RegionGuardApi.API_VERSION` is raised whenever a method is added or changed. **Version 2** (2026-10-14): claims are paid from the BSP Core bank in Shatter Pieces and `purchasePlot`, `purchaseOpen`, `enlarge` answer through a callback; `Cuboid` (from `region`), `Exemption` (from `region.RegionQuery.Exemption`) and the new `Border` are in `api`; `regions().bounds` and `regions().border` are new. **Version 3** (2026-10-15): `RegionTriggerEvent.Cause.EDGE`, fired when a player chooses to travel across a world edge linked to another server (region `__global__`, a cross-server destination 16 blocks inside the other world's edge). A listener that handles every cross-server `RegionTriggerEvent` (as BSP Teleport's does) needs no change. **Version 4** (2026-10-15): `claims().selection(player)`, `claims().claimsNear(level, area)` and `bounds()` on `ClaimPurchasedEvent` / `ClaimAbandonedEvent`, for BSP Core's Land Office. **Version 5** (2026-10-15): `serverId()`. **Version 6** (2026-10-23): plots can be priced in Shatter Coins; `claims().paysInCoins()` and `claims().priceText(level, regionId, amount)`. **Version 7** (2026-11-05): `api.client.BannedListView` (client only): `open(regionId)` and `count(regionId, answer)` show a region's banned blocks and items to the player, for the Land Office. **Version 8** (2026-11-05): plot lists per Land Office: `claims().plotsForSale(level, office)`, `claims().openAreas(level, office)`, `claims().listedAt(level, office, regionId)`, and `api.client.OfficePlotsView.open(office)` (client only) for the Land Office's ADMIN key.
+`RegionGuardApi.API_VERSION` is raised whenever a method is added or changed. **Version 2** (2026-10-14): claims are paid from the BSP Core bank in Shatter Pieces and `purchasePlot`, `purchaseOpen`, `enlarge` answer through a callback; `Cuboid` (from `region`), `Exemption` (from `region.RegionQuery.Exemption`) and the new `Border` are in `api`; `regions().bounds` and `regions().border` are new. **Version 3** (2026-10-15): `RegionTriggerEvent.Cause.EDGE`, fired when a player chooses to travel across a world edge linked to another server (region `__global__`, a cross-server destination 16 blocks inside the other world's edge). A listener that handles every cross-server `RegionTriggerEvent` (as BSP Teleport's does) needs no change. **Version 4** (2026-10-15): `claims().selection(player)`, `claims().claimsNear(level, area)` and `bounds()` on `ClaimPurchasedEvent` / `ClaimAbandonedEvent`, for BSP Core's Land Office. **Version 5** (2026-10-15): `serverId()`. **Version 6** (2026-10-23): plots can be priced in Shatter Coins; `claims().paysInCoins()` and `claims().priceText(level, regionId, amount)`. **Version 7** (2026-11-05): `api.client.BannedListView` (client only): `open(regionId)` and `count(regionId, answer)` show a region's banned blocks and items to the player, for the Land Office. **Version 8** (2026-11-05): plot lists per Land Office: `claims().plotsForSale(level, office)`, `claims().openAreas(level, office)`, `claims().listedAt(level, office, regionId)`, and `api.client.OfficePlotsView.open(office)` (client only) for the Land Office's ADMIN key. **Version 9** (2026-11-08): `regions().edgeWorlds()` with the records `EdgeWorld` and `EdgeTarget`: every world on the network with a border or edge links, read only (BSP Teleport request TR6).
 
 Value types in `api`: `Cuboid` (a box of whole blocks, both corners inclusive: `of`, `contains`, `intersects`, `sizeX/Y/Z`, `area`, `volume`), `Border` (a world border: a square `size` blocks across around `centerX, centerZ`: `contains`, `toEdge`, `minX ... maxZ`), `ClaimResult`.
 
@@ -23,12 +23,31 @@ Value types in `api`: `Cuboid` (a box of whole blocks, both corners inclusive: `
 | `regions().value(level, pos, flag)` | a flag's value there, or null |
 | `regions().bounds(level, regionId)` | a region's `Cuboid`, or null for an unknown id, the world default, or a region made without corners that has none yet (since 2026-10-22; such a region applies nowhere) |
 | `regions().border(level)` | the world's `Border`, or null when it has none (it belongs to the world's global region; set with `/rg border`) |
+| `regions().edgeWorlds()` | every world on the network with a border or edge links, as a `List<EdgeWorld>` (API 9; see Edge links below) |
 | `regions().registerFlag(flag)` | add your own flag before the server starts; it appears in the admin screen |
 | `regions().addExemption(exemption)` | lift region rules for a player in a spot (an `api.Exemption`, see below) |
 | `serverId()` | this server's name in the shared storage (`storage.serverId`), which must equal its Velocity server name; given even when shared storage is off, so a mod can check it against its own name for this server |
 | `claims()` | see Claims below |
 | `mines().isMine / reset / secondsToReset` | mines |
 | `publish(kind, dimension, regionId, payload)` | send a message to the other servers through the shared storage: through Redis within milliseconds when it is configured, and always through the MySQL message table as the safety net (each message is handled once); false when storage is off. See `docs/NETWORK.md` |
+
+## Edge links (`regions().edgeWorlds()`)
+
+Since API 9 (BSP Teleport request TR6). Read only: it shows the network's worlds as Region Guard already holds them, for example to draw them as a grid joined where their edges link.
+
+```java
+List<EdgeWorld> worlds = RegionGuardApi.get().regions().edgeWorlds();
+// EdgeWorld(String server, String dimension, @Nullable Border border, Map<String, EdgeTarget> links)
+// EdgeTarget(String server, String dimension, String side)
+```
+
+- **Which worlds:** every world on every server that has a border or at least one edge link, in every dimension, this server's own included. Worlds with neither are left out. The list is sorted by server, then world, so it is the same on every server.
+- **This server's worlds** are read from their world defaults when you call, so they are always current. `server` is this server's `storage.serverId` (the same as `serverId()`).
+- **Other servers' worlds** come from the cache Region Guard keeps for edge travel: read from the shared storage 10 seconds after start, every 5 minutes, and whenever a server changes a border or link. The call never waits on the database.
+- **Links:** the key of `links` is a side of that world, `"north"`, `"east"`, `"south"` or `"west"`; the value is the other world's edge. Each link appears **once**, on the world whose admin made it. A link from A's east to B's west shows on A only; B's `links` does not repeat it, so walk the list both ways to join worlds.
+- **Border:** the world's `Border`, or null when it has links but no border.
+- **Empty** when shared storage is off (edge links then do nothing).
+- Server thread only. The list and maps are unmodifiable; each `links` map is in the order north, east, south, west.
 
 ## Region triggers
 
