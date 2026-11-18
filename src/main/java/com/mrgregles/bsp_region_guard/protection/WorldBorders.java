@@ -119,10 +119,64 @@ public final class WorldBorders {
         syncVanilla(event.getServer(), false);
     }
 
-    /** For teleport and home checks: true when the spot lies outside this world's border for this player. */
+    /** For teleport, home and build checks: true when the spot lies outside this world's border for this player. */
     public static boolean keepsOut(ServerLevel level, BlockPos pos, @Nullable net.minecraft.world.entity.player.Player player) {
         Border b = of(level);
-        return b != null && !b.contains(pos.getX() + 0.5, pos.getZ() + 0.5) && !(player != null && RegionQuery.bypasses(player));
+        return b != null && !b.contains(pos.getX() + 0.5, pos.getZ() + 0.5) && !exempt(player);
+    }
+
+    /**
+     * Who the border does not hold: an admin with bypass on, or a server operator who is not on BSP-Core's admin list
+     * (owner, 2026-11-18: "except an admin or OP"). With no admin list, BSP-Core counts operators as admins, so an
+     * operator who switches bypass off is held like everyone else.
+     */
+    public static boolean exempt(@Nullable net.minecraft.world.entity.player.Player player) {
+        if (player == null) {
+            return false;
+        }
+        if (RegionQuery.bypasses(player)) {
+            return true;
+        }
+        return player instanceof ServerPlayer sp && sp.hasPermissions(2) && !com.mrgregles.bsp_region_guard.compat.BspCore.isAdmin(sp);
+    }
+
+    /** The message for building or breaking past the edge (bug B26). */
+    public static final String BUILD_MESSAGE = "That is past the edge of the world.";
+    /** The message for a teleport that would land past the edge (bug B27). */
+    public static final String TELEPORT_MESSAGE = "You can't teleport past the edge of the world.";
+
+    /**
+     * Bug B27: any teleport that fires Forge's teleport event (Travel Anchors' Teleportation enchantment and staff,
+     * ender pearls, chorus fruit, other mods' teleports) is refused when it would land a held player past the border,
+     * wherever they start. A player riding something counts as the rider. {@code /tp} and {@code /spreadplayers} are
+     * left out: their events don't say which world the player lands in, and run with {@code /execute in} they move
+     * players into another world, whose border is not this one. Those, and teleports that fire no event, are caught by
+     * the border's tick, which puts the player just inside.
+     */
+    public static void onTeleport(net.minecraftforge.event.entity.EntityTeleportEvent event) {
+        Entity entity = event.getEntity();
+        if (!(entity.level() instanceof ServerLevel level) || event instanceof net.minecraftforge.event.entity.EntityTeleportEvent.TeleportCommand
+                || event instanceof net.minecraftforge.event.entity.EntityTeleportEvent.SpreadPlayersCommand) {
+            return;
+        }
+        net.minecraft.world.entity.player.Player player = entity instanceof net.minecraft.world.entity.player.Player p ? p
+                : entity.getControllingPassenger() instanceof net.minecraft.world.entity.player.Player p2 ? p2 : null;
+        if (player == null) {
+            for (Entity rider : entity.getIndirectPassengers()) {
+                if (rider instanceof net.minecraft.world.entity.player.Player p3) {
+                    player = p3;
+                    break;
+                }
+            }
+        }
+        if (player == null) {
+            return;
+        }
+        BlockPos to = BlockPos.containing(event.getTargetX(), event.getTargetY(), event.getTargetZ());
+        if (keepsOut(level, to, player)) {
+            event.setCanceled(true);
+            Protection.tellOnce(player, TELEPORT_MESSAGE);
+        }
     }
 
     // ------------------------------------------------------------------ enforcement (from MovementTracker)
@@ -143,7 +197,7 @@ public final class WorldBorders {
         Vec3 pos = player.position();
         double toEdge = b.toEdge(pos.x, pos.z);
         int warnAt = RegionGuardConfig.getOr(RegionGuardConfig.BORDER_WARN_DISTANCE, 10);
-        boolean bypass = RegionQuery.bypasses(player);
+        boolean bypass = exempt(player);
         // a linked edge asks whether to travel as soon as the player is next to it: in the Overworld Minecraft's own
         // wall stands on the edge, so nobody gets past it on foot (bug B1); admins with bypass are asked too
         boolean linked = toEdge <= EdgeLinks.REACH && (!bypass || toEdge > -warnAt) && EdgeLinks.atEdge(player, t, b, pos);
@@ -178,13 +232,40 @@ public final class WorldBorders {
     private static void move(ServerPlayer player, ServerLevel level, Vec3 to) {
         Entity ridden = player.getRootVehicle();
         if (ridden != player) {
-            ridden.teleportTo(to.x, to.y, to.z); // carries the rider along
+            // the vehicle goes where the rider should be, less the rider's seat height, and carries the rider along
+            Vec3 seat = player.position().subtract(ridden.position());
+            ridden.teleportTo(to.x - seat.x, to.y - seat.y, to.z - seat.z);
             ridden.setDeltaMovement(Vec3.ZERO);
+            resetVehicle(ridden);
         } else {
             player.teleportTo(level, to.x, to.y, to.z, player.getYRot(), player.getXRot());
+            settle(player);
         }
         player.setDeltaMovement(Vec3.ZERO);
         player.fallDistance = 0;
+    }
+
+    /**
+     * Bug B25: the player steering a boat, horse or other vehicle moves it in their own game, and their game ignores the
+     * server moving it. Without this the server put the boat back while the player's game kept it past the edge, the
+     * next move from the player was accepted from there, and getting out left the player outside. This is how Minecraft
+     * itself corrects a vehicle that moved wrongly.
+     */
+    public static void resetVehicle(Entity vehicle) {
+        if (vehicle.getControllingPassenger() instanceof ServerPlayer driver && driver.connection != null) {
+            driver.connection.send(new net.minecraft.network.protocol.game.ClientboundMoveVehiclePacket(vehicle));
+        }
+    }
+
+    /**
+     * Bug B25: after moving a player during their tick, makes the new spot stick on the server. Minecraft puts the
+     * server's copy of the player back where the tick began right after the tick, until their game answers the move;
+     * with a ping above one tick the push-back then repeated every tick. See {@code ServerGamePacketListenerAccessor}.
+     */
+    public static void settle(ServerPlayer player) {
+        if (player.connection instanceof com.mrgregles.bsp_region_guard.mixin.ServerGamePacketListenerAccessor c) {
+            c.bsp_region_guard$resetPosition();
+        }
     }
 
     /** Just inside the border, at a height where the player can stand (the chunk is loaded if needed). */

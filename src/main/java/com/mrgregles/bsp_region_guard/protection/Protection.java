@@ -36,8 +36,9 @@ public final class Protection {
         if (RegionQuery.bypasses(player)) {
             return true;
         }
-        return RegionQuery.allows(level, pos, flag, player) && !((flag == Flags.BUILD || flag.fallback() == Flags.BUILD)
-                && MovementTracker.isKeptOut(level, pos, player)); // a yes/no: the rank message is not built
+        boolean build = flag == Flags.BUILD || flag.fallback() == Flags.BUILD;
+        return RegionQuery.allows(level, pos, flag, player) && !(build && MovementTracker.isKeptOut(level, pos, player)) // a yes/no: the rank message is not built
+                && !(build && WorldBorders.keepsOut(level, pos, player));
     }
 
     /**
@@ -58,6 +59,10 @@ public final class Protection {
     public static boolean checkPlayer(ServerLevel level, BlockPos pos, StateFlag flag, Player player) {
         if (RegionQuery.bypasses(player)) {
             return true;
+        }
+        if ((flag == Flags.BUILD || flag.fallback() == Flags.BUILD) && WorldBorders.keepsOut(level, pos, player)) {
+            tellOnce(player, WorldBorders.BUILD_MESSAGE); // bug B26: nothing past the edge, whatever the regions allow
+            return false;
         }
         if (!RegionQuery.allows(level, pos, flag, player)) {
             tell(player, level, pos);

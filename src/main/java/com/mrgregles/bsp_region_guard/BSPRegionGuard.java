@@ -106,6 +106,7 @@ public class BSPRegionGuard {
         bus.addListener(EventPriority.HIGH, EntityProtection::onProjectileImpact);
         bus.addListener(EventPriority.HIGH, EntityProtection::onEnderPearl);
         bus.addListener(EventPriority.HIGH, EntityProtection::onChorusFruit);
+        bus.addListener(EventPriority.HIGH, com.mrgregles.bsp_region_guard.protection.WorldBorders::onTeleport); // every teleport event, Travel Anchors' included (B27)
         bus.addListener(EventPriority.HIGH, EntityProtection::onItemToss);
         bus.addListener(EventPriority.HIGH, EntityProtection::onItemPickup);
         bus.addListener(EventPriority.HIGH, EntityProtection::onExperienceDrop);

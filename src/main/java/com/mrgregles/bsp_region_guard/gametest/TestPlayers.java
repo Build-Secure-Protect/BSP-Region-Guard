@@ -24,17 +24,20 @@ import java.util.UUID;
  */
 final class TestPlayers {
     private static int counter;
+    /** Each mock's in-memory channel: packets sent to the player can be read back from it (bug B25's test). */
+    private static final java.util.Map<ServerPlayer, EmbeddedChannel> CHANNELS = new java.util.WeakHashMap<>();
 
     private TestPlayers() {
     }
 
     static ServerPlayer mockServerPlayer(GameTestHelper h) {
         Connection connection = new Connection(PacketFlow.SERVERBOUND);
-        new EmbeddedChannel(connection); // registers and activates the handler, which gives the connection its channel
+        EmbeddedChannel channel = new EmbeddedChannel(connection); // registers and activates the handler, which gives the connection its channel
         String name = "rg_test_" + (++counter); // letters, digits and underscores only: LuckPerms refuses other names
         UUID uuid = UUID.randomUUID();
         ServerPlayer player = new ServerPlayer(h.getLevel().getServer(), h.getLevel(), new GameProfile(uuid, name));
         player.connection = new ServerGamePacketListenerImpl(h.getLevel().getServer(), connection, player);
+        CHANNELS.put(player, channel);
         if (LuckPermsBridge.isPresent()) {
             // LuckPerms loads the user during connection negotiation and attaches its player data on LoadFromFile.
             net.luckperms.api.LuckPermsProvider.get().getUserManager().loadUser(uuid, name).join();
@@ -42,5 +45,17 @@ final class TestPlayers {
             MinecraftForge.EVENT_BUS.post(new PlayerEvent.LoadFromFile(player, playerDir, uuid.toString()));
         }
         return player;
+    }
+
+    /** The packets sent to a mock player since the last call, oldest first (empty for players not made here). */
+    static java.util.List<Object> sentPackets(ServerPlayer player) {
+        java.util.List<Object> out = new java.util.ArrayList<>();
+        EmbeddedChannel channel = CHANNELS.get(player);
+        if (channel != null) {
+            for (Object m = channel.readOutbound(); m != null; m = channel.readOutbound()) {
+                out.add(m);
+            }
+        }
+        return out;
     }
 }

@@ -12,7 +12,7 @@ Enforcement column: **event** = a Forge event, works now. **mixin** = a small pa
 |---|---|---|---|
 | `passthrough` | deny | `allow` means this region does not protect its ground; it still carries its other flags | resolver |
 | `build` | *build* | the umbrella for everything below marked *build* | event |
-| `block-break` | *build* | breaking blocks | event |
+| `block-break` | *build* | breaking blocks; also blocks other mods break for a player without Forge's break event, such as Just Hammers' extra blocks (mixin group `playerBreaks`) | event, mixin |
 | `block-place` | *build* | placing blocks, including beds and doors | event |
 | `interact` | *build* | using blocks with a state or screen, villagers, animals, armour stands, bone meal | event |
 | `use` | *build* | doors, trapdoors, fence gates, buttons, levers, note blocks, repeaters, comparators | event |
@@ -130,7 +130,7 @@ Build Secure Protect's standing rule is that a totem must never be made impossib
 
 ## The world border
 
-Each world's global region (the world default, `__global__`) stands for the whole world: flags set on it apply everywhere no other region decides. It also carries the world's **border**: a square set with `/rg border set <width> [<centerX> <centerZ>]` (centre 0, 0 when left out), shown with `/rg border`, removed with `/rg border off`. Players are warned `border.warnDistance` blocks before the edge and put back where they stood when they step over it; anyone found outside (after logging in, a teleport, a respawn or a smaller border) is moved just inside, onto a spot where they can stand. Riders are moved with their mount. Teleports (`teleport-in`, which BSP Teleport asks) and homes (`set-home`) outside the border are refused. Admins with bypass on are not stopped.
+Each world's global region (the world default, `__global__`) stands for the whole world: flags set on it apply everywhere no other region decides. It also carries the world's **border**: a square set with `/rg border set <width> [<centerX> <centerZ>]` (centre 0, 0 when left out), shown with `/rg border`, removed with `/rg border off`. Players are warned `border.warnDistance` blocks before the edge and put back where they stood when they step over it; anyone found outside (after logging in, a teleport, a respawn or a smaller border) is moved just inside, onto a spot where they can stand. Riders are moved with their mount. Teleports (`teleport-in`, which BSP Teleport asks) and homes (`set-home`) outside the border are refused, and so is any teleport that fires Forge's teleport event and would land outside: ender pearls, chorus fruit, and other mods' teleports such as Travel Anchors' Teleportation enchantment (B27). `/tp` and `/spreadplayers` to outside go ahead (their event doesn't say which world they land in), and the player is then moved just inside. Nobody may break, place or use blocks outside the border, whatever the regions allow and whatever tool they use, including the Mining Gadget and Just Hammers' extra blocks (B26). Admins with bypass on are not stopped, nor are server operators who are not on BSP Core's admin list.
 
 In the Overworld, Minecraft's own border is set to match so the wall shows (`border.vanillaWall`, on by default). Minecraft copies the Overworld's border into the other worlds, so while the Overworld has a Region Guard border the other worlds' Minecraft border is lifted and Region Guard's own border (if any) applies there. Use `/rg border` rather than `/worldborder`: Region Guard sets Minecraft's border again on every change and start.
 

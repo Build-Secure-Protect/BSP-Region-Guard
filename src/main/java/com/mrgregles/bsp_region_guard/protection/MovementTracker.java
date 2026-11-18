@@ -378,6 +378,7 @@ public final class MovementTracker {
             ServerLevel old = player.server.getLevel(t.dimension);
             if (old != null) {
                 player.teleportTo(old, t.pos.x, t.pos.y, t.pos.z, player.getYRot(), player.getXRot());
+                WorldBorders.settle(player); // bug B25: the spot sticks on the server (in whichever world it is)
                 player.setDeltaMovement(Vec3.ZERO);
                 player.fallDistance = 0;
                 return true;
@@ -388,6 +389,7 @@ public final class MovementTracker {
             if (b != null) {
                 Vec3 out = nearestOutside(player.position(), b);
                 player.teleportTo(player.serverLevel(), out.x, out.y, out.z, player.getYRot(), player.getXRot());
+                WorldBorders.settle(player);
                 player.setDeltaMovement(Vec3.ZERO);
                 return true;
             }

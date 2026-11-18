@@ -666,3 +666,17 @@ Set up: the world default with `build` deny (`/rg flag __global__ build deny`), 
 
 Built and tested headless (125 GameTests). Nothing new to see in Region Guard itself: the call is for BSP Teleport's MAP tab.
 - [ ] Two servers with shared storage, server A's Overworld east edge linked to server B's west edge, each with a border. Once BSP Teleport uses the call, its MAP tab shows A and B side by side, joined at that edge, each with its border size. Within 5 minutes of changing a border on B (or at once, with Redis), A's MAP tab shows the new size.
+
+## 2026-11-18: ways past the world border (B25 to B27)
+
+Built and tested headless (GameTests in `BorderEscapeGameTests`). Untested in a game client. Server side only. Test as a player who is not an admin (or an admin with `/rg bypass off`), on a world with a border, ideally from a server with some ping (not on the same machine).
+- [ ] **Boat (B25):** paddle a boat hard into the border on water and on land, then press shift to get out. You end up inside, standing or back in the boat's spot; the boat doesn't creep past the edge or jitter outside. Same with a horse.
+- [ ] Walk or sprint into the border in a world without Minecraft's wall (any world but the Overworld, if it has a Region Guard border): you're put back once and can walk on, with no rubber-banding loop.
+- [ ] A ranked mine you can't enter: walk into it. You're put back once, cleanly (the same fix steadies this push-back).
+- [ ] **Mining Gadget (B26):** stand inside near the edge and laser blocks past it: they don't break ("That is past the edge of the world."). Blocks inside still break. An admin with bypass on can break past the edge.
+- [ ] **Just Hammers (B26):** mine a block just inside the edge with a 3x3 hammer: the blocks past the edge stay. Mine next to a protected region you're not a member of: the hammer's extra blocks inside the region stay too.
+- [ ] Placing a block past the edge from inside is refused.
+- [ ] **Travel Anchors (B27):** with a Teleportation-enchanted tool or the Travel Staff, shift + right-click looking past the edge: no teleport, "You can't teleport past the edge of the world." Looking along the edge or inward still works. Teleporting to a Travel Anchor inside still works.
+- [ ] Throw an ender pearl past the edge: it is refused the same way. Eat chorus fruit near the edge: you never land outside.
+- [ ] `/tp <player> <a spot outside>` on a player without bypass: they land and are moved just inside at once, once, with no loop. Your own `/tp` with bypass on stays outside. `/execute in minecraft:the_nether run tp <player> 9000 80 0` with an Overworld border of 15000 and no Nether border: they stay at 9000.
+- [ ] Edge travel: walk into a linked edge, choose TRAVEL: you still go to the other server and land on the ground.

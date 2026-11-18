@@ -54,6 +54,7 @@ public final class RegionGuardConfig {
     public static final ForgeConfigSpec.BooleanValue MIXIN_EGGS;
     public static final ForgeConfigSpec.BooleanValue MIXIN_HUNGER;
     public static final ForgeConfigSpec.BooleanValue MIXIN_CONTAINERS;
+    public static final ForgeConfigSpec.BooleanValue MIXIN_PLAYER_BREAKS;
 
     static {
         ForgeConfigSpec.Builder b = new ForgeConfigSpec.Builder();
@@ -155,6 +156,7 @@ public final class RegionGuardConfig {
         MIXIN_EGGS = b.comment("block-trampling for turtle eggs").define("eggs", true);
         MIXIN_HUNGER = b.comment("natural-hunger-drain, natural-health-regen").define("hunger", true);
         MIXIN_CONTAINERS = b.comment("deny-carry: inside the region, banned items cannot be taken out of any container, the ender chest included").define("containers", true);
+        MIXIN_PLAYER_BREAKS = b.comment("block-break and the world border for blocks other mods break for a player without Forge's break event (Just Hammers' extra blocks)").define("playerBreaks", true);
         b.pop();
 
         SPEC = b.build();
