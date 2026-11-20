@@ -24,17 +24,21 @@ import java.util.List;
 /**
  * The BANNED button in the top left corner of the survival and creative inventory (owner decisions D136 to D138): shown
  * while the player stands where something is banned, it opens BANNED HERE. It sits in BSP-Core's row, right of the TEAM
- * and KITS buttons, in their look, and never on top of them: each frame it stands right of the last BSP-Core corner
- * button and steps past any other widget and the inventory panel. BSP-Core's buttons step past other widgets too, so
- * the two never fight over a place. Hidden with {@code ui.bannedButton = false} in the client config.
+ * and KITS buttons and Server Utilities' SUPPORT BSP, in their look, and never on top of them: each frame it stands
+ * right of the last of those keys and steps past any other widget and the inventory panel ({@link BannedButtonRow}).
+ * BSP-Core's buttons step past other widgets too, so the two never fight over a place. Hidden with
+ * {@code ui.bannedButton = false} in the client config.
  */
 @Mod.EventBusSubscriber(modid = BSPRegionGuard.MODID, value = Dist.CLIENT)
 public final class BannedInventoryButton {
     /** BSP-Core's TEAM and KITS buttons (client/TeamInventoryButton, read by class name: BSP-Core gives no api for it). */
     static final String BSP_CORNER = com.mrgregles.bsp_region_guard.compat.BspCore.TEAM_BUTTON_CLASS; // a constant, inlined: the client never loads BspCore
-    static final int W = 40, H = 14, GAP = 2, MARGIN = 2;
-    /** Room kept free above and below the inventory panel for tab rows, as BSP-Core keeps. */
-    private static final int TAB_ROWS = 32;
+    /**
+     * Server Utilities' SUPPORT BSP key (SU-RG1, its D587: TEAM, KITS, SUPPORT BSP, BANNED), read by class name only:
+     * Server Utilities is optional and none of its classes is loaded.
+     */
+    static final String SUPPORT_CORNER = "com.mrgregles.bsp_server_utilities.client.SupportButton$Corner";
+    static final int W = BannedButtonRow.W, H = BannedButtonRow.H, MARGIN = BannedButtonRow.MARGIN;
 
     private BannedInventoryButton() {
     }
@@ -52,51 +56,27 @@ public final class BannedInventoryButton {
     }
 
     /**
-     * Where the button stands: right of the rightmost BSP-Core corner button on its row (or the window's corner when
-     * there is none), stepping right past anything in the way, and down a row when the left half of the window is used.
+     * Where the button stands (the rule is in {@link BannedButtonRow}): after BSP-Core's TEAM and KITS and Server
+     * Utilities' SUPPORT BSP, counting only the keys that are drawn.
      */
     static int[] place(AbstractContainerScreen<?> screen, AbstractWidget self) {
         List<int[]> blocked = new ArrayList<>();
-        List<AbstractWidget> corners = new ArrayList<>();
+        List<int[]> core = new ArrayList<>();
+        List<int[]> support = new ArrayList<>();
         for (var child : screen.children()) {
             if (child instanceof AbstractWidget w && w != self && w.visible) {
-                blocked.add(new int[]{w.getX(), w.getY(), w.getWidth(), w.getHeight()});
-                if (w.getClass().getName().equals(BSP_CORNER)) {
-                    corners.add(w);
+                int[] r = {w.getX(), w.getY(), w.getWidth(), w.getHeight()};
+                blocked.add(r);
+                String name = w.getClass().getName();
+                if (name.equals(BSP_CORNER)) {
+                    core.add(r);
+                } else if (name.equals(SUPPORT_CORNER)) {
+                    support.add(r);
                 }
             }
         }
-        int x = MARGIN, y = MARGIN;
-        if (!corners.isEmpty()) {
-            y = corners.stream().mapToInt(AbstractWidget::getY).min().getAsInt();
-            for (AbstractWidget c : corners) {
-                if (c.getY() == y) {
-                    x = Math.max(x, c.getX() + c.getWidth() + GAP);
-                }
-            }
-        }
-        blocked.add(new int[]{screen.getGuiLeft(), screen.getGuiTop() - TAB_ROWS, screen.getXSize(), screen.getYSize() + 2 * TAB_ROWS});
-        for (int tries = 0; tries < 64; tries++) {
-            int[] hit = overlap(blocked, x, y);
-            if (hit == null) {
-                return new int[]{x, y};
-            }
-            x = hit[0] + hit[2] + GAP;
-            if (x + W > screen.width / 2) {
-                x = MARGIN;
-                y += H + GAP;
-            }
-        }
-        return new int[]{x, y};
-    }
-
-    private static int[] overlap(List<int[]> blocked, int x, int y) {
-        for (int[] b : blocked) {
-            if (x < b[0] + b[2] && x + W > b[0] && y < b[1] + b[3] && y + H > b[1]) {
-                return b;
-            }
-        }
-        return null;
+        int[] panel = {screen.getGuiLeft(), screen.getGuiTop(), screen.getXSize(), screen.getYSize()};
+        return BannedButtonRow.place(blocked, core, support, panel, screen.width);
     }
 
     /** The button, placed afresh every frame and shown only while bans apply where the player stands. */

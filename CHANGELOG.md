@@ -4,6 +4,13 @@ All notable changes to BSP Region Guard. Format follows Keep a Changelog; versio
 
 ## [Unreleased]
 
+## [0.7.2] - 2026-11-20
+
+The BANNED inventory button now comes after BSP Server Utilities' SUPPORT BSP key. Client side only: **network protocol 13 and API version 9, as in 0.7.1,** so 0.7.2 players and servers work with 0.7.1 ones.
+
+### Changed (2026-11-20, SU-RG1: BANNED after SUPPORT BSP)
+- **The BANNED inventory button now comes after BSP Server Utilities' SUPPORT BSP key,** so the top left corner reads TEAM, KITS, SUPPORT BSP, BANNED on every window size (Server Utilities decision D587). Before, on a small window (1366 x 768 at GUI scale 3), SUPPORT BSP moved down a row while BANNED still fitted after KITS, giving TEAM KITS BANNED on top and SUPPORT BSP alone below. BANNED now starts on SUPPORT BSP's row, right of it, then steps past anything in its way as before. It only counts SUPPORT BSP while it is drawn: when it's hidden (no support link on the server, or no room) or Server Utilities isn't installed, BANNED stands exactly where it did. Without BSP Core but with SUPPORT BSP, BANNED stands right of SUPPORT BSP. When BANNED would not fit in the left half of the window after SUPPORT BSP (the creative inventory on the smallest window, 320 x 240), it moves down a row, as SUPPORT BSP and BSP Core's keys do. Server Utilities is optional: Region Guard knows its key by class name only. Client side only; no protocol change. Untested in a game client.
+
 ## [0.7.1] - 2026-11-18
 
 Everything since 0.6.0. **Network protocol 13:** servers and players need this version together. **API version 9.** A 0.7.0 jar was built on 2026-11-08 only so BSP Teleport could compile against API 9; it was never released, and 0.7.1 is 0.7.0 plus the world border fixes below (B25 to B27).

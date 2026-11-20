@@ -680,3 +680,15 @@ Built and tested headless (GameTests in `BorderEscapeGameTests`). Untested in a 
 - [ ] Throw an ender pearl past the edge: it is refused the same way. Eat chorus fruit near the edge: you never land outside.
 - [ ] `/tp <player> <a spot outside>` on a player without bypass: they land and are moved just inside at once, once, with no loop. Your own `/tp` with bypass on stays outside. `/execute in minecraft:the_nether run tp <player> 9000 80 0` with an Overworld border of 15000 and no Nether border: they stay at 9000.
 - [ ] Edge travel: walk into a linked edge, choose TRAVEL: you still go to the other server and land on the ground.
+
+## 2026-11-20: BANNED after SUPPORT BSP (SU-RG1)
+
+Built and tested headless (the row arithmetic in `BannedButtonRowGameTests`, 135 GameTests; also checked against BSP Core's and Server Utilities' own layout code at 18 window sizes). Untested in a game client. Client side only. Needs BSP Server Utilities 0.15.0 or later with a support link set on the server, and a place where something is banned (so BANNED shows).
+- [ ] 1366 x 768, GUI scale 3, survival inventory: TEAM and KITS on the top row, then SUPPORT BSP and BANNED side by side on the row below (SUPPORT BSP first). Before this change BANNED sat after KITS on the top row.
+- [ ] A large window (1920 x 1080, GUI scale 3): TEAM, KITS, SUPPORT BSP, BANNED in one row, in that order, none overlapping.
+- [ ] The creative inventory: the same order, nothing over the tabs.
+- [ ] The smallest window (320 x 240, the largest GUI scale it allows), creative inventory: TEAM, KITS, SUPPORT BSP on the top row, BANNED alone below at the left.
+- [ ] Opening the inventory and resizing the window: BANNED may stand in its old place for one frame before SUPPORT BSP is placed (each key places itself as it is drawn). Say if the jump is visible.
+- [ ] A server with no support link (SUPPORT BSP hidden): BANNED stands right after KITS, as before.
+- [ ] Without Server Utilities installed: BANNED right after KITS, as before. Without BSP Core but with Server Utilities: BANNED right after SUPPORT BSP.
+- [ ] Walk out of the banned area while the inventory is open: BANNED goes away and SUPPORT BSP stays where it was. Walk back in: BANNED comes back after SUPPORT BSP.
